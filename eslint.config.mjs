@@ -12,6 +12,7 @@ export default defineConfig([
   },
   globalIgnores([
     ".next/**",
+    ".next-dev/**",
     "node_modules/**",
     "coverage/**",
     "output/**",
