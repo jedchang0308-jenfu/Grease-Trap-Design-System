@@ -5,6 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: { default: "油脂截留器計算系統", template: "%s｜油脂截留器計算系統" },
   description: "鉦富機械內部使用的油脂截留器雙軌計算與工程覆核系統",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({
