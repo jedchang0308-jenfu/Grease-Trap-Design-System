@@ -1,9 +1,9 @@
 # QA-001｜第一階段驗證計畫
 
 文件狀態：`QA Ready`  
-版本：`1.1`  
-日期：`2026-07-13`  
-對應：SPEC-001、SPEC-002、ADR-001～006、DEV-001～011
+版本：`1.2`
+日期：`2026-07-14`
+對應：SPEC-001、SPEC-002、ADR-001～006、DEV-001～013
 
 ## 1. 驗證目標
 
@@ -35,6 +35,7 @@
 | 報告受 live data 污染 | Critical | immutable snapshot | snapshot regression |
 | 權限繞過 | Critical | server-side authorization | API negative tests |
 | UI 提醒被理解為阻擋 | High | Now What 文案＋可用 CTA | E2E＋manual UX |
+| 選填基本資料仍阻擋建案，或餐飲類型在錯誤步驟被預先代選 | High | 建案 schema default＋工作台 required select | contract unit＋E2E＋manual UX |
 
 ## 3. 測試分層
 
@@ -187,6 +188,8 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 ### Manual UX review
 
+- `/cases/new` 的基本資料可全部留白建案，餐飲類型不出現在該頁；案件工作台的現行 Q/G 計算資料才顯示餐飲類型，且未選時不可送出計算。
+- 空白案件名稱以案件編號識別，空白客戶與地點有「未填」替代文字。
 - 5 秒內知道頁面用途、狀態與下一步。
 - COMPLETE_WITH_REMINDER 第一行先說「可繼續覆核」。
 - IN_REVIEW 明示目前使用者可繼續，不要求切換帳號或等待他人。

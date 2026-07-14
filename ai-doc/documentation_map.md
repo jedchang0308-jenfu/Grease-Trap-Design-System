@@ -1,8 +1,8 @@
 # 文件地圖｜油脂截留器雙軌計算系統
 
 文件狀態：`Local Engineering Complete — Human Pilot Pending`  
-權威版本：`2.0`  
-最後更新：`2026-07-13`  
+權威版本：`2.1`
+最後更新：`2026-07-14`
 專案根目錄：`C:\VIBE CODING\grease-trap-calculation-system`
 
 ## 冷啟動讀取順序
@@ -47,6 +47,7 @@
 | HD-07 | HCS-1A：計算成立即可核發；並依使用者補充完整移除產品型號與證書匹配功能。 | 使用者 2026-07-13 |
 | HD-08 | HCS-2C：同一位使用者可完成編製、覆核與正式核發，系統只要求責任步驟與 audit 完整。 | 使用者 2026-07-13 |
 | HD-09 | HCS-3B：第一版 End-State 為雲端網路系統，授權內部人員可從公司外登入。 | 使用者 2026-07-13 |
+| HD-10 | 建案時餐飲類型移至後續計算資料；客戶、地點、案件名稱、用途及資料提供者／證據全部選填。 | 使用者 2026-07-14 |
 
 已拒絕方向：強制不同帳號覆核、單機限定、公司內網限定，以及內建產品／證書匹配。重新引入任一方向都需要新的 Human Decision Brief 與 ADR。
 
@@ -66,9 +67,9 @@
 
 ## 目前狀態與下一步
 
-- 文件與程式：8 個有效產品交付點全部完成；DEV-006 依 ADR-004 跳過。
+- 文件與程式：8 個有效產品交付點全部完成；DEV-006 依 ADR-004 跳過；DEV-013 已完成 DEV-007 的建案流程調整。
 - 本地工程：固定啟動、PostgreSQL、雙軌計算、案件／覆核／audit、不可變快照、四種 PDF 與三 viewport UI 均完成。
-- QA／QC：19 個單元、9 個整合、9 個 E2E、production build 與 22 頁 PDF render 已通過；詳見 QC-001。
+- QA／QC：21 個單元、9 個既有整合、9 個三 viewport E2E、production build 與 22 頁 PDF render 已通過；詳見 QC-001。
 - Git：repository 已初始化；本輪建立本地交付 commit boundary，不執行 merge／PR。
 - 下一步：人類提供 3～5 個去識別實際案件與人工預期值，完成 DEV-011 parallel pilot。
 - 本輪未執行：雲端 provider／正式 Auth 選型、部署、release、rollback、production smoke。

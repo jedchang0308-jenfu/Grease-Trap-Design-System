@@ -79,11 +79,10 @@ export const legacyInputSchema = z.discriminatedUnion("kind", [
 ]);
 
 export const createCaseSchema = z.object({
-  customer: z.string().trim().min(1).max(160),
-  location: z.string().trim().min(1).max(240),
-  title: z.string().trim().min(1).max(160),
+  customer: z.string().trim().max(160).default(""),
+  location: z.string().trim().max(240).default(""),
+  title: z.string().trim().max(160).default(""),
   purpose: z.string().trim().max(500).default(""),
-  diningType: z.enum(diningTypes).optional(),
   taskCode: z.enum(taskCodes),
   mode: z.enum(calculationModes),
   evidenceSource: z.string().trim().max(500).optional(),

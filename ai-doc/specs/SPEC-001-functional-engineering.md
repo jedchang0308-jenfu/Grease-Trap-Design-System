@@ -464,6 +464,8 @@ DRAFT
 | POST | `/api/rule-sets` | 建立未啟用規則版本 |
 | POST | `/api/rule-sets/{id}/activate` | 回歸通過後啟用 |
 
+`POST /api/cases` 只要求 `taskCode` 與 `mode`。`customer`、`location`、`title`、`purpose` 與 `evidenceSource` 均可省略或送空字串；服務以空字串保存未提供的客戶、地點、案件名稱與用途，資料提供者／證據保存在建案 audit metadata。`diningType` 不屬於建案契約，必須在後續現行 Q/G 的 `currentInputs` 明確提供。
+
 ### 15.2 Calculation request
 
 ```text

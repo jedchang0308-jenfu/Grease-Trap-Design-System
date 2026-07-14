@@ -71,6 +71,8 @@ test("single actor completes a dual-track case through report issue", async ({
   await page.getByRole("button", { name: "下一步：選擇模式" }).click();
   await page.getByText("新舊雙軌", { exact: true }).click();
   await page.getByRole("button", { name: "下一步：填寫資料" }).click();
+  await expect(page.getByLabel("客戶名稱（選填）")).toBeVisible();
+  await expect(page.getByLabel("餐飲類型")).toHaveCount(0);
   const title = `E2E 雙軌案件 ${project} ${Date.now()}`;
   await page.getByLabel("客戶名稱").fill("去識別 E2E 客戶");
   await page.getByLabel("案件地點").fill("臺灣測試地點");
@@ -86,6 +88,8 @@ test("single actor completes a dual-track case through report issue", async ({
   await expect(
     page.getByText("先填完任一可用軌的必要資料，即可開始計算。"),
   ).toBeVisible();
+  await expect(page.getByLabel("餐飲類型")).toBeVisible();
+  await page.getByLabel("餐飲類型").selectOption("CHINESE");
   await visibleErrorSweep(page);
   await evidence(page, project, "04-workbench-inputs");
 

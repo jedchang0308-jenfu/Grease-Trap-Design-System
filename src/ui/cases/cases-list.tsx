@@ -165,15 +165,17 @@ export function CasesList() {
                 {items.map((item) => (
                   <tr key={`${item.caseId}-${item.revisionNo}`}>
                     <td data-label="案件">
-                      <span className="case-title">{item.title}</span>
+                      <span className="case-title">
+                        {item.title.trim() || item.caseNo}
+                      </span>
                       <span className="case-meta">
                         {item.caseNo}｜修訂 {item.revisionNo}
                       </span>
                     </td>
                     <td data-label="客戶／地點">
-                      {item.customer}
+                      {item.customer.trim() || "未填客戶"}
                       <span className="case-meta" style={{ display: "block" }}>
-                        {item.location}
+                        {item.location.trim() || "未填地點"}
                       </span>
                     </td>
                     <td data-label="任務／模式">

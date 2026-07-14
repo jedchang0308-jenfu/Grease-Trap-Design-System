@@ -22,20 +22,6 @@ const modes = [
   ["DUAL_COMPARISON", "新舊雙軌", "兩軌分開計算；任一軌有效即可繼續覆核。"],
 ] as const;
 
-const diningTypes = [
-  ["CHINESE", "中餐"],
-  ["WESTERN", "西餐"],
-  ["JAPANESE", "和食"],
-  ["RAMEN", "拉麵"],
-  ["UDON_SOBA", "烏龍麵、蕎麥麵"],
-  ["LIGHT_MEAL", "簡餐"],
-  ["FOOD_COURT", "小吃、美食街"],
-  ["FAST_FOOD", "速食"],
-  ["FACTORY_CAFETERIA", "工廠員工餐廳"],
-  ["STUDENT_CAFETERIA", "學生餐廳"],
-  ["SCHOOL_LUNCH", "學校午餐"],
-] as const;
-
 export function NewCaseWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -43,6 +29,13 @@ export function NewCaseWizard() {
     "T02_DINERS_TO_DESIGN",
   );
   const [mode, setMode] = useState<(typeof modes)[number][0]>("CURRENT_QG");
+  const [metadata, setMetadata] = useState({
+    customer: "",
+    location: "",
+    title: "",
+    purpose: "",
+    evidenceSource: "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<UiProblem | null>(null);
 
@@ -50,7 +43,6 @@ export function NewCaseWizard() {
     event.preventDefault();
     setSubmitting(true);
     setProblem(null);
-    const data = new FormData(event.currentTarget);
     try {
       const created = await fetchJson<{ caseId: string }>("/api/cases", {
         method: "POST",
@@ -58,12 +50,7 @@ export function NewCaseWizard() {
         body: JSON.stringify({
           taskCode,
           mode,
-          customer: data.get("customer"),
-          location: data.get("location"),
-          title: data.get("title"),
-          purpose: data.get("purpose"),
-          diningType: data.get("diningType"),
-          evidenceSource: data.get("evidenceSource"),
+          ...metadata,
         }),
       });
       router.push(`/cases/${created.caseId}`);
@@ -163,48 +150,81 @@ export function NewCaseWizard() {
       {step === 3 ? (
         <form className="panel" onSubmit={submit}>
           <h2>案件基本資料</h2>
+          <p className="help">
+            以下資料皆可選填；建立案件後，再於計算資料選擇餐飲類型。
+          </p>
           <div className="form-grid">
             <div className="field">
-              <label htmlFor="customer">客戶名稱</label>
+              <label htmlFor="customer">客戶名稱（選填）</label>
               <input
                 id="customer"
                 name="customer"
-                required
                 autoComplete="organization"
+                value={metadata.customer}
+                onChange={(event) =>
+                  setMetadata((previous) => ({
+                    ...previous,
+                    customer: event.target.value,
+                  }))
+                }
               />
             </div>
             <div className="field">
-              <label htmlFor="location">案件地點</label>
-              <input id="location" name="location" required />
+              <label htmlFor="location">案件地點（選填）</label>
+              <input
+                id="location"
+                name="location"
+                value={metadata.location}
+                onChange={(event) =>
+                  setMetadata((previous) => ({
+                    ...previous,
+                    location: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="field">
-              <label htmlFor="title">案件名稱</label>
-              <input id="title" name="title" required />
-            </div>
-            <div className="field">
-              <label htmlFor="diningType">餐飲類型</label>
-              <select id="diningType" name="diningType" defaultValue="CHINESE">
-                {diningTypes.map(([value, label]) => (
-                  <option value={value} key={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <label htmlFor="title">案件名稱（選填）</label>
+              <input
+                id="title"
+                name="title"
+                value={metadata.title}
+                onChange={(event) =>
+                  setMetadata((previous) => ({
+                    ...previous,
+                    title: event.target.value,
+                  }))
+                }
+              />
             </div>
             <div className="field span-2">
-              <label htmlFor="purpose">用途／情境</label>
+              <label htmlFor="purpose">用途／情境（選填）</label>
               <textarea
                 id="purpose"
                 name="purpose"
                 placeholder="簡述本次計算要支持的工程判斷"
+                value={metadata.purpose}
+                onChange={(event) =>
+                  setMetadata((previous) => ({
+                    ...previous,
+                    purpose: event.target.value,
+                  }))
+                }
               />
             </div>
             <div className="field span-2">
-              <label htmlFor="evidenceSource">資料提供者或證據</label>
+              <label htmlFor="evidenceSource">資料提供者或證據（選填）</label>
               <input
                 id="evidenceSource"
                 name="evidenceSource"
                 placeholder="例如：客戶提供平面圖 2026-07-13"
+                value={metadata.evidenceSource}
+                onChange={(event) =>
+                  setMetadata((previous) => ({
+                    ...previous,
+                    evidenceSource: event.target.value,
+                  }))
+                }
               />
             </div>
           </div>

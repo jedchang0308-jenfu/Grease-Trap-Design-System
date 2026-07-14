@@ -1,9 +1,9 @@
 # Dev Task｜油脂截留器雙軌計算系統
 
 文件狀態：`Local Engineering Complete — Human Pilot Pending`  
-版本：`2.0`  
-最後更新：`2026-07-13`  
-本輪執行邊界：本地 RD／自動化 QA／UI 與 PDF QC 已完成；真實案件平行試算待人類輸入；release 未獲指令  
+版本：`2.1`
+最後更新：`2026-07-14`
+本輪執行邊界：本地 RD／自動化 QA／UI 與 PDF QC 已完成，DEV-013 建案流程調整已通過；真實案件平行試算待人類輸入；release 未獲指令
 產品完成基準：8 個有效交付點，目前完成 8／8（100%）；DEV-006 已由使用者決策跳過，不計入分母
 
 ## 總任務清單
@@ -88,7 +88,7 @@
   - 證據：19 unit、9 integration、9 E2E、production build、screenshots、visible error／overflow sweep
   - 計入交付：否
 
-- ⚠ DEV-011 [關卡] [自動化通過／待人類實例] [P1] 完成本地 RD／QA／QC 驗收
+- ! DEV-011 [關卡] [阻塞] [P1] [待人類實例] 完成本地 RD／QA／QC 驗收
   - 摘要：以真實案件 fixture 完成全流程，確認第一階段產品功能達到本地交付標準。
   - 來源 ID：`GTC-PH4-ACCEPTANCE-011`
   - 父任務：DEV-001～DEV-005、DEV-007～DEV-009
@@ -103,6 +103,14 @@
   - 父任務：DEV-011
   - 下一步：等待使用者明確提出部署、上線或 release
   - 恢復條件：DEV-011 通過且使用者提出 release 型指令
+  - 計入交付：否
+
+- ✓ DEV-013 [開發點] [完成] [P1] [本地工程完成] 調整建案基本資料與餐飲類型步驟
+  - 摘要：基本資料全部改為選填，餐飲類型移至計算資料並要求明確選擇，空白案件仍有可讀識別。
+  - 來源 ID：`GTC-PH3-CASE-UI-OPTIONAL-013`
+  - 父任務：DEV-007
+  - 下一步：無；正式發版仍集中於 DEV-012
+  - 證據：21 unit、lint、typecheck、format、production build、9 E2E、1440／390 Playwright QC
   - 計入交付：否
 
 ## Phase 執行順序
@@ -497,3 +505,38 @@ Release: DEV-012（需另行指令）
 是否計入產品交付：否
 
 只保存 re-entry trigger：DEV-011 通過，且使用者明確提出部署、上線或 release。雲端內部使用的拓撲已由 ADR-006 固定；屆時交由 deployment release gate 決定 provider、Auth、正式報告編號、資料備份、migration、rollback 與 production smoke；目前不得預寫或執行。
+
+---
+
+## DEV-013：調整建案基本資料與餐飲類型步驟
+
+狀態：完成
+節點類型：開發點
+父交付點：DEV-007
+是否計入產品交付完成：否
+原始需求邊界：使用者 2026-07-14 指定餐飲類型移到下一步，其他基本資料全部選填
+
+### 任務目標
+
+讓工程人員可在資料尚不完整時先建立案件，並在真正開始現行 Q/G 計算時才明確選擇餐飲類型。
+
+風險等級：Medium
+
+### 開發範圍
+
+- 客戶、地點、案件名稱、用途及資料提供者／證據改為選填，往返步驟保留已輸入資料。
+- 建案契約只要求任務與模式；餐飲類型不在建案 payload，建案時 `dining_type` 為 null。
+- 現行 Q/G 計算資料的餐飲類型不預選，未選時由原生 required validation 阻擋計算。
+- 空白案件名稱以案件編號顯示；客戶與地點顯示「未填」替代文字；報告快照使用可讀 fallback。
+
+### 驗收與證據
+
+- Schema unit：選填欄位省略或全空白皆通過；共 21 tests passed。
+- 靜態關卡：format、lint、typecheck、production build passed。
+- E2E：desktop 1440、tablet 1024、mobile 390 共 9 tests passed。
+- 手動 QC：全空白建案成功、返回資料保留、餐飲類型只在下一頁、未選不可計算、console 0 errors。
+- 視覺證據：`output/playwright/dev-013-new-case-1440.png`、`output/playwright/dev-013-new-case-390.png`、`output/playwright/dev-013-workbench-1440.png`、`output/playwright/dev-013-workbench-390.png`。
+
+### 變更紀錄
+
+- 2026-07-14：完成 RD、QA、QC 與本地整合驗證。

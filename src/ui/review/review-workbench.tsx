@@ -192,7 +192,8 @@ export function ReviewWorkbench({ caseId }: { caseId: string }) {
           </p>
           <h1>工程覆核</h1>
           <p className="lede">
-            {item.title}｜{item.customer}
+            {item.title.trim() || item.case_no}｜
+            {item.customer.trim() || "未填客戶"}
           </p>
         </div>
         <div className="actions">

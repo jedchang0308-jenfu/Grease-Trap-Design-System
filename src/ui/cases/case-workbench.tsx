@@ -35,7 +35,7 @@ interface CaseDetail {
   location: string;
   title: string;
   purpose: string;
-  dining_type: string;
+  dining_type: string | null;
   task_code: string;
   mode: "CURRENT_QG" | "LEGACY_QV" | "DUAL_COMPARISON";
   lifecycle_status: string;
@@ -96,7 +96,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<UiProblem | null>(null);
   const [current, setCurrent] = useState<Record<string, string>>({
-    diningType: "CHINESE",
+    diningType: "",
     people: "100",
     greaseCleaningDays: "7",
     sedimentCleaningDays: "7",
@@ -132,11 +132,13 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           ...previous,
           ...stringValues(storedCurrent),
         }));
-      else if (data.dining_type)
+      else if (data.dining_type) {
+        const diningType = data.dining_type;
         setCurrent((previous) => ({
           ...previous,
-          diningType: data.dining_type,
+          diningType,
         }));
+      }
       if (storedLegacy)
         setLegacy((previous) => ({
           ...previous,
@@ -248,6 +250,9 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   );
   const currentEnabled = item.mode !== "LEGACY_QV";
   const legacyEnabled = item.mode !== "CURRENT_QG";
+  const displayTitle = item.title.trim() || item.case_no;
+  const displayCustomer = item.customer.trim() || "未填客戶";
+  const displayLocation = item.location.trim() || "未填地點";
 
   return (
     <div className="page">
@@ -256,9 +261,9 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           <p className="muted" style={{ marginBottom: 5 }}>
             {item.case_no}｜修訂 {item.revision_no}
           </p>
-          <h1>{item.title}</h1>
+          <h1>{displayTitle}</h1>
           <p className="lede">
-            {item.customer}｜{item.location}
+            {displayCustomer}｜{displayLocation}
           </p>
         </div>
         <div className="actions">
@@ -529,9 +534,13 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
         <label htmlFor="current-dining">餐飲類型</label>
         <select
           id="current-dining"
+          required
           value={values.diningType}
           onChange={(event) => set("diningType", event.target.value)}
         >
+          <option value="" disabled>
+            請選擇餐飲類型
+          </option>
           {diningOptions.map(([value, label]) => (
             <option value={value} key={value}>
               {label}

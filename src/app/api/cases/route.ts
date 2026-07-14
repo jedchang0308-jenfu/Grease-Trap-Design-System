@@ -43,7 +43,7 @@ export async function POST(request: Request) {
           parsed.data.location,
           parsed.data.title,
           parsed.data.purpose,
-          parsed.data.diningType ?? null,
+          null,
           parsed.data.taskCode,
           parsed.data.mode,
           user.id,
@@ -58,7 +58,11 @@ export async function POST(request: Request) {
         [
           user.id,
           revisionId,
-          { taskCode: parsed.data.taskCode, mode: parsed.data.mode },
+          {
+            taskCode: parsed.data.taskCode,
+            mode: parsed.data.mode,
+            evidenceSource: parsed.data.evidenceSource || null,
+          },
         ],
       );
       return result.rows[0];
