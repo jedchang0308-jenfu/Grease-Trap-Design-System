@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/application/auth/require-user";
 import { toProblemResponse } from "@/application/http/problem";
-import { getLatestCase } from "@/application/cases/repository";
-import { pool } from "@/infrastructure/db/pool";
+import {
+  deleteCaseGroup,
+  getLatestCase,
+} from "@/application/cases/repository";
+import { pool, withTransaction } from "@/infrastructure/db/pool";
 
 export async function GET(
   request: Request,
@@ -52,5 +55,21 @@ export async function GET(
     return toProblemResponse(error);
   } finally {
     client.release();
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    const user = await requireUser(request.headers, "ENGINEER");
+    const { id } = await context.params;
+    const deleted = await withTransaction((client) =>
+      deleteCaseGroup(client, id, user),
+    );
+    return NextResponse.json(deleted);
+  } catch (error) {
+    return toProblemResponse(error);
   }
 }

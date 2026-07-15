@@ -1,13 +1,23 @@
 # SPEC-001｜油脂截留器雙軌計算系統：功能與工程契約
 
-文件狀態：`RD Implementation Ready`  
-版本：`1.1`  
-日期：`2026-07-13`  
+文件狀態：`RD Implementation Ready`
+版本：`1.3`
+日期：`2026-07-15`
 權威範圍：功能語意、公式、參數、資料模型、API、狀態機、交易、報告與驗收
 
 ## 1. 目標與成功定義
 
-本系統讓鉦富已授權的內部使用者依客戶不同的已知資料與目標，使用現行 Q/G 或舊版 Q/V 方法完成計算、覆核與設計計算書核發；同一位使用者可以完成整個責任流程。
+本系統讓鉦富已授權的內部使用者依客戶不同的已知資料與目標，使用不同計算依據完成計算、覆核與設計計算書核發；同一位使用者可以完成整個責任流程。
+
+### 對外計算依據命名契約
+
+對客戶與工程介面統一使用來源文件名稱，不使用「新／舊、現行／過往、歷史」作為方法名稱：
+
+- `CURRENT_QG`：內政部給排水規範（附錄 5）。完整來源為內政部《建築物給水排水設備設計技術規範》附錄 5。
+- `LEGACY_QV`：臺北市工務局衛工處設計說明。完整來源為臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》。
+- `DUAL_COMPARISON`：不同計算依據對照。
+
+`CURRENT_QG`、`LEGACY_QV`、`DUAL_COMPARISON` 僅保留為程式、資料庫與工程追蹤代碼；`SRC-LEGACY-CALC`「油脂截留槽計算」為交叉比對來源，不列為第三種計算依據。
 
 成功必須同時滿足：
 
@@ -17,6 +27,7 @@
 4. 正向與反向計算共用相同 domain 規則，不建立平行公式。
 5. 已核發報告可由不可變快照重現。
 6. 系統只處理設計計算，不建立產品型號或證書匹配功能。
+7. 編製者可在送出最終覆核前產生完整報告草稿；人工覆核以該報告及其依據為單一主要對象。
 
 ## 2. Scope
 
@@ -24,9 +35,9 @@
 
 - 內部網頁系統與角色權限。
 - 案件、客戶、場所、任務、計算模式、輸入、證據與假設。
-- 現行 Q/G：人數法、全面積法、輸入 Q/G 設計能力反推。
-- 舊版 Q/V：人數法、面積法、有效容積反推。
-- 雙軌隔離執行與任一有效軌放行。
+- 內政部給排水規範（附錄 5）的 Q/G：人數法、全面積法、輸入 Q/G 設計能力反推。
+- 臺北市工務局衛工處設計說明的 Q/V：人數法、面積法、有效容積反推。
+- 不同計算依據隔離執行與任一份有效資料放行。
 - 版本化法規來源、參數表、來源差異與規則快照。
 - 工程覆核、退回、override、報告快照與 PDF。
 - 雲端內部存取所需的 provider-neutral 身份與授權契約。
@@ -36,7 +47,7 @@
 
 - 客戶帳號、客戶自行計算或線上簽核。
 - 自動判定現場施工、安裝或維護已符合法規。
-- 由設備名目容積推定現行 Q/G 設計能力。
+- 由設備名目容積推定內政部給排水規範（附錄 5）的 Q/G 設計能力。
 - 把 CNS 計算無條件套用到 EN、ASME、SHASE 等國際標準產品。
 - PDM／ERP 深度整合。
 - 產品型號主檔、產品選型、額定能力查核、證書保存或符合性匹配。
@@ -82,18 +93,18 @@ DUAL_COMPARE_REVERSE
 
 ## 4. 五大任務雙軌契約
 
-| 任務 | 現行 Q/G 軌 | 舊版 Q/V 軌 |
-|---|---|---|
-| T01 人數→流量 | N、餐飲類型、Wm'、t、k → Q（L/min） | n、q、t、k → Q（L/h） |
-| T02 人數→設計 | 現行設計需求 Q＋G | Q＋舊版有效容積需求 Veff |
-| T03 面積→流量 | 廚房面積＋用餐區面積、餐飲類型、n、n0、t、k → Q（L/min） | 面積、密度、翻桌率、q、t、k → Q（L/h） |
-| T04 面積→設計 | 現行設計需求 Q＋G | Q＋舊版有效容積需求 Veff |
+| 任務                | 內政部給排水規範（附錄 5）                               | 臺北市工務局衛工處設計說明                 |
+| ------------------- | -------------------------------------------------------- | ------------------------------------------ |
+| T01 人數→流量       | N、餐飲類型、Wm'、t、k → Q（L/min）                      | n、q、t、k → Q（L/h）                      |
+| T02 人數→設計       | 設計需求 Q＋G                                            | Q＋有效容積需求 Veff                       |
+| T03 面積→流量       | 廚房面積＋用餐區面積、餐飲類型、n、n0、t、k → Q（L/min） | 面積、密度、翻桌率、q、t、k → Q（L/h）     |
+| T04 面積→設計       | 設計需求 Q＋G                                            | Q＋有效容積需求 Veff                       |
 | T05 設計→人數及面積 | 輸入 Q 能力＋G 能力＋相同假設 → 受控制條件限制的等效上限 | 有效容積＋q、t、k、密度、翻桌率 → 等效上限 |
 
 固定用語：
 
-- 現行 T02／T04：`現行設計需求 Q/G`，不得稱為法規需求公升數或已完成產品選型。
-- 舊版 T02／T04：`舊版有效容積設計 Veff`。
+- 內政部給排水規範（附錄 5）T02／T04：`設計需求 Q＋G`，不得稱為法規需求公升數或已完成產品選型。
+- 臺北市工務局衛工處設計說明 T02／T04：`有效容積設計 Veff`。
 - T05：`本組設計假設下的設備能力等效上限`，不得稱核准人數或合法面積。
 - T05 使用的 Q/G 能力值是案件輸入與反推限制，不代表系統已驗證特定產品或證書。
 
@@ -101,11 +112,11 @@ DUAL_COMPARE_REVERSE
 
 ### 5.1 Source manifest
 
-| 代碼 | 來源 | 地位 | SHA-256／查核 |
-|---|---|---|---|
-| SRC-CURRENT-2020 | 內政部《建築物給水排水設備設計技術規範》官方 PDF，附錄 5 | 現行 Q/G 規則來源 | `4B2112DBB61399F03BC928FCF85B5B0796A4939356848C2D12573344BFA418E0`，2026-07-13 下載查核 |
-| SRC-LEGACY-CALC | 臺北市衛工處《油脂截留槽計算》5 頁摘錄 | 舊版 Q/V 交叉比對 | `5154E7B806F81EFEB855851CD3F280D4C80656A2AE62F7BAE2DD65B6453F98C5` |
-| SRC-LEGACY-FULL | 臺北市衛工處《油脂截留器使用維護及設計說明》9 頁 | 舊版 Q/V 主要來源 | `33FBD41FBC2797C5F1EE1C2FB1C63F225DC07258EF9E30F0474C69C537CED4C8` |
+| 代碼             | 來源                                                     | 地位                       | SHA-256／查核                                                                           |
+| ---------------- | -------------------------------------------------------- | -------------------------- | --------------------------------------------------------------------------------------- |
+| SRC-CURRENT-2020 | 內政部《建築物給水排水設備設計技術規範》官方 PDF，附錄 5 | 內政部給排水規範（附錄 5） | `4B2112DBB61399F03BC928FCF85B5B0796A4939356848C2D12573344BFA418E0`，2026-07-13 下載查核 |
+| SRC-LEGACY-CALC  | 臺北市衛工處《油脂截留槽計算》5 頁摘錄                   | 交叉比對來源               | `5154E7B806F81EFEB855851CD3F280D4C80656A2AE62F7BAE2DD65B6453F98C5`                      |
+| SRC-LEGACY-FULL  | 臺北市衛工處《油脂截留器使用維護及設計說明》9 頁         | 臺北市工務局衛工處設計說明 | `33FBD41FBC2797C5F1EE1C2FB1C63F225DC07258EF9E30F0474C69C537CED4C8`                      |
 
 現行官方 URL：`https://www.nlma.gov.tw/filesys/file/chinese/publication/law2/1090811791a.pdf`
 
@@ -113,15 +124,15 @@ DUAL_COMPARE_REVERSE
 
 ### 5.2 Source discrepancies
 
-| 代碼 | 差異 | 系統處理 |
-|---|---|---|
-| DISC-LEG-001 | 舊版 q 在文字中曾標成 L/h，但公式代入是每人每餐用水量 | 正規化為 `L/(人·餐)`，保留原文差異 |
-| DISC-LEG-002 | 計算摘錄學校案例中間式漏一個 0 | 依 n=500×3=1500 重算 Q=19500 L/h |
-| DISC-LEG-003 | 計算摘錄面積案例顯示 `2000×1.5=300`，後續卻以 3000÷6 | 採數學正確值 3000 L/h；500 L 回歸測試 |
-| DISC-LEG-004 | 便當中心用水範圍前後順序不一致 | 存為 min=25、max=100，不依顯示順序判斷 |
-| DISC-LEG-005 | B、C 類安全係數各提供兩個可能值 | 必須由工程人員選 exact k 並寫理由，不自動猜值 |
-| DISC-CUR-001 | 官方案例顯示值截斷至小數一位 | 保存 `sourceDisplayValue`，正式比較與反推使用重新運算 raw 值 |
-| DISC-CUR-002 | A-36 中餐 400 m² 後空白，但 610 m² 官方案例使用 n0=3.4 | 只建立具來源的 610 m² 例外；不外推為通則 |
+| 代碼         | 差異                                                   | 系統處理                                                     |
+| ------------ | ------------------------------------------------------ | ------------------------------------------------------------ |
+| DISC-LEG-001 | 舊版 q 在文字中曾標成 L/h，但公式代入是每人每餐用水量  | 正規化為 `L/(人·餐)`，保留原文差異                           |
+| DISC-LEG-002 | 計算摘錄學校案例中間式漏一個 0                         | 依 n=500×3=1500 重算 Q=19500 L/h                             |
+| DISC-LEG-003 | 計算摘錄面積案例顯示 `2000×1.5=300`，後續卻以 3000÷6   | 採數學正確值 3000 L/h；500 L 回歸測試                        |
+| DISC-LEG-004 | 便當中心用水範圍前後順序不一致                         | 存為 min=25、max=100，不依顯示順序判斷                       |
+| DISC-LEG-005 | B、C 類安全係數各提供兩個可能值                        | 必須由工程人員選 exact k 並寫理由，不自動猜值                |
+| DISC-CUR-001 | 官方案例顯示值截斷至小數一位                           | 保存 `sourceDisplayValue`，正式比較與反推使用重新運算 raw 值 |
+| DISC-CUR-002 | A-36 中餐 400 m² 後空白，但 610 m² 官方案例使用 n0=3.4 | 只建立具來源的 610 m² 例外；不外推為通則                     |
 
 ## 6. 單位與值物件
 
@@ -143,7 +154,7 @@ DimensionlessRatio
 
 L/min 與 L/h 只能透過明示的 unit conversion service 轉換，且轉換步驟必須進入計算軌跡。
 
-## 7. 現行 Q/G 數學模型
+## 7. 內政部給排水規範（附錄 5）Q/G 數學模型
 
 ### 7.1 全面積法
 
@@ -170,50 +181,50 @@ G  = Gu + Gb                                         [kg]
 
 `k=3.5`。`t` 單位為 min/day；Wm 為 L/(m²·day)；gu、gb 為 g/(m²·day)。
 
-| 餐飲類型 | Wm | t | k | gu | gb |
-|---|---:|---:|---:|---:|---:|
-| 中餐 | 130 | 720 | 3.5 | 18.0 | 8.0 |
-| 西餐 | 95 | 720 | 3.5 | 9.5 | 3.5 |
-| 和食 | 100 | 720 | 3.5 | 7.0 | 2.5 |
-| 拉麵 | 150 | 720 | 3.5 | 19.5 | 7.5 |
-| 烏龍麵、蕎麥麵 | 150 | 720 | 3.5 | 9.0 | 3.0 |
-| 簡餐 | 90 | 720 | 3.5 | 6.0 | 2.0 |
-| 小吃、美食街 | 85 | 720 | 3.5 | 3.5 | 1.5 |
-| 速食 | 20 | 720 | 3.5 | 3.0 | 1.0 |
-| 工廠員工餐廳 | 90 | 600 | 3.5 | 6.5 | 3.0 |
-| 學生餐廳 | 45 | 600 | 3.5 | 3.0 | 1.0 |
+| 餐飲類型       |  Wm |   t |   k |   gu |  gb |
+| -------------- | --: | --: | --: | ---: | --: |
+| 中餐           | 130 | 720 | 3.5 | 18.0 | 8.0 |
+| 西餐           |  95 | 720 | 3.5 |  9.5 | 3.5 |
+| 和食           | 100 | 720 | 3.5 |  7.0 | 2.5 |
+| 拉麵           | 150 | 720 | 3.5 | 19.5 | 7.5 |
+| 烏龍麵、蕎麥麵 | 150 | 720 | 3.5 |  9.0 | 3.0 |
+| 簡餐           |  90 | 720 | 3.5 |  6.0 | 2.0 |
+| 小吃、美食街   |  85 | 720 | 3.5 |  3.5 | 1.5 |
+| 速食           |  20 | 720 | 3.5 |  3.0 | 1.0 |
+| 工廠員工餐廳   |  90 | 600 | 3.5 |  6.5 | 3.0 |
+| 學生餐廳       |  45 | 600 | 3.5 |  3.0 | 1.0 |
 
 已知實際每日廚房使用時間時可取代 t 表值，但須保存輸入來源與證據；k 不開放案件輸入覆寫。
 
 ### 7.4 現行 A-35 餐位利用率 n
 
-| 餐飲類型 | n |
-|---|---:|
-| 中餐 | 5.0 |
-| 西餐 | 4.5 |
-| 和食 | 5.0 |
+| 餐飲類型             |   n |
+| -------------------- | --: |
+| 中餐                 | 5.0 |
+| 西餐                 | 4.5 |
+| 和食                 | 5.0 |
 | 拉麵、烏龍麵、蕎麥麵 | 5.0 |
-| 簡餐 | 7.0 |
-| 小吃、美食街 | 8.0 |
-| 速食 | 8.0 |
-| 工廠員工餐廳 | 4.0 |
-| 學生餐廳 | 4.0 |
+| 簡餐                 | 7.0 |
+| 小吃、美食街         | 8.0 |
+| 速食                 | 8.0 |
+| 工廠員工餐廳         | 4.0 |
+| 學生餐廳             | 4.0 |
 
 ### 7.5 現行 A-36 補正餐位利用率 n0
 
 `-` 表示來源無可用數值，不是 0。表中兩個相鄰有效節點之中間值可線性內插；不得跨過空白／`-` 內插。
 
-| 類型＼A(m²) | 25 | 50 | 75 | 100 | 125 | 150 | 175 | 200 | 250 | 300 | 400 | 500 | 600 | 700 | 800 | 1000 | 1500 |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 中餐 | - | - | 3.1 | 3.1 | 3.2 | 3.3 | 3.3 | 3.3 | 3.4 | 3.4 | 3.4 | - | - | - | - | - | - |
-| 西餐 | - | - | - | 2.0 | 2.1 | 2.3 | 2.4 | 2.6 | 2.8 | 2.9 | 3.1 | 3.2 | 3.3 | 3.3 | 3.4 | - | - |
-| 和食 | - | - | 2.1 | 2.3 | 2.5 | 2.6 | 2.7 | 2.8 | 2.9 | 3.0 | 3.2 | - | - | - | - | - | - |
-| 拉麵、烏龍麵、蕎麥麵 | - | 3.1 | 3.9 | 4.5 | 4.9 | 5.2 | 5.5 | 5.7 | - | - | - | - | - | - | - | - | - |
-| 簡餐 | 3.3 | 4.2 | 4.4 | 4.7 | 4.8 | 4.9 | 4.9 | 5.0 | 5.1 | - | - | - | - | - | - | - | - |
-| 小吃、美食街 | 3.7 | 4.7 | 5.3 | 5.7 | 5.9 | 6.0 | 6.1 | 6.2 | - | - | - | - | - | - | - | - | - |
-| 速食 | 3.3 | 4.2 | 4.4 | 4.7 | 4.8 | 4.9 | 4.9 | 5.0 | 5.1 | - | - | - | - | - | - | - | - |
-| 工廠員工餐廳 | - | - | - | - | - | 2.4 | 2.6 | 2.8 | 3.0 | 3.3 | 3.6 | 3.8 | 3.9 | 4.1 | 4.2 | 4.3 | 4.5 |
-| 學生餐廳 | - | - | - | - | - | 2.4 | 2.6 | 2.8 | 3.0 | 3.3 | 3.6 | 3.8 | 3.9 | 4.1 | 4.2 | 4.3 | 4.5 |
+| 類型＼A(m²)          |  25 |  50 |  75 | 100 | 125 | 150 | 175 | 200 | 250 | 300 | 400 | 500 | 600 | 700 | 800 | 1000 | 1500 |
+| -------------------- | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | ---: | ---: |
+| 中餐                 |   - |   - | 3.1 | 3.1 | 3.2 | 3.3 | 3.3 | 3.3 | 3.4 | 3.4 | 3.4 |   - |   - |   - |   - |    - |    - |
+| 西餐                 |   - |   - |   - | 2.0 | 2.1 | 2.3 | 2.4 | 2.6 | 2.8 | 2.9 | 3.1 | 3.2 | 3.3 | 3.3 | 3.4 |    - |    - |
+| 和食                 |   - |   - | 2.1 | 2.3 | 2.5 | 2.6 | 2.7 | 2.8 | 2.9 | 3.0 | 3.2 |   - |   - |   - |   - |    - |    - |
+| 拉麵、烏龍麵、蕎麥麵 |   - | 3.1 | 3.9 | 4.5 | 4.9 | 5.2 | 5.5 | 5.7 |   - |   - |   - |   - |   - |   - |   - |    - |    - |
+| 簡餐                 | 3.3 | 4.2 | 4.4 | 4.7 | 4.8 | 4.9 | 4.9 | 5.0 | 5.1 |   - |   - |   - |   - |   - |   - |    - |    - |
+| 小吃、美食街         | 3.7 | 4.7 | 5.3 | 5.7 | 5.9 | 6.0 | 6.1 | 6.2 |   - |   - |   - |   - |   - |   - |   - |    - |    - |
+| 速食                 | 3.3 | 4.2 | 4.4 | 4.7 | 4.8 | 4.9 | 4.9 | 5.0 | 5.1 |   - |   - |   - |   - |   - |   - |    - |    - |
+| 工廠員工餐廳         |   - |   - |   - |   - |   - | 2.4 | 2.6 | 2.8 | 3.0 | 3.3 | 3.6 | 3.8 | 3.9 | 4.1 | 4.2 |  4.3 |  4.5 |
+| 學生餐廳             |   - |   - |   - |   - |   - | 2.4 | 2.6 | 2.8 | 3.0 | 3.3 | 3.6 | 3.8 | 3.9 | 4.1 | 4.2 |  4.3 |  4.5 |
 
 中餐 `A=610 m²` 依官方案例建立精確例外 `n0=3.4`，必須附 `SOURCE_EXCEPTION` 警示；不得把此例外推廣到其他 400 m² 以上面積。
 
@@ -221,25 +232,25 @@ G  = Gu + Gb                                         [kg]
 
 Wm' 為 L/person；t 為 min/day；gu、gb 為 g/person；k=3.5。
 
-| 餐飲類型 | Wm' | t | k | gu | gb |
-|---|---:|---:|---:|---:|---:|
-| 中餐 | 80 | 720 | 3.5 | 11.0 | 5.0 |
-| 西餐 | 80 | 720 | 3.5 | 8.0 | 3.0 |
-| 和食 | 80 | 720 | 3.5 | 5.5 | 2.0 |
-| 拉麵 | 50 | 720 | 3.5 | 6.5 | 2.5 |
-| 烏龍麵、蕎麥麵 | 50 | 720 | 3.5 | 3.0 | 1.0 |
-| 簡餐 | 45 | 720 | 3.5 | 3.0 | 1.0 |
-| 小吃、美食街 | 25 | 720 | 3.5 | 1.0 | 0.5 |
-| 速食 | 10 | 720 | 3.5 | 1.5 | 0.5 |
-| 工廠員工餐廳 | 50 | 600 | 3.5 | 3.5 | 1.5 |
-| 學生餐廳 | 25 | 600 | 3.5 | 1.5 | 0.5 |
-| 學校午餐 | 15 | 480 | 3.5 | 0.7 | 0.3 |
+| 餐飲類型       | Wm' |   t |   k |   gu |  gb |
+| -------------- | --: | --: | --: | ---: | --: |
+| 中餐           |  80 | 720 | 3.5 | 11.0 | 5.0 |
+| 西餐           |  80 | 720 | 3.5 |  8.0 | 3.0 |
+| 和食           |  80 | 720 | 3.5 |  5.5 | 2.0 |
+| 拉麵           |  50 | 720 | 3.5 |  6.5 | 2.5 |
+| 烏龍麵、蕎麥麵 |  50 | 720 | 3.5 |  3.0 | 1.0 |
+| 簡餐           |  45 | 720 | 3.5 |  3.0 | 1.0 |
+| 小吃、美食街   |  25 | 720 | 3.5 |  1.0 | 0.5 |
+| 速食           |  10 | 720 | 3.5 |  1.5 | 0.5 |
+| 工廠員工餐廳   |  50 | 600 | 3.5 |  3.5 | 1.5 |
+| 學生餐廳       |  25 | 600 | 3.5 |  1.5 | 0.5 |
+| 學校午餐       |  15 | 480 | 3.5 |  0.7 | 0.3 |
 
 ### 7.7 複合式餐飲
 
 系統對每個候選餐飲類型分別計算污水與油脂負荷，保存候選比較表，依規範採污水產生及油脂量最大者作估算基準。不得只留下最後類型或允許使用者無理由任選較小值。
 
-## 8. 舊版 Q/V 數學模型
+## 8. 臺北市工務局衛工處設計說明 Q/V 數學模型
 
 ### 8.1 單餐期／連續操作人數法
 
@@ -248,7 +259,7 @@ Qhour = (n × q / t) × k                              [L/h]
 VeffRequired = Qhour / 6                             [L]
 ```
 
-q 為 L/(person·meal)，t 為 hours，k 為舊版安全係數。
+q 為 L/(person·meal)，t 為 hours，k 為該計算依據的安全係數。
 
 ### 8.2 多餐期來源案例
 
@@ -259,7 +270,7 @@ Qhour  = baseQ × k
 VeffRequired = Qhour / 6
 ```
 
-只在明確選擇 `SOURCE_ARITHMETIC_MEAN` 且報告標示「依舊版來源案例之餐期平均」時使用。系統不得把此聚合靜默當成所有多餐期案件的尖峰設計通則。
+只在明確選擇 `SOURCE_ARITHMETIC_MEAN` 且報告標示「依臺北市工務局衛工處設計說明來源案例之餐期平均」時使用。系統不得把此聚合靜默當成所有多餐期案件的尖峰設計通則。
 
 ### 8.3 面積法
 
@@ -285,25 +296,25 @@ areaEquivalentMax = nEquivalentMax / (dinerDensity × turnover)
 
 人數向下取整；面積向下至 0.1 m²，並標示所有假設。
 
-### 8.6 舊版用水量表
+### 8.6 臺北市工務局衛工處設計說明用水量表
 
-| 餐廳類別 | q 範圍 L/(人·餐) | turnover | density 人/m² |
-|---|---:|---:|---:|
-| 觀光飯店 | 70～120 | 3 | 0.5 |
-| 中小型餐廳 | 30～50 | 5 | 0.5 |
-| 西式速食 | 13～33 | 8 | 0.5 |
-| 便當中心 | 25～100 | 不適用 | 不適用 |
-| 機關團體餐廳 | 100～150 | 不適用 | 不適用 |
+| 餐廳類別     | q 範圍 L/(人·餐) | turnover | density 人/m² |
+| ------------ | ---------------: | -------: | ------------: |
+| 觀光飯店     |          70～120 |        3 |           0.5 |
+| 中小型餐廳   |           30～50 |        5 |           0.5 |
+| 西式速食     |           13～33 |        8 |           0.5 |
+| 便當中心     |          25～100 |   不適用 |        不適用 |
+| 機關團體餐廳 |         100～150 |   不適用 |        不適用 |
 
 q 優先使用實測；無實測時由工程人員在來源範圍內選 exact value 並保存理由，系統不自動取平均。
 
-### 8.7 舊版安全係數
+### 8.7 臺北市工務局衛工處設計說明安全係數
 
-| 類別 | 餐飲類型摘要 | 允許 k |
-|---|---|---|
-| A | 麻辣／涮涮鍋／火烤、牛肉麵與餡餅、牛排燒烤西餐、小吃街、清粥小菜、羊肉爐、自動洗碗機 | 1.5 |
-| B | 中式菜系、包子水餃鍋貼、海鮮、小吃、豆漿、學校／機關團體、大型日本料理 | 1.3 或 1.4 |
-| C | 中小型日本料理、快餐西餐、快餐、西式速食 | 1.2 或 1.3 |
+| 類別 | 餐飲類型摘要                                                                         | 允許 k     |
+| ---- | ------------------------------------------------------------------------------------ | ---------- |
+| A    | 麻辣／涮涮鍋／火烤、牛肉麵與餡餅、牛排燒烤西餐、小吃街、清粥小菜、羊肉爐、自動洗碗機 | 1.5        |
+| B    | 中式菜系、包子水餃鍋貼、海鮮、小吃、豆漿、學校／機關團體、大型日本料理               | 1.3 或 1.4 |
+| C    | 中小型日本料理、快餐西餐、快餐、西式速食                                             | 1.2 或 1.3 |
 
 B／C 類必須選擇 exact k 並填理由；未選時該軌 `INSUFFICIENT_DATA`。
 
@@ -373,19 +384,19 @@ ERROR
 
 ### 12.2 案件級 CalculationStatus
 
-| 模式 | 有效軌數 | 狀態 | 可進覆核 |
-|---|---:|---|---|
-| 單軌 | 1 | `COMPLETE` | 是 |
-| 單軌 | 0 | `BLOCKED` | 否 |
-| 雙軌 | 2 | `COMPLETE` | 是 |
-| 雙軌 | 1 | `COMPLETE_WITH_REMINDER` | 是 |
-| 雙軌 | 0 | `BLOCKED` | 否 |
+| 模式 | 有效軌數 | 狀態                     | 可建立報告草稿 |
+| ---- | -------: | ------------------------ | -------------- |
+| 單軌 |        1 | `COMPLETE`               | 是             |
+| 單軌 |        0 | `BLOCKED`                | 否             |
+| 雙軌 |        2 | `COMPLETE`               | 是             |
+| 雙軌 |        1 | `COMPLETE_WITH_REMINDER` | 是             |
+| 雙軌 |        0 | `BLOCKED`                | 否             |
 
 `COMPLETE_WITH_REMINDER` 必須：
 
 - 保留成功軌的完整、不可變 run。
 - 將不足軌顯示為「未計算」，列出原因。
-- `繼續覆核` 保持可用。
+- `完成報告草稿` 保持可用；送審後再進入最終覆核。
 - 不宣稱已完成雙軌數值比較。
 
 ## 13. 案件生命週期
@@ -404,10 +415,11 @@ DRAFT
 
 - `DRAFT → INPUT_READY`：單軌必要資料完整；雙軌至少一軌完整。
 - `INPUT_READY → CALCULATED`：狀態為 COMPLETE 或 COMPLETE_WITH_REMINDER。
-- `CALCULATED → IN_REVIEW`：工程人員提交覆核。
+- `CALCULATED → IN_REVIEW`：工程人員先預覽並完成報告草稿，再提交最終覆核；草稿預覽本身不等於核准。
 - `IN_REVIEW → REVIEWED`：目前使用者完成覆核；或退回 `CALCULATED` 並記錄原因。
 - `REVIEWED → ISSUED`：以 reviewed revision 建立報告快照與 PDF。
-- 同一 actor 可以依序完成 `CALCULATED → IN_REVIEW → REVIEWED → ISSUED`；每次轉換仍須是獨立、具名且有時間戳的 audit event。
+- `CALCULATED` 與 `IN_REVIEW` 均可讀取 deterministic 報告草稿預覽；`IN_REVIEW` 後不得再新增人工採用，退回後回到 `CALCULATED` 修正。
+- 同一 actor 可以依序完成 `CALCULATED → 報告草稿 → IN_REVIEW → REVIEWED → ISSUED`；每次狀態轉換與責任事件仍須獨立、具名且有時間戳的 audit event。
 - 已核發輸入不可修改；變更時建立新 case revision。新修訂核發後，前版標 `SUPERSEDED`，檔案保留。
 - `BLOCKED` 是計算狀態，不是案件生命週期；阻擋時案件留在 DRAFT／INPUT_READY 並顯示補資料動作。
 
@@ -415,54 +427,56 @@ DRAFT
 
 所有主鍵用 UUID；時間用 UTC `timestamptz`；顯示時轉 Asia/Taipei。
 
-| Aggregate／table | 必要欄位與約束 |
-|---|---|
-| `users` | id、display_name、status、created_at；identity subject 透過 adapter mapping |
-| `user_roles` | user_id、role；unique(user_id, role) |
-| `source_documents` | code、title、authority_level、published_at、checked_at、uri、sha256、status |
-| `source_discrepancies` | code、source_document_id、page、description、resolution、approved_by |
-| `rule_sets` | code、version、method_family、effective_from/to、status、checksum；已 ACTIVE 不可修改 |
-| `factor_tables` | rule_set_id、table_code、dimension_schema、unit_schema |
-| `factor_points` | table_id、dining_type、dimension_key、value nullable、source_state；保留 VALUE／DASH／BLANK |
-| `calculation_cases` | id、case_no、revision_no、customer、location、task_code、mode、lifecycle_status、created_by；unique(case_no, revision_no) |
-| `case_inputs` | case_revision_id、track、field_code、raw_value、normalized_decimal、unit、source_type、evidence_uri |
-| `scenario_decisions` | case_revision_id、selected_mode、reason、decided_by、decided_at |
-| `assumptions` | case_revision_id、track、code、value、impact、confirmed_by |
-| `track_assessments` | request_id、track、status、required_fields_json、missing_fields_json、errors_json、rule_set_id |
-| `calculation_runs` | case_revision_id、track、task_code、method_code、rule_set_id、input_hash、status、result_semantics、raw_result_json、adopted_result_json；immutable |
-| `calculation_steps` | run_id、sequence、formula_code、expression、substitution、result、unit、source_ref |
-| `warnings` | owner_type/id、code、severity、track、message、details_json |
-| `engineering_overrides` | case_revision_id、field/result path、before、after、reason、evidence、requested_by、approved_by、status；requested_by 可等於 approved_by |
-| `review_records` | case_revision_id、prepared_by、reviewed_by、checklist_json、decision、note、reviewed_at；prepared_by 可等於 reviewed_by |
-| `report_snapshots` | case_revision_id、snapshot_json、snapshot_hash、report_number nullable、status、created_by、issued_by、issued_at；immutable after issue |
-| `audit_events` | actor_id、action、aggregate_type/id、before_hash、after_hash、metadata_json、created_at |
+| Aggregate／table        | 必要欄位與約束                                                                                                                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `users`                 | id、display_name、status、created_at；identity subject 透過 adapter mapping                                                                                                  |
+| `user_roles`            | user_id、role；unique(user_id, role)                                                                                                                                         |
+| `source_documents`      | code、title、authority_level、published_at、checked_at、uri、sha256、status                                                                                                  |
+| `source_discrepancies`  | code、source_document_id、page、description、resolution、approved_by                                                                                                         |
+| `rule_sets`             | code、version、method_family、effective_from/to、status、checksum；已 ACTIVE 不可修改                                                                                        |
+| `factor_tables`         | rule_set_id、table_code、dimension_schema、unit_schema                                                                                                                       |
+| `factor_points`         | table_id、dining_type、dimension_key、value nullable、source_state；保留 VALUE／DASH／BLANK                                                                                  |
+| `calculation_cases`     | id、case_no、revision_no、customer、location、task_code、mode、lifecycle_status、created_by；unique(case_no, revision_no)                                                    |
+| `case_inputs`           | case_revision_id、track、field_code、raw_value、normalized_decimal、unit、source_type、evidence_uri                                                                          |
+| `scenario_decisions`    | case_revision_id、selected_mode、reason、decided_by、decided_at                                                                                                              |
+| `assumptions`           | case_revision_id、track、code、value、impact、confirmed_by                                                                                                                   |
+| `track_assessments`     | request_id、track、status、required_fields_json、missing_fields_json、errors_json、rule_set_id                                                                               |
+| `calculation_runs`      | case_revision_id、track、task_code、method_code、rule_set_id、input_hash、status、result_semantics、raw_result_json、adopted_result_json；完成後不可更新，隨案件刪除一併刪除 |
+| `calculation_steps`     | run_id、sequence、formula_code、expression、substitution、result、unit、source_ref                                                                                           |
+| `warnings`              | owner_type/id、code、severity、track、message、details_json                                                                                                                  |
+| `engineering_overrides` | case_revision_id、field/result path、before、after、reason、evidence、requested_by、approved_by、status；requested_by 可等於 approved_by                                     |
+| `review_records`        | case_revision_id、prepared_by、reviewed_by、checklist_json、decision、note、reviewed_at；prepared_by 可等於 reviewed_by                                                      |
+| `report_snapshots`      | case_revision_id、snapshot_json、snapshot_hash、report_number nullable、status、created_by、issued_by、issued_at；核發後不可更新，隨案件刪除一併刪除                         |
+| `audit_events`          | actor_id、action、aggregate_type/id、before_hash、after_hash、metadata_json、created_at                                                                                      |
 
 資料庫 constraints：
 
 - 所有正式數值 > 0；清除週期 iu 介於 7～14，ib 介於 7～30。
 - 同一 `idempotency_key + case_revision_id` 唯一。
 - active RuleSet 的 code＋version 唯一且不可 update；修正建立新版本。
-- issued ReportSnapshot 禁止 update／delete；作廢使用狀態與 audit，不做實體刪除。
+- issued ReportSnapshot 禁止 update；案件明確刪除時，案件及其所有修訂與關聯資料一併實體刪除。
 - completed run 的 input hash、rule set 與 result 不可修改。
 
 ## 15. API／Service Contract
 
 ### 15.1 Routes
 
-| Method | Route | 用途 |
-|---|---|---|
-| POST | `/api/cases` | 建立案件與 revision 1 |
-| GET | `/api/cases` | 案件清單、篩選、分頁 |
-| GET | `/api/cases/{caseId}` | 案件、當前 revision、狀態與摘要 |
-| PATCH | `/api/cases/{caseId}/revisions/{revision}` | 只修改未核發 revision，使用 optimistic version |
-| POST | `/api/cases/{caseId}/calculate` | 建立 track assessments 與成功 runs |
-| POST | `/api/cases/{caseId}/submit-review` | 提交覆核 |
-| POST | `/api/cases/{caseId}/review` | 接受或退回 |
-| POST | `/api/cases/{caseId}/issue` | 建立快照與 PDF job/result |
-| POST | `/api/cases/{caseId}/revisions` | 由已核發案件建立新修訂 |
-| GET | `/api/rule-sets` | 查詢規則與來源 |
-| POST | `/api/rule-sets` | 建立未啟用規則版本 |
-| POST | `/api/rule-sets/{id}/activate` | 回歸通過後啟用 |
+| Method | Route                                      | 用途                                                     |
+| ------ | ------------------------------------------ | -------------------------------------------------------- |
+| POST   | `/api/cases`                               | 建立案件與 revision 1                                    |
+| GET    | `/api/cases`                               | 案件清單、篩選、分頁                                     |
+| GET    | `/api/cases/{caseId}`                      | 案件、當前 revision、狀態與摘要                          |
+| DELETE | `/api/cases/{caseId}`                      | 刪除案件及其全部修訂、計算、覆核與報告紀錄               |
+| PATCH  | `/api/cases/{caseId}/revisions/{revision}` | 只修改未核發 revision，使用 optimistic version           |
+| POST   | `/api/cases/{caseId}/calculate`            | 建立 track assessments 與成功 runs                       |
+| GET    | `/api/cases/{caseId}/report-preview`       | 產生計算完成後可送審的報告草稿預覽，或讀取覆核／核發版本 |
+| POST   | `/api/cases/{caseId}/submit-review`        | 提交覆核                                                 |
+| POST   | `/api/cases/{caseId}/review`               | 接受或退回                                               |
+| POST   | `/api/cases/{caseId}/issue`                | 建立快照與 PDF job/result                                |
+| POST   | `/api/cases/{caseId}/revisions`            | 由已核發案件建立新修訂                                   |
+| GET    | `/api/rule-sets`                           | 查詢規則與來源                                           |
+| POST   | `/api/rule-sets`                           | 建立未啟用規則版本                                       |
+| POST   | `/api/rule-sets/{id}/activate`             | 回歸通過後啟用                                           |
 
 `POST /api/cases` 只要求 `taskCode` 與 `mode`。`customer`、`location`、`title`、`purpose` 與 `evidenceSource` 均可省略或送空字串；服務以空字串保存未提供的客戶、地點、案件名稱與用途，資料提供者／證據保存在建案 audit metadata。`diningType` 不屬於建案契約，必須在後續現行 Q/G 的 `currentInputs` 明確提供。
 
@@ -519,15 +533,16 @@ CreateCalculationResponse
 
 ## 17. 身份與權限
 
-| 動作 | ENGINEER | RULE_ADMIN | SYSTEM_ADMIN |
-|---|---:|---:|---:|
-| 建立／編輯草稿案件 | ✓ | 讀 | 讀 |
-| 計算／重算 | ✓ | 讀 | 讀 |
-| 提交、覆核／退回 | ✓ | 讀 | 讀 |
-| 核准 override | ✓ | - | 讀 |
-| 預覽與核發報告 | ✓ | 讀 | 讀 |
-| 建立／啟用 RuleSet | 讀 | ✓ | 讀 |
-| 管理使用者角色 | - | - | ✓ |
+| 動作                     | ENGINEER | RULE_ADMIN | SYSTEM_ADMIN |
+| ------------------------ | -------: | ---------: | -----------: |
+| 建立／編輯草稿案件       |        ✓ |         讀 |           讀 |
+| 刪除案件及其全部關聯資料 |        ✓ |         讀 |           讀 |
+| 計算／重算               |        ✓ |         讀 |           讀 |
+| 提交、覆核／退回         |        ✓ |         讀 |           讀 |
+| 核准 override            |        ✓ |          - |           讀 |
+| 預覽與核發報告           |        ✓ |         讀 |           讀 |
+| 建立／啟用 RuleSet       |       讀 |          ✓ |           讀 |
+| 管理使用者角色           |        - |          - |            ✓ |
 
 - 同一帳號可同時具有多個 capability；第一版不要求編製與覆核帳號分離。
 - 雲端 End-State 的所有業務 route 與 API 都必須 authenticated；匿名、停用帳號、過期 session、角色不足與未授權案件存取一律拒絕。
@@ -544,10 +559,18 @@ CreateCalculationResponse
 - RuleSet、FactorTable、source hash 與 discrepancy resolution。
 - raw、source display、adopted result。
 - warnings、override、編製／覆核／核發紀錄。
+- 客戶報告第一個資訊區塊必須依序呈現「本次輸入條件 → 計算依據 → 本次設計結果」，讓讀者不需先閱讀公式即可辨識本次算了什麼。
+- 輸入條件只能讀取不可變快照中的 `inputs`，只列本次實際完成計算軌所使用且有值的欄位；不得查詢 live case／live rule，不得以 `0`、空白或推測值補齊。
+- 輸入與代入值必須區分「本案條件」「計算依據參數」「計算中間值」；每個代入數字均需有名稱、符號、數值、單位與資料角色，原始數值算式另以具名欄位保留。
+- 結果以計算依據為欄、輸出項目為列；未完成軌顯示「未完成」，該計算依據本來就不產出的項目顯示「此依據無法計算」，兩者不得混用。
+- 客戶報告的結果對照表只使用可直接比較的統一單位：設計處理水量一律換算為 `L/min`。來源公式的原始單位保留在完整計算過程，並緊接列出 `L/min` 統一比對值；`G` 為清除週期油脂量，使用 `kg`，不得標示為 `kg/day`；`Veff` 統一稱為有效容積，使用 `L`。
+- 尚未覆核的草稿可標示 `PENDING` 與「尚未審核」；正式核發快照必須包含 `APPROVED` 覆核紀錄。
 - 功能範圍聲明：未執行產品型號或證書符合性判定。
 - snapshot schema version 與 hash。
 
-PDF 章節：封面、一頁結論、案件情境、設計依據、輸入與假設、方法選擇、各軌計算、安裝維護核對、限制、簽核、來源附件。
+客戶 PDF 章節固定為：`本次設計一覽`（案件資料、輸入條件、計算依據、設計結果）與 `完整計算過程`（各方法使用條件、具名代入、數值算式、結果與統一比對值）。系統審核計畫、audit、checksum、內部狀態與工程責任資料保留在快照及內部介面，不放入客戶 PDF。
+
+客戶 PDF 的 5 秒驗收：第一個資訊區塊可直接回答「輸入什麼條件、依什麼來源、輸出什麼結果」；完整計算頁不得出現無名稱或無單位的裸數字鏈。
 
 `COMPLETE_WITH_REMINDER` 首頁固定標示「雙軌案件—單軌完成」；未完成軌章節顯示「未計算」及原因，不出現空白假數值。
 
@@ -562,7 +585,7 @@ PDF 章節：封面、一頁結論、案件情境、設計依據、輸入與假�
 5. 正向、反向、單位、精度、嚴格不等式及 n0 solver 測試通過。
 6. 雙軌一軌成功時可覆核與核發；兩軌皆失敗才阻擋。
 7. 未完成軌無假 run、假數值或跨軌借值。
-8. 權限、idempotency、optimistic concurrency 與 immutable snapshot 測試通過。
+8. 權限、idempotency、optimistic concurrency 與 snapshot 更新不可變測試通過。
 9. PDF 可由 snapshot 重現，重新 render hash／內容一致。
 10. SPEC-002 與 QA-001 的 UI／QC gate 通過。
 11. 同一位已授權使用者不需切換帳號即可完成編製、覆核與核發，各責任事件可追溯。

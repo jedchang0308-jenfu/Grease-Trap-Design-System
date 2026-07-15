@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { basisForTrack } from "@/domain/rules/source-display";
+import { EngineeringOverridePanel } from "@/ui/components/engineering-override-panel";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { StatusBadge } from "@/ui/components/status-badge";
 import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
@@ -45,9 +47,9 @@ const checklistItems = [
 ] as const;
 
 const resultLabels: Record<string, { label: string; unit?: string }> = {
-  gKg: { label: "油脂量 G", unit: "kg" },
-  qLpm: { label: "流量 Q", unit: "L/min" },
-  qLph: { label: "流量 Q", unit: "L/h" },
+  gKg: { label: "清除週期油脂量 G", unit: "kg" },
+  qLpm: { label: "設計處理水量 Q", unit: "L/min" },
+  qLph: { label: "設計處理水量 Q", unit: "L/h" },
   effectiveVolumeL: { label: "有效容積 Veff", unit: "L" },
   diners: { label: "等效用餐人數", unit: "人/day" },
   areaM2: { label: "等效營業面積", unit: "m²" },
@@ -203,9 +205,14 @@ export function ReviewWorkbench({ caseId }: { caseId: string }) {
       {problem ? <RuntimeError problem={problem} /> : null}
       <div className="state-banner" style={{ marginBottom: 18 }}>
         <strong>
-          案件已進入覆核；你可以直接繼續，不需切換帳號或等待他人。
+          送審報告已完成；請針對這份完整報告進行最後一次工程審核。
         </strong>
         <p>系統會分別保存編製、提交、覆核與核發責任事件。</p>
+        <div className="button-row" style={{ marginTop: 12 }}>
+          <Link className="button secondary" href={`/cases/${caseId}/report`}>
+            查看送審報告
+          </Link>
+        </div>
       </div>
 
       <section className="panel">
@@ -224,8 +231,8 @@ export function ReviewWorkbench({ caseId }: { caseId: string }) {
             >
               <h3>
                 {result.track === "CURRENT_QG"
-                  ? "現行 Q/G"
-                  : "舊版 Q/V（歷史方法）"}
+                  ? basisForTrack("CURRENT_QG").shortLabel
+                  : basisForTrack("LEGACY_QV").shortLabel}
               </h3>
               <p className="muted">{result.semantics}</p>
               <ResultSummary result={result} />
@@ -237,10 +244,10 @@ export function ReviewWorkbench({ caseId }: { caseId: string }) {
         </p>
       </section>
 
-      <OverridePanel
+      <EngineeringOverridePanel
         caseId={caseId}
         existing={item.overrides ?? []}
-        onCreated={() => void load()}
+        editable={false}
       />
 
       <section className="panel">
@@ -291,121 +298,5 @@ export function ReviewWorkbench({ caseId }: { caseId: string }) {
         </div>
       </section>
     </div>
-  );
-}
-
-function OverridePanel({
-  caseId,
-  existing,
-  onCreated,
-}: {
-  caseId: string;
-  existing: ReviewCase["overrides"];
-  onCreated: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [problem, setProblem] = useState<UiProblem | null>(null);
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSubmitting(true);
-    setProblem(null);
-    const form = new FormData(event.currentTarget);
-    try {
-      await fetchJson(`/api/cases/${caseId}/overrides`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(Object.fromEntries(form.entries())),
-      });
-      setOpen(false);
-      onCreated();
-    } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "人工採用紀錄未建立，請重試。" },
-      );
-      setSubmitting(false);
-    }
-  }
-  return (
-    <section className="panel">
-      <div
-        className="page-header"
-        style={{ marginBottom: existing.length || open ? 16 : 0 }}
-      >
-        <div>
-          <h2>人工採用與例外</h2>
-          <p className="lede">
-            只有正式採用值與 raw 結果不同時才建立，並保存前後值、理由與依據。
-          </p>
-        </div>
-        <div className="actions">
-          <button
-            type="button"
-            className="button secondary"
-            onClick={() => setOpen((value) => !value)}
-          >
-            {open ? "取消" : "建立人工採用"}
-          </button>
-        </div>
-      </div>
-      {problem ? <RuntimeError problem={problem} /> : null}
-      {existing.map((item) => (
-        <div
-          className="state-banner warning"
-          key={item.id}
-          style={{ marginBottom: 10 }}
-        >
-          <strong>
-            {item.resultPath}：{String(item.beforeValue)} →{" "}
-            {String(item.afterValue)}
-          </strong>
-          <p>
-            {item.reason}｜依據：{item.evidence}
-          </p>
-        </div>
-      ))}
-      {open ? (
-        <form onSubmit={submit}>
-          <div className="form-grid">
-            <div className="field span-2">
-              <label htmlFor="override-path">結果路徑</label>
-              <input
-                id="override-path"
-                name="resultPath"
-                required
-                placeholder="例如 CURRENT_QG.adopted.qLpm"
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="before-value">原採用值</label>
-              <input id="before-value" name="beforeValue" required />
-            </div>
-            <div className="field">
-              <label htmlFor="after-value">新採用值</label>
-              <input id="after-value" name="afterValue" required />
-            </div>
-            <div className="field span-2">
-              <label htmlFor="override-reason">工程理由</label>
-              <textarea id="override-reason" name="reason" required />
-            </div>
-            <div className="field span-2">
-              <label htmlFor="override-evidence">依據／證據</label>
-              <input id="override-evidence" name="evidence" required />
-            </div>
-          </div>
-          <div className="button-row end" style={{ marginTop: 16 }}>
-            <button
-              className="button primary"
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? "正在核准…" : "核准並留下紀錄"}
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </section>
   );
 }

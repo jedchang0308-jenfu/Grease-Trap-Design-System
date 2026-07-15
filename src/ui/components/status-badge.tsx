@@ -14,7 +14,7 @@ const statusLabels: Record<string, string> = {
   INVALID: "輸入不成立",
   ERROR: "未完成",
   ACTIVE: "使用中",
-  HISTORICAL: "歷史來源",
+  HISTORICAL: "參考來源",
 };
 
 export function StatusBadge({ status }: { status: string | null | undefined }) {

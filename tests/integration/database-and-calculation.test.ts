@@ -164,7 +164,12 @@ describe("G2 transaction and API service contract", () => {
     });
   });
 
-  it("allows the same actor to submit and complete review with separate audit events", async () => {
+  it("previews the complete draft before the same actor submits final review", async () => {
+    const draft = await previewReport(caseGroupId, actor);
+    expect(draft.snapshot.case.lifecycleStatus).toBe("CALCULATED");
+    expect(draft.snapshot.review.decision).toBe("PENDING");
+    expect(draft.html).toContain("本次只完成一種計算方法");
+
     await submitForReview(caseGroupId, actor);
     const review = await completeReview(
       caseGroupId,
@@ -218,7 +223,7 @@ describe("G2 transaction and API service contract", () => {
 
     const preview = await previewReport(caseGroupId, actor);
     expect(preview.snapshotHash).toBe(first.snapshotHash);
-    expect(preview.html).toContain("雙軌案件 - 單軌完成");
+    expect(preview.html).toContain("本次只完成一種計算方法");
     const second = await issueReport(caseGroupId, actor);
     expect(second.id).toBe(first.id);
 

@@ -16,6 +16,7 @@ export async function GET(
       reportNumber: preview.snapshot.reportNumber,
       case: preview.snapshot.case,
       assessments: preview.snapshot.assessments,
+      overrides: preview.snapshot.overrides,
       actors: preview.snapshot.actors,
       html: preview.html,
     });

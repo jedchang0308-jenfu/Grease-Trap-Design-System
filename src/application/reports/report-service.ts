@@ -33,11 +33,15 @@ export async function previewReport(
   const client = await pool.connect();
   try {
     const item = await getLatestCase(client, caseGroupId, user);
-    if (!["REVIEWED", "ISSUED"].includes(item.lifecycle_status)) {
+    if (
+      !["CALCULATED", "IN_REVIEW", "REVIEWED", "ISSUED"].includes(
+        item.lifecycle_status,
+      )
+    ) {
       throw new AppProblem({
-        code: "REPORT_REQUIRES_REVIEW",
+        code: "REPORT_REQUIRES_CALCULATION",
         title: "報告尚未可預覽",
-        userMessage: "請先完成工程覆核，再預覽與核發報告。",
+        userMessage: "請先完成有效計算，再建立報告草稿。",
         status: 409,
       });
     }
@@ -89,7 +93,9 @@ export async function issueReport(
       return { row: existingPending.rows[0], item, alreadyIssued: false };
     const id = randomUUID();
     const reportNumber = `DRAFT-${makeUlid()}`;
-    const snapshot = await buildSnapshot(client, item.id, reportNumber, user);
+    const snapshot = await buildSnapshot(client, item.id, reportNumber, user, {
+      forIssue: true,
+    });
     const snapshotHash = sha256(snapshot);
     const inserted = await client.query(
       `INSERT INTO report_snapshots(id, case_revision_id, snapshot_json, snapshot_hash, report_number, status, created_by)
@@ -156,6 +162,7 @@ async function buildSnapshot(
   caseRevisionId: string,
   reportNumber: string,
   user: AuthenticatedUser,
+  options: { forIssue?: boolean } = {},
 ): Promise<ReportSnapshotData> {
   const caseResult = await client.query(
     `SELECT c.*, prepared.display_name AS prepared_name, reviewed.display_name AS reviewed_name
@@ -235,14 +242,16 @@ async function buildSnapshot(
       WHERE rr.case_revision_id=$1 AND rr.decision='APPROVED' ORDER BY rr.reviewed_at DESC LIMIT 1`,
     [caseRevisionId],
   );
-  const review = reviews.rows[0];
-  if (!review)
-    throw new AppProblem({
-      code: "REPORT_MISSING_REVIEW",
-      title: "缺少覆核紀錄",
-      userMessage: "找不到完整覆核紀錄，請先完成覆核。",
-      status: 409,
-    });
+  const review =
+    reviews.rows[0] ??
+    ({
+      preparedBy: item.prepared_name ?? "尚未指定",
+      reviewedBy: "尚未審核",
+      checklist: {},
+      decision: "PENDING",
+      note: "此為送審草稿，尚未完成工程覆核。",
+      reviewedAt: "尚未完成",
+    } as const);
   return {
     schemaVersion: "1.0",
     reportNumber,
@@ -266,9 +275,9 @@ async function buildSnapshot(
     overrides: overrides.rows,
     review,
     actors: {
-      preparedBy: item.prepared_name,
-      reviewedBy: item.reviewed_name,
-      issuedBy: user.displayName,
+      preparedBy: item.prepared_name ?? "尚未指定",
+      reviewedBy: item.reviewed_name ?? "尚未審核",
+      issuedBy: options.forIssue ? user.displayName : "尚未核發",
     },
     limitation: "本報告未執行特定產品或證書符合性判定。",
   };

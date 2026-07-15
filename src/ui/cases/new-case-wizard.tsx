@@ -2,6 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import {
+  calculationBasisDisplay,
+  calculationModeDisplay,
+} from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
 
@@ -17,9 +21,21 @@ const tasks = [
 ] as const;
 
 const modes = [
-  ["CURRENT_QG", "現行 Q/G", "現行方法的流量與油脂量設計需求。"],
-  ["LEGACY_QV", "舊版 Q/V", "歷史指引有效容積換算，報告會標示時效。"],
-  ["DUAL_COMPARISON", "新舊雙軌", "兩軌分開計算；任一軌有效即可繼續覆核。"],
+  [
+    "CURRENT_QG",
+    calculationBasisDisplay.CURRENT_QG.shortLabel,
+    calculationBasisDisplay.CURRENT_QG.resultLabel,
+  ],
+  [
+    "LEGACY_QV",
+    calculationBasisDisplay.LEGACY_QV.shortLabel,
+    calculationBasisDisplay.LEGACY_QV.resultLabel,
+  ],
+  [
+    "DUAL_COMPARISON",
+    calculationModeDisplay.DUAL_COMPARISON.label,
+    "兩份資料來源分開計算；任一份有效即可完成報告草稿。",
+  ],
 ] as const;
 
 export function NewCaseWizard() {

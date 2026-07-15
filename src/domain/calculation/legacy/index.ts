@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { calculationBasisDisplay } from "@/domain/rules/source-display";
 import {
   ceilTenth,
   decimal,
@@ -81,9 +82,7 @@ function validateSafetyFactor(
           ? ["1.2", "1.3"]
           : ["1.2", "1.3", "1.4", "1.5"];
   if (!allowed.some((candidate) => factor.eq(candidate)))
-    throw new DomainInputError("舊版安全係數不在來源允許值內。", [
-      "safetyFactor",
-    ]);
+    throw new DomainInputError("安全係數不在來源允許值內。", ["safetyFactor"]);
   if ((safetyClass === "B" || safetyClass === "C") && !reason?.trim()) {
     throw new DomainInputError("B／C 類必須填寫 exact k 選擇理由。", [
       "selectionReason",
@@ -110,7 +109,7 @@ function buildForwardResult(
   return {
     track: "LEGACY_QV",
     methodCode: "LEGACY_BY_DINERS",
-    semantics: "舊版有效容積設計 Veff（歷史指引方法）",
+    semantics: `${calculationBasisDisplay.LEGACY_QV.shortLabel}計算結果：有效容積 Veff`,
     raw: {
       qLph: decimalString(qHour),
       effectiveVolumeL: decimalString(volume),
@@ -129,7 +128,7 @@ function buildForwardResult(
         code: "HISTORICAL_METHOD",
         severity: "INFO",
         track: "LEGACY_QV",
-        message: "本結果採舊版歷史指引方法，不是現行 Q/G 設計結論。",
+        message: `本結果依${calculationBasisDisplay.LEGACY_QV.shortLabel}計算。`,
       },
     ],
     metadata: { ...metadata, ruleSet: "RULE-LEGACY-QV@legacy.1" },
@@ -307,7 +306,7 @@ export function reverseLegacyByEffectiveVolume(
   return {
     track: "LEGACY_QV",
     methodCode: "LEGACY_REVERSE_BY_EFFECTIVE_VOLUME",
-    semantics: "本組舊版設計假設下的有效容積等效上限",
+    semantics: `${calculationBasisDisplay.LEGACY_QV.shortLabel}計算結果：有效容積等效上限`,
     raw: {
       dinersEquivalentMax: decimalString(rawPeople),
       areaEquivalentMaxM2: decimalString(rawArea),
@@ -323,7 +322,7 @@ export function reverseLegacyByEffectiveVolume(
         code: "HISTORICAL_METHOD",
         severity: "INFO",
         track: "LEGACY_QV",
-        message: "本結果採舊版歷史指引方法，不是現行 Q/G 設計結論。",
+        message: `本結果依${calculationBasisDisplay.LEGACY_QV.shortLabel}計算。`,
       },
     ],
     metadata: {

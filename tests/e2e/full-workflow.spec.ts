@@ -39,6 +39,18 @@ async function evidence(page: Page, project: string, name: string) {
   });
 }
 
+async function createDualTrackCase(page: Page, task: string) {
+  await page.goto("/cases/new");
+  await page.getByText(task, { exact: true }).click();
+  await page.getByRole("button", { name: "下一步：選擇模式" }).click();
+  await page.getByText("不同計算依據對照", { exact: true }).click();
+  await page.getByRole("button", { name: "下一步：填寫資料" }).click();
+  await page.getByRole("button", { name: "建立案件並填寫計算資料" }).click();
+  await expect(page.getByRole("heading", { name: "計算資料" })).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
 test("single actor completes a dual-track case through report issue", async ({
   page,
 }, testInfo) => {
@@ -69,7 +81,7 @@ test("single actor completes a dual-track case through report issue", async ({
   await evidence(page, project, "02-new-case-task");
 
   await page.getByRole("button", { name: "下一步：選擇模式" }).click();
-  await page.getByText("新舊雙軌", { exact: true }).click();
+  await page.getByText("不同計算依據對照", { exact: true }).click();
   await page.getByRole("button", { name: "下一步：填寫資料" }).click();
   await expect(page.getByLabel("客戶名稱（選填）")).toBeVisible();
   await expect(page.getByLabel("餐飲類型")).toHaveCount(0);
@@ -88,29 +100,60 @@ test("single actor completes a dual-track case through report issue", async ({
   await expect(
     page.getByText("先填完任一可用軌的必要資料，即可開始計算。"),
   ).toBeVisible();
-  await expect(page.getByLabel("餐飲類型")).toBeVisible();
-  await page.getByLabel("餐飲類型").selectOption("CHINESE");
+  await expect(page.getByLabel("餐飲類型", { exact: true })).toBeVisible();
+  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(10);
+  const diningTypeHelp = page.getByRole("button", {
+    name: "餐飲類型說明",
+  });
+  await diningTypeHelp.click();
+  const helpDialog = page.getByRole("dialog", { name: "餐飲類型說明" });
+  await expect(helpDialog).toBeVisible();
+  await expect(helpDialog).toContainText(
+    "系統會依內政部給排水規範（附錄 5）選取用水、使用時間與油脂參數。",
+  );
+  await evidence(page, project, "04-field-help");
+  await page.keyboard.press("Escape");
+  await expect(helpDialog).not.toBeVisible();
+  await expect(diningTypeHelp).toBeFocused();
+  await page.getByLabel("餐飲類型", { exact: true }).selectOption("CHINESE");
   await visibleErrorSweep(page);
   await evidence(page, project, "04-workbench-inputs");
 
   await page.getByRole("button", { name: "開始計算" }).click();
   await expect(
-    page.getByText("計算已完成；下一步由你進行工程覆核。"),
+    page.getByText("計算已完成；下一步先完成報告草稿。"),
   ).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("38.9", { exact: true })).toBeVisible();
   await expect(page.getByText("150", { exact: true })).toBeVisible();
   await visibleErrorSweep(page);
   await evidence(page, project, "05-calculation-complete");
 
-  await page.getByRole("button", { name: "開始覆核" }).click();
+  await page.getByRole("link", { name: "完成報告草稿" }).click();
+  await expect(page.getByRole("heading", { name: "報告草稿預覽" })).toBeVisible(
+    { timeout: 20_000 },
+  );
+  await expect(
+    page.getByText("報告草稿已完成；下一步送出最終工程審核。"),
+  ).toBeVisible();
+  await expect(page.getByTitle("客戶設計計算報告預覽")).toBeVisible();
+  await expect(
+    page
+      .frameLocator('iframe[title="客戶設計計算報告預覽"]')
+      .getByText("油脂截留器設計計算報告", { exact: true }),
+  ).toBeVisible({ timeout: 20_000 });
+  await visibleErrorSweep(page);
+  await evidence(page, project, "06-report-draft");
+
+  await page.getByRole("button", { name: "送出最終審核" }).click();
   await expect(page.getByRole("heading", { name: "工程覆核" })).toBeVisible({
     timeout: 30_000,
   });
   await expect(
-    page.getByText("案件已進入覆核；你可以直接繼續，不需切換帳號或等待他人。"),
+    page.getByText("送審報告已完成；請針對這份完整報告進行最後一次工程審核。"),
   ).toBeVisible();
+  await expect(page.getByRole("link", { name: "查看送審報告" })).toBeVisible();
   await visibleErrorSweep(page);
-  await evidence(page, project, "06-review");
+  await evidence(page, project, "07-final-review");
 
   for (const label of [
     "已確認計算方法與案件任務一致。",
@@ -126,34 +169,34 @@ test("single actor completes a dual-track case through report issue", async ({
   await expect(
     page.getByRole("heading", { name: "報告預覽與核發" }),
   ).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByTitle("設計計算書預覽")).toBeVisible();
+  await expect(page.getByTitle("客戶設計計算報告預覽")).toBeVisible();
   await expect(
     page
-      .frameLocator('iframe[title="設計計算書預覽"]')
-      .getByText("油脂截留器設計計算書", { exact: true }),
+      .frameLocator('iframe[title="客戶設計計算報告預覽"]')
+      .getByText("油脂截留器設計計算報告", { exact: true }),
   ).toBeVisible({ timeout: 20_000 });
   await visibleErrorSweep(page);
-  await evidence(page, project, "07-report-preview");
+  await evidence(page, project, "08-report-preview");
   await page.getByRole("button", { name: "核發此版本" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
-    page.getByText("核發後此版本與快照不可修改。若內容變更，需建立新修訂版。"),
+    page.getByText("核發後此版本內容固定。若內容變更，需建立新修訂版。"),
   ).toBeVisible();
-  await evidence(page, project, "08-issue-confirmation");
+  await evidence(page, project, "09-issue-confirmation");
   await page.getByRole("button", { name: "確認核發" }).click();
   await expect(
-    page.getByText("報告已核發；此版本與快照不可修改。"),
+    page.getByText("報告已核發；如需變更內容，請建立新修訂版。"),
   ).toBeVisible({ timeout: 30_000 });
   await expect(
     page.getByRole("link", { name: "下載已核發報告" }).first(),
   ).toBeVisible();
   await expect(
     page
-      .frameLocator('iframe[title="設計計算書預覽"]')
-      .getByText("油脂截留器設計計算書", { exact: true }),
+      .frameLocator('iframe[title="客戶設計計算報告預覽"]')
+      .getByText("油脂截留器設計計算報告", { exact: true }),
   ).toBeVisible({ timeout: 20_000 });
   await visibleErrorSweep(page);
-  await evidence(page, project, "09-issued");
+  await evidence(page, project, "10-issued");
 
   await page.getByRole("link", { name: "規則" }).click();
   await expect(
@@ -166,6 +209,44 @@ test("single actor completes a dual-track case through report issue", async ({
 
   expect(apiFailures).toEqual([]);
   expect(consoleErrors).toEqual([]);
+});
+
+test("area and reverse field groups expose help for every input", async ({
+  page,
+}, testInfo) => {
+  await createDualTrackCase(page, "我知道廚房與用餐區面積，要換算流量。");
+  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(13);
+  await expect(
+    page.getByRole("button", { name: "廚房面積（m²）說明" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "人員密度（人/m²）說明" }),
+  ).toBeVisible();
+  await visibleErrorSweep(page);
+  await evidence(page, testInfo.project.name, "11-area-field-help-matrix");
+
+  await createDualTrackCase(
+    page,
+    "我知道設備能力／有效容積，要反推等效人數及面積。",
+  );
+  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(14);
+  await expect(
+    page.getByRole("button", { name: "Q 設計能力（L/min）說明" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "能力資料來源／證據說明" }),
+  ).toBeVisible();
+  const volumeHelp = page.getByRole("button", {
+    name: "有效容積（L）說明",
+  });
+  await volumeHelp.click();
+  const dialog = page.getByRole("dialog", { name: "有效容積（L）說明" });
+  await expect(dialog).toContainText("請勿填外殼的名目容積。");
+  await evidence(page, testInfo.project.name, "12-reverse-field-help-matrix");
+  await dialog.getByRole("button", { name: "關閉說明" }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(volumeHelp).toBeFocused();
+  await visibleErrorSweep(page);
 });
 
 test("unauthenticated API access returns safe problem details", async ({

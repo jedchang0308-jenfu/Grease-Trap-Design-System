@@ -24,6 +24,11 @@ describe("current Q/G official regression", () => {
     expect(result.raw.gKg).toBe("112");
     expect(result.adopted.qLpm).toBe("388.9");
     expect(result.adopted.gKg).toBe("112");
+    expect(
+      result.steps
+        .filter((step) => step.formulaCode.startsWith("CUR-DIN-G"))
+        .every((step) => step.unit === "kg"),
+    ).toBe(true);
   });
 
   it("recalculates CUR-SCHOOL-001", () => {

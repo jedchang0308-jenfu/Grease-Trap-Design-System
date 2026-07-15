@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { calculationBasisDisplay } from "@/domain/rules/source-display";
 import {
   a36Areas,
   currentAreaFactors,
@@ -173,7 +174,7 @@ export function calculateCurrentByDiners(
   return {
     track: "CURRENT_QG",
     methodCode: "CURRENT_BY_DINERS",
-    semantics: "現行設計需求 Q/G",
+    semantics: `${calculationBasisDisplay.CURRENT_QG.shortLabel}計算結果`,
     raw: { qLpm: decimalString(q), gKg: decimalString(g) },
     sourceDisplay: {
       qLpm: decimalString(sourceDisplayTenth(q)),
@@ -277,7 +278,7 @@ export function calculateCurrentByArea(
   return {
     track: "CURRENT_QG",
     methodCode: "CURRENT_BY_TOTAL_AREA",
-    semantics: "現行設計需求 Q/G",
+    semantics: `${calculationBasisDisplay.CURRENT_QG.shortLabel}計算結果`,
     raw: {
       qLpm: decimalString(q),
       gKg: decimalString(g),
@@ -406,7 +407,7 @@ export function reverseCurrentByCapacity(
   return {
     track: "CURRENT_QG",
     methodCode: "CURRENT_REVERSE_BY_CAPACITY",
-    semantics: "本組設計假設下的設備能力等效上限",
+    semantics: `${calculationBasisDisplay.CURRENT_QG.shortLabel}計算結果：設備能力等效上限`,
     raw: {
       dinersByQ: decimalString(nByQ),
       dinersByG: decimalString(nByG),

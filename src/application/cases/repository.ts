@@ -59,3 +59,108 @@ export async function getLatestCase(
   }
   return row;
 }
+
+export async function deleteCaseGroup(
+  client: PoolClient,
+  caseGroupId: string,
+  user: AuthenticatedUser,
+) {
+  const latest = await getLatestCase(client, caseGroupId, user, true);
+  const revisions = await client.query<{
+    id: string;
+    revisionNo: number;
+    lifecycleStatus: string;
+  }>(
+    `SELECT id, revision_no AS "revisionNo", lifecycle_status AS "lifecycleStatus"
+       FROM calculation_cases
+      WHERE case_group_id=$1
+      ORDER BY revision_no DESC
+      FOR UPDATE`,
+    [caseGroupId],
+  );
+
+  await client.query(
+    `CREATE TEMP TABLE case_delete_revisions (
+       id uuid PRIMARY KEY
+     ) ON COMMIT DROP`,
+  );
+  await client.query(
+    `INSERT INTO case_delete_revisions(id)
+     SELECT id FROM calculation_cases WHERE case_group_id=$1`,
+    [caseGroupId],
+  );
+
+  await client.query(
+    "INSERT INTO audit_events(actor_id, action, aggregate_type, aggregate_id, metadata_json) VALUES($1,'CASE_DELETED','CASE',$2,$3)",
+    [
+      user.id,
+      latest.id,
+      {
+        caseGroupId,
+        caseNo: latest.case_no,
+        deletedRevisions: revisions.rows.map((revision) => ({
+          revisionNo: revision.revisionNo,
+          lifecycleStatus: revision.lifecycleStatus,
+        })),
+      },
+    ],
+  );
+
+  await client.query(
+    `DELETE FROM warnings
+      WHERE owner_type='CALCULATION_RUN'
+        AND owner_id IN (
+          SELECT cr.id
+            FROM calculation_runs cr
+            JOIN case_delete_revisions cdr ON cdr.id=cr.case_revision_id
+        )`,
+  );
+  await client.query(
+    `DELETE FROM calculation_steps
+      WHERE run_id IN (
+        SELECT cr.id
+          FROM calculation_runs cr
+          JOIN case_delete_revisions cdr ON cdr.id=cr.case_revision_id
+      )`,
+  );
+  await client.query(
+    `DELETE FROM track_assessments
+      WHERE request_id IN (
+        SELECT id FROM calculation_requests
+         WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)
+      )`,
+  );
+  await client.query(
+    `DELETE FROM calculation_runs
+      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
+  );
+  await client.query(
+    `DELETE FROM calculation_requests
+      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
+  );
+  await client.query(
+    `DELETE FROM engineering_overrides
+      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
+  );
+  await client.query(
+    `DELETE FROM review_records
+      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
+  );
+  await client.query(
+    `DELETE FROM report_snapshots
+      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
+  );
+  await client.query(
+    `DELETE FROM scenario_decisions
+      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
+  );
+  await client.query(
+    "DELETE FROM calculation_cases WHERE case_group_id=$1",
+    [caseGroupId],
+  );
+
+  return {
+    caseId: caseGroupId,
+    deletedRevisionCount: revisions.rowCount ?? 0,
+  };
+}

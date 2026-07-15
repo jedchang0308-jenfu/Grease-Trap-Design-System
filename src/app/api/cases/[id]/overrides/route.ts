@@ -39,11 +39,11 @@ export async function POST(
     const { id } = await context.params;
     const result = await withTransaction(async (client) => {
       const item = await getLatestCase(client, id, user, true);
-      if (item.lifecycle_status !== "IN_REVIEW")
+      if (item.lifecycle_status !== "CALCULATED")
         throw new AppProblem({
-          code: "OVERRIDE_REQUIRES_REVIEW",
-          title: "目前不能核准人工採用",
-          userMessage: "請先把案件提交覆核，再建立人工採用紀錄。",
+          code: "OVERRIDE_REQUIRES_DRAFT",
+          title: "目前不能修改報告草稿",
+          userMessage: "人工採用必須在送出最終審核前完成。",
           status: 409,
         });
       const overrideId = randomUUID();

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { calculationModeDisplay } from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { StatusBadge } from "@/ui/components/status-badge";
 import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
@@ -29,9 +30,9 @@ const taskLabels: Record<string, string> = {
 };
 
 const modeLabels: Record<string, string> = {
-  CURRENT_QG: "現行 Q/G",
-  LEGACY_QV: "舊版 Q/V",
-  DUAL_COMPARISON: "新舊雙軌",
+  CURRENT_QG: calculationModeDisplay.CURRENT_QG.label,
+  LEGACY_QV: calculationModeDisplay.LEGACY_QV.label,
+  DUAL_COMPARISON: calculationModeDisplay.DUAL_COMPARISON.label,
 };
 
 export function CasesList() {
@@ -40,6 +41,7 @@ export function CasesList() {
   const [mode, setMode] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(true);
+  const [deletingCaseId, setDeletingCaseId] = useState<string | null>(null);
   const [problem, setProblem] = useState<UiProblem | null>(null);
 
   const load = useCallback(async () => {
@@ -65,6 +67,32 @@ export function CasesList() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function deleteCase(item: CaseSummary) {
+    const displayTitle = item.title.trim() || item.caseNo;
+    if (
+      !window.confirm(
+        `確定刪除案件「${displayTitle}」（${item.caseNo}）？\n\n這會刪除案件的全部修訂、計算結果、覆核與報告紀錄，且無法復原。`,
+      )
+    ) {
+      return;
+    }
+
+    setDeletingCaseId(item.caseId);
+    setProblem(null);
+    try {
+      await fetchJson(`/api/cases/${item.caseId}`, { method: "DELETE" });
+      await load();
+    } catch (error) {
+      setProblem(
+        error instanceof UiRequestError
+          ? error.problem
+          : { userMessage: "案件刪除未完成，請重試。" },
+      );
+    } finally {
+      setDeletingCaseId(null);
+    }
+  }
 
   return (
     <div className="page">
@@ -99,9 +127,15 @@ export function CasesList() {
               onChange={(event) => setMode(event.target.value)}
             >
               <option value="">全部模式</option>
-              <option value="CURRENT_QG">現行 Q/G</option>
-              <option value="LEGACY_QV">舊版 Q/V</option>
-              <option value="DUAL_COMPARISON">新舊雙軌</option>
+              <option value="CURRENT_QG">
+                {calculationModeDisplay.CURRENT_QG.label}
+              </option>
+              <option value="LEGACY_QV">
+                {calculationModeDisplay.LEGACY_QV.label}
+              </option>
+              <option value="DUAL_COMPARISON">
+                {calculationModeDisplay.DUAL_COMPARISON.label}
+              </option>
             </select>
           </div>
           <div className="field">
@@ -159,6 +193,7 @@ export function CasesList() {
                   <th>狀態</th>
                   <th>最後更新</th>
                   <th>下一步</th>
+                  <th>操作</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,6 +231,18 @@ export function CasesList() {
                     </td>
                     <td data-label="下一步">
                       <Link href={`/cases/${item.caseId}`}>開啟案件</Link>
+                    </td>
+                    <td data-label="操作">
+                      <button
+                        className="button danger"
+                        type="button"
+                        disabled={deletingCaseId === item.caseId}
+                        onClick={() => void deleteCase(item)}
+                      >
+                        {deletingCaseId === item.caseId
+                          ? "正在刪除…"
+                          : "刪除案件"}
+                      </button>
                     </td>
                   </tr>
                 ))}

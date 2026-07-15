@@ -1,9 +1,9 @@
 # QA-001｜第一階段驗證計畫
 
 文件狀態：`QA Ready`  
-版本：`1.2`
-日期：`2026-07-14`
-對應：SPEC-001、SPEC-002、ADR-001～006、DEV-001～013
+版本：`1.3`
+日期：`2026-07-15`
+對應：SPEC-001、SPEC-002、ADR-001～006、DEV-001～014
 
 ## 1. 驗證目標
 
@@ -22,67 +22,67 @@
 
 ## 2. 風險矩陣
 
-| 風險 | 嚴重度 | 主要控制 | 必要證據 |
-|---|---|---|---|
-| 新舊公式或單位混用 | Critical | domain 型別＋隔離 calculator | unit／integration |
-| PDF 錯字被當真值 | Critical | source discrepancy＋重算 fixture | exact regression |
-| 有效軌被不足軌阻擋 | High | ADR-002 狀態矩陣 | API＋E2E |
-| 未完成軌出現假數值 | Critical | TrackAssessment／run constraint | DB＋API＋UI |
-| 產品／證書匹配被誤重新加入 | High | ADR-004 scope guard | schema／API／UI absence tests |
-| 單人流程被 separation-of-duty 阻擋 | High | ADR-005 actor rule | API＋E2E＋audit |
-| raw 值被提前截斷 | High | decimal＋raw/adopted 分層 | precision tests |
-| n0 越界或跨空白內插 | Critical | segment resolver＋exception | boundary tests |
-| 報告受 live data 污染 | Critical | immutable snapshot | snapshot regression |
-| 權限繞過 | Critical | server-side authorization | API negative tests |
-| UI 提醒被理解為阻擋 | High | Now What 文案＋可用 CTA | E2E＋manual UX |
-| 選填基本資料仍阻擋建案，或餐飲類型在錯誤步驟被預先代選 | High | 建案 schema default＋工作台 required select | contract unit＋E2E＋manual UX |
+| 風險                                                   | 嚴重度   | 主要控制                                    | 必要證據                      |
+| ------------------------------------------------------ | -------- | ------------------------------------------- | ----------------------------- |
+| 新舊公式或單位混用                                     | Critical | domain 型別＋隔離 calculator                | unit／integration             |
+| PDF 錯字被當真值                                       | Critical | source discrepancy＋重算 fixture            | exact regression              |
+| 有效軌被不足軌阻擋                                     | High     | ADR-002 狀態矩陣                            | API＋E2E                      |
+| 未完成軌出現假數值                                     | Critical | TrackAssessment／run constraint             | DB＋API＋UI                   |
+| 產品／證書匹配被誤重新加入                             | High     | ADR-004 scope guard                         | schema／API／UI absence tests |
+| 單人流程被 separation-of-duty 阻擋                     | High     | ADR-005 actor rule                          | API＋E2E＋audit               |
+| raw 值被提前截斷                                       | High     | decimal＋raw/adopted 分層                   | precision tests               |
+| n0 越界或跨空白內插                                    | Critical | segment resolver＋exception                 | boundary tests                |
+| 報告受 live data 污染                                  | Critical | immutable snapshot                          | snapshot regression           |
+| 權限繞過                                               | Critical | server-side authorization                   | API negative tests            |
+| UI 提醒被理解為阻擋                                    | High     | Now What 文案＋可用 CTA                     | E2E＋manual UX                |
+| 選填基本資料仍阻擋建案，或餐飲類型在錯誤步驟被預先代選 | High     | 建案 schema default＋工作台 required select | contract unit＋E2E＋manual UX |
 
 ## 3. 測試分層
 
-| 層 | 範圍 | 何時執行 |
-|---|---|---|
-| Unit | pure calculators、units、interpolation、rounding、solver | 每次 domain 變更 |
-| Integration | repository、transaction、orchestrator、API、permissions | 每個 DEV slice |
-| Contract | request／response schema、error code、snapshot schema | API／報告變更 |
-| E2E | 建案、計算、提醒、覆核、核發、修訂 | Phase 3 後 |
-| PDF | 內容、分頁、字型、hash、來源與限制 | DEV-009 後 |
-| UI QC | viewport、互動、visible errors、accessibility | DEV-007 後持續執行 |
-| Manual engineering QC | 官方案例逐步重算、來源頁核對 | Phase 4 |
+| 層                    | 範圍                                                     | 何時執行           |
+| --------------------- | -------------------------------------------------------- | ------------------ |
+| Unit                  | pure calculators、units、interpolation、rounding、solver | 每次 domain 變更   |
+| Integration           | repository、transaction、orchestrator、API、permissions  | 每個 DEV slice     |
+| Contract              | request／response schema、error code、snapshot schema    | API／報告變更      |
+| E2E                   | 建案、計算、提醒、覆核、核發、修訂                       | Phase 3 後         |
+| PDF                   | 內容、分頁、字型、hash、來源與限制                       | DEV-009 後         |
+| UI QC                 | viewport、互動、visible errors、accessibility            | DEV-007 後持續執行 |
+| Manual engineering QC | 官方案例逐步重算、來源頁核對                             | Phase 4            |
 
 ## 4. 現行官方回歸案例
 
 所有公式以 Decimal 重算；source display 只作比對，正式限制比較與反推使用 raw。
 
-| ID | 輸入摘要 | raw Q L/min | raw G kg | source display | adopted 向上 0.1 |
-|---|---|---:|---:|---|---|
-| CUR-AREA-001 | 中餐，A=610，n0=3.4 來源例外，iu=ib=7 | 566.891339869281… | 163.264705882352… | 566.8／163.2 | 566.9／163.3 |
-| CUR-DIN-001 | 中餐，N=1000，iu=ib=7 | 388.888888888888… | 112.000 | 388.8／112.0 | 388.9／112.0 |
-| CUR-SCHOOL-001 | 學校午餐，N=2150，iu=ib=7 | 235.15625 | 15.0500 | 235.1／15.0 | 235.2／15.1 |
-| CUR-MIX-AREA-001 | 複合餐廳採中餐，A=385，iu=ib=7 | 357.792075163398… | 103.044117647058… | 357.7／103.0 | 357.8／103.1 |
-| CUR-MIX-DIN-001 | 複合餐廳採中餐，N=600，iu=ib=7 | 233.333333333333… | 67.200 | 233.3／67.2 | 233.4／67.2 |
+| ID               | 輸入摘要                              |       raw Q L/min |          raw G kg | source display | adopted 向上 0.1 |
+| ---------------- | ------------------------------------- | ----------------: | ----------------: | -------------- | ---------------- |
+| CUR-AREA-001     | 中餐，A=610，n0=3.4 來源例外，iu=ib=7 | 566.891339869281… | 163.264705882352… | 566.8／163.2   | 566.9／163.3     |
+| CUR-DIN-001      | 中餐，N=1000，iu=ib=7                 | 388.888888888888… |           112.000 | 388.8／112.0   | 388.9／112.0     |
+| CUR-SCHOOL-001   | 學校午餐，N=2150，iu=ib=7             |         235.15625 |           15.0500 | 235.1／15.0    | 235.2／15.1      |
+| CUR-MIX-AREA-001 | 複合餐廳採中餐，A=385，iu=ib=7        | 357.792075163398… | 103.044117647058… | 357.7／103.0   | 357.8／103.1     |
+| CUR-MIX-DIN-001  | 複合餐廳採中餐，N=600，iu=ib=7        | 233.333333333333… |            67.200 | 233.3／67.2    | 233.4／67.2      |
 
 CUR-AREA-001 必須同時驗證 `SOURCE_EXCEPTION` 警示；610 以外的中餐表外值不得因這個 fixture 自動放行。
 
-## 5. 舊版來源回歸案例
+## 5. 臺北市工務局衛工處設計說明來源回歸案例
 
-| ID | 輸入摘要 | 預期 raw Q L/h | 預期 raw V L | 錯字防回歸 |
-|---|---|---:|---:|---|
-| LEG-MEAL-001 | 午餐 50×50/4、晚餐 80×50/5，餐期平均，k=1.5 | 1068.75 | 178.125 | adopted V=178.2，不抄來源 178.1 |
-| LEG-SCHOOL-001 | 500 人×3 餐=1500，q=100，t=10，k=1.3 | 19500 | 3250 | 不接受摘錄漏零中間式 |
-| LEG-MEASURED-001 | 實測 2000 L／4 h，k=1.2 | 600 | 100 | measured route 正確 |
-| LEG-AREA-001 | 200 m²×0.5×8=800，q=30，t=12，k=1.5 | 3000 | 500 | 不接受 `300` 錯字 |
+| ID               | 輸入摘要                                    | 預期 raw Q L/h | 預期 raw V L | 錯字防回歸                      |
+| ---------------- | ------------------------------------------- | -------------: | -----------: | ------------------------------- |
+| LEG-MEAL-001     | 午餐 50×50/4、晚餐 80×50/5，餐期平均，k=1.5 |        1068.75 |      178.125 | adopted V=178.2，不抄來源 178.1 |
+| LEG-SCHOOL-001   | 500 人×3 餐=1500，q=100，t=10，k=1.3        |          19500 |         3250 | 不接受摘錄漏零中間式            |
+| LEG-MEASURED-001 | 實測 2000 L／4 h，k=1.2                     |            600 |          100 | measured route 正確             |
+| LEG-AREA-001     | 200 m²×0.5×8=800，q=30，t=12，k=1.5         |           3000 |          500 | 不接受 `300` 錯字               |
 
 ## 6. 五任務 × 雙軌必要路徑
 
 至少 10 組獨立正向路徑：
 
-| 任務 | 現行軌 | 舊版軌 |
-|---|---|---|
-| T01 | L/min、來源與參數 trace | L/h、legacy k 與 q trace |
-| T02 | Q/G 設計需求 | Q＋Veff |
-| T03 | kitchen＋dining 全面積 | area→n→Q |
-| T04 | Q/G 設計需求 | Q＋Veff＋effective volume 語意 |
-| T05 | 輸入 Q/G 能力、控制條件與等效上限 | Veff 反推人數與面積 |
+| 任務 | 內政部給排水規範（附錄 5）        | 臺北市工務局衛工處設計說明     |
+| ---- | --------------------------------- | ------------------------------ |
+| T01  | L/min、來源與參數 trace           | L/h、legacy k 與 q trace       |
+| T02  | Q/G 設計需求                      | Q＋Veff                        |
+| T03  | kitchen＋dining 全面積            | area→n→Q                       |
+| T04  | Q/G 設計需求                      | Q＋Veff＋effective volume 語意 |
+| T05  | 輸入 Q/G 能力、控制條件與等效上限 | Veff 反推人數與面積            |
 
 每條正向路徑至少搭配一個必要欄位缺漏反例與一個單位錯誤反例。
 
@@ -111,21 +111,21 @@ CUR-AREA-001 必須同時驗證 `SOURCE_EXCEPTION` 警示；610 以外的中餐�
 
 ## 9. 雙軌放行矩陣
 
-| ID | Current | Legacy | 預期狀態 | releaseEligible | 預期 run 數 |
-|---|---|---|---|---:|---:|
-| DUAL-001 | CALCULATED | CALCULATED | COMPLETE | true | 2 |
-| DUAL-002 | CALCULATED | INSUFFICIENT_DATA | COMPLETE_WITH_REMINDER | true | 1 |
-| DUAL-003 | INSUFFICIENT_DATA | CALCULATED | COMPLETE_WITH_REMINDER | true | 1 |
-| DUAL-004 | CALCULATED | ERROR | COMPLETE_WITH_REMINDER | true | 1 |
-| DUAL-005 | INVALID | CALCULATED | COMPLETE_WITH_REMINDER | true | 1 |
-| DUAL-006 | INSUFFICIENT_DATA | INVALID | BLOCKED | false | 0 |
-| DUAL-007 | ERROR | ERROR | BLOCKED | false | 0 |
+| ID       | Current           | Legacy            | 預期狀態               | releaseEligible | 預期 run 數 |
+| -------- | ----------------- | ----------------- | ---------------------- | --------------: | ----------: |
+| DUAL-001 | CALCULATED        | CALCULATED        | COMPLETE               |            true |           2 |
+| DUAL-002 | CALCULATED        | INSUFFICIENT_DATA | COMPLETE_WITH_REMINDER |            true |           1 |
+| DUAL-003 | INSUFFICIENT_DATA | CALCULATED        | COMPLETE_WITH_REMINDER |            true |           1 |
+| DUAL-004 | CALCULATED        | ERROR             | COMPLETE_WITH_REMINDER |            true |           1 |
+| DUAL-005 | INVALID           | CALCULATED        | COMPLETE_WITH_REMINDER |            true |           1 |
+| DUAL-006 | INSUFFICIENT_DATA | INVALID           | BLOCKED                |           false |           0 |
+| DUAL-007 | ERROR             | ERROR             | BLOCKED                |           false |           0 |
 
 資料庫、API、UI 與 PDF 都必須驗證：未完成軌沒有 `CalculationRun`、沒有 result value、只有 assessment 與原因。
 
 ## 10. 設計能力輸入與 Scope Guard
 
-- T05 缺 Qcapacity、Gcapacity、單位或來源時，現行軌回 `INSUFFICIENT_DATA`。
+- T05 缺 Qcapacity、Gcapacity、單位或來源時，內政部給排水規範（附錄 5）回 `INSUFFICIENT_DATA`。
 - Qcapacity／Gcapacity 等於需求 raw 值時，依嚴格 `<` 限制不得計入可承載上限。
 - 畫面 adopted 值不同於 raw 時，反推仍依 raw 限制判定。
 - schema 不存在 product model、certificate 或 match aggregate。
@@ -141,7 +141,7 @@ CUR-AREA-001 必須同時驗證 `SOURCE_EXCEPTION` 警示；610 以外的中餐�
 - per-track savepoint：一軌 throw 時另一軌 run 可提交。
 - parent commit failure：assessment 與 run 全部 rollback。
 - active RuleSet immutable；啟用失敗不留半啟用狀態。
-- issued snapshot update／delete 被 DB／service 阻擋。
+- issued snapshot update 被 DB／service 阻擋；案件刪除 API 可在交易中清除其關聯 snapshot。
 - API 未授權、角色不足、跨案件 access 均有 negative test。
 
 ## 12. 案件生命週期與修訂
@@ -150,22 +150,23 @@ CUR-AREA-001 必須同時驗證 `SOURCE_EXCEPTION` 警示；610 以外的中餐�
 
 - BLOCKED 不得提交覆核。
 - COMPLETE／COMPLETE_WITH_REMINDER 可提交。
-- 未 REVIEWED 不得 issue。
+- CALCULATED 可預覽完整報告草稿，但未 REVIEWED 不得 issue。
+- IN_REVIEW 的報告與人工採用為只讀；退回後回到 CALCULATED 才能修正並重新送審。
 - ISSUED 不可編輯；修改必須建立 revision+1。
 - 新 revision 核發後前版 SUPERSEDED，但舊 PDF 可下載且內容不變。
-- override 未核准不得進入正式 snapshot。
+- override 必須在送出最終覆核前完成並核准；未核准不得進入正式 snapshot。
 - preparedBy、reviewedBy、issuedBy 可以是同一 actor；API 不得以相同 actor 為由阻擋。
 - 同一 actor 的提交、覆核與核發必須形成三筆可區分的 audit event。
 
 ## 13. PDF 驗證
 
-三種樣本：現行、舊版、雙軌；雙軌另含單軌完成樣本。
+三種樣本：內政部給排水規範、臺北市工務局衛工處設計說明、不同計算依據對照；對照另含單份完成樣本。
 
 檢查：
 
 - 封面、報告版本、案件、狀態與 report number policy。
 - 方法、來源、單位、公式、raw/adopted、限制與簽核。
-- 舊版歷史方法標籤。
+- 計算依據來源名稱標籤。
 - COMPLETE_WITH_REMINDER 顯示「雙軌案件—單軌完成」。
 - 未完成軌顯示「未計算」與原因，無空白假值。
 - 報告限制章節明示未執行產品或證書符合性判定，且全文不列相符型號結論。
@@ -188,11 +189,11 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 ### Manual UX review
 
-- `/cases/new` 的基本資料可全部留白建案，餐飲類型不出現在該頁；案件工作台的現行 Q/G 計算資料才顯示餐飲類型，且未選時不可送出計算。
+- `/cases/new` 的基本資料可全部留白建案，餐飲類型不出現在該頁；案件工作台的內政部給排水規範（附錄 5）計算資料才顯示餐飲類型，且未選時不可送出計算。
 - 空白案件名稱以案件編號識別，空白客戶與地點有「未填」替代文字。
 - 5 秒內知道頁面用途、狀態與下一步。
-- COMPLETE_WITH_REMINDER 第一行先說「可繼續覆核」。
-- IN_REVIEW 明示目前使用者可繼續，不要求切換帳號或等待他人。
+- COMPLETE_WITH_REMINDER 第一行先說「可完成報告草稿」，送審後再進入最終覆核。
+- CALCULATED 明示先完成報告草稿；IN_REVIEW 明示審核者正在看完整送審報告，不要求切換帳號或等待他人。
 - primary CTA 唯一且可用。
 - blocked／disabled 提供替代下一步。
 - 首屏沒有長篇公式／制度教學。
@@ -201,12 +202,12 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 ## 15. Phase Gates
 
-| Gate | 對應 DEV | 通過條件 |
-|---|---|---|
-| G1 Foundation | 001～002 | 固定啟動入口、schema、migration、全部 factor seed checksum 與 source fixtures 通過 |
-| G2 Calculation | 003～005 | 現行／舊版官方案例、reverse、precision、dual matrix 全通過 |
-| G3 Workflow | 007～009 | case、single-user review／issue、snapshot、PDF integration／E2E 通過；DEV-006 依 ADR-004 跳過 |
-| G4 Acceptance | 010～011 | 完整 regression、UI QC、manual engineering QC 通過 |
+| Gate           | 對應 DEV | 通過條件                                                                                      |
+| -------------- | -------- | --------------------------------------------------------------------------------------------- |
+| G1 Foundation  | 001～002 | 固定啟動入口、schema、migration、全部 factor seed checksum 與 source fixtures 通過            |
+| G2 Calculation | 003～005 | 兩份來源案例、reverse、precision、對照 matrix 全通過                                          |
+| G3 Workflow    | 007～009 | case、single-user review／issue、snapshot、PDF integration／E2E 通過；DEV-006 依 ADR-004 跳過 |
+| G4 Acceptance  | 010～011 | 完整 regression、UI QC、manual engineering QC 通過                                            |
 
 上一 gate 未通過不得把下一 phase 宣告完成；可在不掩蓋 blocker 的前提下平行開發獨立工作。
 
@@ -218,7 +219,7 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 - API contract 與 DB constraint 測試結果。
 - 身份、session、匿名、角色不足、跨案件與單一 actor 全流程測試結果。
 - 每個 critical UI route／viewport 截圖與 visible error sweep。
-- 現行、舊版、雙軌、單軌完成 PDF 樣本與 render PNG。
+- 兩份來源、對照與單份完成 PDF 樣本與 render PNG。
 - QC 人工逐步重算紀錄及 Pass／Fail／未充分驗證判定。
 
 ## 17. QA Stop Conditions

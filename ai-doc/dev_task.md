@@ -1,9 +1,9 @@
 # Dev Task｜油脂截留器雙軌計算系統
 
 文件狀態：`Local Engineering Complete — Human Pilot Pending`  
-版本：`2.1`
-最後更新：`2026-07-14`
-本輪執行邊界：本地 RD／自動化 QA／UI 與 PDF QC 已完成，DEV-013 建案流程調整已通過；真實案件平行試算待人類輸入；release 未獲指令
+版本：`2.3`
+最後更新：`2026-07-15`
+本輪執行邊界：本地 RD／自動化 QA／客戶報告 PDF 與地端頁面 QC 執行 DEV-015 輸入、計算依據與輸出重構；真實案件平行試算待人類輸入；release 未獲指令
 產品完成基準：8 個有效交付點，目前完成 8／8（100%）；DEV-006 已由使用者決策跳過，不計入分母
 
 ## 總任務清單
@@ -17,23 +17,23 @@
   - 計入交付：是
 
 - ✓ DEV-002 [交付點] [完成] [P0] 建立版本化來源、規則與參數庫
-  - 摘要：把現行 A-34～A-37、舊版 Q/V 參數、來源雜湊與 discrepancy 建成可查、不可靜默修改的 seed data。
+  - 摘要：把內政部給排水規範（附錄 5）的 A-34～A-37、臺北市工務局衛工處設計說明的 Q/V 參數、來源雜湊與 discrepancy 建成可查、不可靜默修改的 seed data。
   - 來源 ID：`GTC-PH1-RULES-002`
   - 父任務：無
   - 下一步：只有新法規來源版本出現時建立新 RuleSet，不回寫 ACTIVE 版本
   - 證據：2 份 migration、seed checksum、ACTIVE immutability、factor counts 與 DB integration tests
   - 計入交付：是
 
-- ✓ DEV-003 [交付點] [完成] [P0] 實作現行 Q/G 正向與反向計算核心
-  - 摘要：交付現行人數、全面積、輸入 Q/G 能力反推、A-36 內插與來源例外的高精度純計算核心。
+- ✓ DEV-003 [交付點] [完成] [P0] 實作內政部給排水規範（附錄 5）Q/G 正向與反向計算核心
+  - 摘要：交付人數、全面積、輸入 Q/G 能力反推、A-36 內插與來源例外的高精度純計算核心。
   - 來源 ID：`GTC-PH2-CURRENT-003`
   - 父任務：無
   - 下一步：無
   - 證據：CUR 官方案例、A-36 exception／interpolation、precision、strict reverse unit tests
   - 計入交付：是
 
-- ✓ DEV-004 [交付點] [完成] [P0] 實作舊版 Q/V 正向與反向計算核心
-  - 摘要：交付舊版人數、餐期平均、實測、面積與有效容積反推，並防止來源錯字與參數猜值。
+- ✓ DEV-004 [交付點] [完成] [P0] 實作臺北市工務局衛工處設計說明 Q/V 正向與反向計算核心
+  - 摘要：交付人數、餐期平均、實測、面積與有效容量反推，並防止來源錯字與參數猜值。
   - 來源 ID：`GTC-PH2-LEGACY-004`
   - 父任務：無
   - 下一步：無
@@ -73,11 +73,11 @@
   - 計入交付：是
 
 - ✓ DEV-009 [交付點] [完成] [P1] 建立 ReportSnapshot 與設計計算書 PDF
-  - 摘要：從 reviewed revision 建立不可變快照，產生現行、舊版、雙軌與單軌完成的正式報告版型。
+  - 摘要：從 reviewed revision 建立不可變快照，產生兩份計算依據、對照與單份完成的正式報告版型。
   - 來源 ID：`GTC-PH3-REPORT-009`
   - 父任務：無
   - 下一步：正式報告編號格式於首次 release 前由人類決定
-  - 證據：snapshot／issued immutability、四份 A4 PDF、22 頁 render PNG、content regression
+  - 證據：snapshot／issued update immutability、案件刪除級聯、四份 A4 PDF、22 頁 render PNG、content regression
   - 計入交付：是
 
 - ✓ DEV-010 [QA/QC] [完成] [P1] 完成自動化回歸與 UI QC 套件
@@ -85,7 +85,7 @@
   - 來源 ID：`GTC-PH4-QA-010`
   - 父任務：DEV-003、DEV-004、DEV-005、DEV-007、DEV-008、DEV-009
   - 下一步：新功能或 bugfix 必須維持同一 regression gate
-  - 證據：19 unit、9 integration、9 E2E、production build、screenshots、visible error／overflow sweep
+  - 證據：21 unit、9 integration、12 E2E、production build、screenshots、visible error／overflow sweep
   - 計入交付：否
 
 - ! DEV-011 [關卡] [阻塞] [P1] [待人類實例] 完成本地 RD／QA／QC 驗收
@@ -94,7 +94,7 @@
   - 父任務：DEV-001～DEV-005、DEV-007～DEV-009
   - 下一步：人類提供 3～5 個去識別實際案件、人工結果與可接受差異後執行 parallel diff
   - 阻塞／恢復條件：真實案件證據不可由 AI 假造；收到去識別資料後恢復
-  - 證據：QC-001、官方／舊版案例重算、四種 PDF、三 viewport E2E；parallel diff 待補
+  - 證據：QC-001、兩份來源案例重算、四種 PDF、三 viewport E2E；parallel diff 待補
   - 計入交付：否
 
 - ↷ DEV-012 [關卡] [延後] [P2] [Release Gate Required] 正式環境發版
@@ -110,7 +110,25 @@
   - 來源 ID：`GTC-PH3-CASE-UI-OPTIONAL-013`
   - 父任務：DEV-007
   - 下一步：無；正式發版仍集中於 DEV-012
-  - 證據：21 unit、lint、typecheck、format、production build、9 E2E、1440／390 Playwright QC
+  - 證據：21 unit、lint、typecheck、format、production build、12 E2E、1440／1024／390 Playwright QC
+  - 計入交付：否
+
+- ✓ DEV-014 [開發點] [完成] [P1] [本地工程] 將完整報告草稿前置到最終工程覆核之前
+  - 摘要：編製者先完成可預覽報告與人工採用，審核者最後針對完整送審報告集中審核一次；核准後仍建立不可變快照並核發。
+  - 來源 ID：`GTC-PH3-REPORT-FIRST-014`
+  - 父任務：DEV-008、DEV-009、DEV-010
+  - 下一步：新功能或 bugfix 必須維持同一 regression gate
+  - 阻塞／恢復條件：不得讓未覆核草稿進入正式 issue；不得允許 IN_REVIEW 後新增人工採用
+  - 證據：草稿預覽 API／UI、最終覆核只讀例外、9 integration、12 三 viewport E2E、21 unit、lint／typecheck／format／build
+  - 計入交付：否
+
+- ✓ DEV-015 [開發點] [完成] [P1] [本地工程] 重構客戶報告的輸入、計算依據與輸出
+  - 摘要：第一個資訊區塊直接回答輸入什麼、依什麼來源、輸出什麼；完整計算改為具名、具單位、具資料角色的代入表。
+  - 來源 ID：`GTC-PH3-REPORT-IO-015`
+  - 父任務：DEV-009
+  - 下一步：無；後續報告變更須維持相同輸入／輸出與具名代入契約
+  - 阻塞／恢復條件：不得從 live data 重算報告；不得以 0、空白或推測值補齊未完成資料
+  - 證據：25 unit、lint、typecheck、本次檔案 format／diff check、四種 A4 PDF 共 9 頁 render、指定地端真實案件 browser QC
   - 計入交付：否
 
 ## Phase 執行順序
@@ -119,7 +137,7 @@
 G1 Foundation: DEV-001 → DEV-002
                      ├→ DEV-003 ─┐
 G2 Calculation:      └→ DEV-004 ─┴→ DEV-005
-G3 Workflow: DEV-005 → DEV-007 → DEV-008 → DEV-009
+G3 Workflow: DEV-005 → DEV-007 → DEV-008 → DEV-009 → DEV-014 → DEV-015
 G4 Acceptance: DEV-003～005、007～009 → DEV-010 → DEV-011
 Release: DEV-012（需另行指令）
 ```
@@ -211,7 +229,7 @@ Release: DEV-012（需另行指令）
 
 ---
 
-## DEV-003：實作現行 Q/G 正向與反向計算核心
+## DEV-003：實作內政部給排水規範（附錄 5）Q/G 正向與反向計算核心
 
 狀態：完成  
 節點類型：交付點  
@@ -247,7 +265,7 @@ Release: DEV-012（需另行指令）
 
 ---
 
-## DEV-004：實作舊版 Q/V 正向與反向計算核心
+## DEV-004：實作臺北市工務局衛工處設計說明 Q/V 正向與反向計算核心
 
 狀態：完成  
 節點類型：交付點  
@@ -257,12 +275,12 @@ Release: DEV-012（需另行指令）
 
 - legacy single period、source arithmetic mean、measured、area calculators。
 - reverse by effective volume。
-- exact q／k selection validation 與 historical semantics。
+- exact q／k selection validation 與來源語意。
 - source discrepancy regression。
 
 ### Out of scope
 
-- 將舊版結果當現行選型、未核准的多餐期尖峰政策。
+- 將一份來源的結果當成另一份來源的產品選型、未核准的多餐期尖峰政策。
 
 ### Acceptance
 
@@ -272,7 +290,7 @@ Release: DEV-012（需另行指令）
 
 ### Stop conditions
 
-- 需求要求用現行參數補舊版缺口。
+- 需求要求用一份來源的參數補另一份來源的缺口。
 - 多餐期 aggregation 未明示。
 
 ### Evidence
@@ -349,7 +367,7 @@ Release: DEV-012（需另行指令）
 
 ### Acceptance
 
-- 任一有效軌時 primary CTA 可提交／繼續覆核。
+- 任一有效軌時 primary CTA 可完成報告草稿，送審後再進入最終覆核。
 - 390、1024、1440 主要流程可操作。
 - 無 visible runtime errors、假數值、長篇首屏教學。
 
@@ -384,7 +402,7 @@ Release: DEV-012（需另行指令）
 ### Acceptance
 
 - 非法狀態轉換與權限繞過被阻擋。
-- COMPLETE_WITH_REMINDER 可完成覆核。
+- COMPLETE_WITH_REMINDER 可完成報告草稿，送審後可完成最終覆核。
 - 同一帳號不需切換角色或等待另一人即可完成覆核與核發。
 - preparedBy、reviewedBy、issuedBy 可相同，但 audit 事件、時間與 checklist 完整。
 - 退回原因與下一步可見。
@@ -411,7 +429,7 @@ Release: DEV-012（需另行指令）
 
 - snapshot schema、hash、immutability、issue transaction。
 - deterministic HTML 與 PDF adapter。
-- 現行、舊版、雙軌、雙軌單軌完成模板。
+- 兩份計算依據、對照與單份完成模板。
 - report history、download、supersede。
 - 報告限制章節明示未執行產品型號或證書符合性判定。
 
@@ -476,7 +494,7 @@ Release: DEV-012（需另行指令）
 ### Scope
 
 - 以 3～5 個去識別真實情境做平行試算。
-- QC 獨立重算官方與舊版案例。
+- QC 獨立重算兩份來源案例。
 - 驗證四種 PDF、角色、修訂、audit、RWD。
 - 驗證同一帳號端到端完成編製、覆核與核發，以及匿名／session／權限負向路徑。
 - 整理本地交付 boundary 與殘留風險。
@@ -518,7 +536,7 @@ Release: DEV-012（需另行指令）
 
 ### 任務目標
 
-讓工程人員可在資料尚不完整時先建立案件，並在真正開始現行 Q/G 計算時才明確選擇餐飲類型。
+讓工程人員可在資料尚不完整時先建立案件，並在真正開始內政部給排水規範（附錄 5）計算時才明確選擇餐飲類型。
 
 風險等級：Medium
 
@@ -526,7 +544,7 @@ Release: DEV-012（需另行指令）
 
 - 客戶、地點、案件名稱、用途及資料提供者／證據改為選填，往返步驟保留已輸入資料。
 - 建案契約只要求任務與模式；餐飲類型不在建案 payload，建案時 `dining_type` 為 null。
-- 現行 Q/G 計算資料的餐飲類型不預選，未選時由原生 required validation 阻擋計算。
+- 內政部給排水規範（附錄 5）計算資料的餐飲類型不預選，未選時由原生 required validation 阻擋計算。
 - 空白案件名稱以案件編號顯示；客戶與地點顯示「未填」替代文字；報告快照使用可讀 fallback。
 
 ### 驗收與證據
@@ -540,3 +558,48 @@ Release: DEV-012（需另行指令）
 ### 變更紀錄
 
 - 2026-07-14：完成 RD、QA、QC 與本地整合驗證。
+
+---
+
+## DEV-015：重構客戶報告的輸入、計算依據與輸出
+
+狀態：完成
+節點類型：開發點
+父交付點：DEV-009
+是否計入產品交付完成：否
+原始需求邊界：使用者 2026-07-15 要求整份報告可明確辨識輸入條件與輸出結果，並執行全部優化方案
+
+### 任務目標
+
+客戶在第一個資訊區塊即可知道本次提供哪些條件、採用哪份計算依據、得到哪些結果；需要查算式時，每個代入數字都有名稱、單位與資料角色。
+
+風險等級：Medium
+
+### 開發範圍
+
+- 以不可變 ReportSnapshot 的輸入與結果建立純顯示模型，不變更公式、資料庫或 lifecycle。
+- 移除空白封面與重複摘要卡，改為「本次輸入條件 → 計算依據 → 本次設計結果」。
+- 結果以計算依據對照表呈現，區分「未完成」與「此依據無法計算」。
+- 完整計算列出各方法使用條件，以及符號、代表內容、數值、單位、資料角色、數值算式與計算結果。
+- 隱藏未使用欄位；缺少資料時顯示人類可理解的說明，不填入 0 或推測值。
+
+### 驗收條件
+
+- 第一個資訊區塊 5 秒內可回答輸入、計算依據與輸出。
+- 每個數值算式的代入值可追溯到名稱、單位與「本案條件／計算依據參數／計算中間值」。
+- `L/h` 保留原始值並另列 `L/min`；`kg` 與 `L` 不做錯誤比對；報告不存在 `kg/day`。
+- 四種範例 PDF 與指定真實案件預覽無裁切、重疊、可見錯誤或持續重新載入。
+
+### 驗收與證據
+
+- 靜態與自動化：lint、typecheck、本次檔案 Prettier／diff check、25 unit tests passed。
+- PDF：現行 2 頁、臺北市 2 頁、雙方法 3 頁、雙方法單軌 2 頁；共 9 頁 A4 render，逐頁確認無孤立標題、空白頁、裁切、重疊、黑方塊或表格斷裂。
+- 地端真實案件：`/cases/85b0d50f-c8fe-494b-802f-e9e1c5e29368/report` 顯示輸入、輸出、三種資料角色、原始／統一流量與完整數值算式；無 `kg/day`、系統審核計畫、水平溢位、可見錯誤或 console warning／error。
+- 穩定性：重新載入後 1.5 秒觀察期間 URL 與內容維持穩定，未再發生持續重新載入。
+
+### 變更紀錄
+
+- 2026-07-15：建立 DEV-015，開始客戶報告資訊架構與計算過程重構。
+- 2026-07-15：完成 RD、單元回歸、四種 PDF QC 與指定地端案件 browser QC。
+- 2026-07-15：依客戶比較需求移除摘要中的原始流量列，結果對照表統一使用 `L/min`；`L/h` 僅保留於完整計算過程。
+- 2026-07-15：案件工作台移除雙軌結果卡片，改用與客戶報告共用的「本次設計結果」顯示模型與比較表，避免輸出名稱、狀態與單位分歧。

@@ -189,6 +189,50 @@ h2 {
   font-size: 0.94rem;
 }
 
+.field-label-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field-label-row > label {
+  min-width: 0;
+}
+
+.field-help-trigger {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  margin: -3px 0;
+  padding: 2px 5px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--brand);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.field-help-trigger:hover {
+  background: var(--brand-soft);
+}
+
+.field-help-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.76rem;
+  line-height: 1;
+}
+
 .field input,
 .field select,
 .field textarea,
@@ -489,6 +533,73 @@ button.button {
   overflow-wrap: anywhere;
 }
 
+.design-results-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+
+.design-results-table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  background: white;
+}
+
+.design-results-table th,
+.design-results-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.design-results-table thead th {
+  color: #435c56;
+  background: #eef4f2;
+  font-size: 0.88rem;
+}
+
+.design-results-table tbody th {
+  width: 32%;
+  color: #435c56;
+  background: #f8faf9;
+}
+
+.design-results-table tbody tr:last-child th,
+.design-results-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.design-result-value {
+  color: #123d37;
+  font-size: 1.08rem;
+}
+
+.design-result-unit {
+  margin-left: 5px;
+  color: var(--muted);
+}
+
+.design-result-state {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.design-result-state.incomplete {
+  color: var(--warning);
+}
+
+.design-results-empty {
+  margin: 0;
+  padding: 14px;
+  border-left: 3px solid var(--warning);
+  color: var(--muted);
+  background: var(--warning-soft);
+}
+
 details {
   border-top: 1px solid var(--line);
   padding-top: 12px;
@@ -537,6 +648,32 @@ dialog {
   border-radius: 8px;
   padding: 0;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.field-help-dialog {
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
+}
+
+.field-help-dialog .dialog-body {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.field-help-dialog h2 {
+  margin-bottom: 12px;
+}
+
+.field-help-dialog p {
+  line-height: 1.65;
+}
+
+.field-help-note {
+  margin-bottom: 20px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--brand);
+  color: var(--muted);
+  background: var(--surface-muted);
 }
 
 dialog::backdrop {

@@ -18,6 +18,7 @@ import {
   type LegacyResult,
   type LegacyReverseInput,
 } from "@/domain/calculation/legacy";
+import { calculationBasisDisplay } from "@/domain/rules/source-display";
 import {
   DomainInputError,
   type Track,
@@ -125,7 +126,8 @@ function missingAssessment(track: Track): TrackExecution {
       ],
       errors: [],
       ruleSetVersion: track === "CURRENT_QG" ? "2020.1" : "legacy.1",
-      releaseRelevance: "此軌未計算；雙軌若另一軌有效仍可繼續覆核。",
+      releaseRelevance:
+        "此計算依據未計算；另一份計算依據有效時仍可完成報告草稿。",
     },
   };
 }
@@ -147,7 +149,7 @@ function executeCurrent(input?: CurrentCalculationInput): TrackExecution {
         missingFields: [],
         errors: [],
         ruleSetVersion: "2020.1",
-        releaseRelevance: "現行軌有效。",
+        releaseRelevance: `${calculationBasisDisplay.CURRENT_QG.shortLabel}計算依據有效。`,
       },
       result,
     };
@@ -161,7 +163,7 @@ function executeCurrent(input?: CurrentCalculationInput): TrackExecution {
           missingFields: [],
           errors: [error.message],
           ruleSetVersion: "2020.1",
-          releaseRelevance: "現行軌輸入不成立。",
+          releaseRelevance: `${calculationBasisDisplay.CURRENT_QG.shortLabel}輸入不成立。`,
         },
       };
     }
@@ -171,9 +173,11 @@ function executeCurrent(input?: CurrentCalculationInput): TrackExecution {
         status: "ERROR",
         requiredFields: [],
         missingFields: [],
-        errors: ["現行軌計算未完成。"],
+        errors: [
+          `${calculationBasisDisplay.CURRENT_QG.shortLabel}計算未完成。`,
+        ],
         ruleSetVersion: "2020.1",
-        releaseRelevance: "現行軌執行錯誤。",
+        releaseRelevance: `${calculationBasisDisplay.CURRENT_QG.shortLabel}執行錯誤。`,
       },
     };
   }
@@ -198,7 +202,7 @@ function executeLegacy(input?: LegacyCalculationInput): TrackExecution {
         missingFields: [],
         errors: [],
         ruleSetVersion: "legacy.1",
-        releaseRelevance: "舊版軌有效，報告須標示歷史方法。",
+        releaseRelevance: `${calculationBasisDisplay.LEGACY_QV.shortLabel}計算依據有效。`,
       },
       result,
     };
@@ -215,7 +219,7 @@ function executeLegacy(input?: LegacyCalculationInput): TrackExecution {
           missingFields: insufficient ? error.fields : [],
           errors: [error.message],
           ruleSetVersion: "legacy.1",
-          releaseRelevance: "舊版軌資料不足或輸入不成立。",
+          releaseRelevance: `${calculationBasisDisplay.LEGACY_QV.shortLabel}資料不足或輸入不成立。`,
         },
       };
     }
@@ -225,9 +229,9 @@ function executeLegacy(input?: LegacyCalculationInput): TrackExecution {
         status: "ERROR",
         requiredFields: [],
         missingFields: [],
-        errors: ["舊版軌計算未完成。"],
+        errors: [`${calculationBasisDisplay.LEGACY_QV.shortLabel}計算未完成。`],
         ruleSetVersion: "legacy.1",
-        releaseRelevance: "舊版軌執行錯誤。",
+        releaseRelevance: `${calculationBasisDisplay.LEGACY_QV.shortLabel}執行錯誤。`,
       },
     };
   }

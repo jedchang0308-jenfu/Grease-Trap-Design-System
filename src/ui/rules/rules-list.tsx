@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { basisForTrack } from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { StatusBadge } from "@/ui/components/status-badge";
 import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
@@ -45,7 +46,7 @@ export function RulesList() {
         <div>
           <h1>規則版本與來源</h1>
           <p className="lede">
-            查閱目前使用中的現行與舊版規則；ACTIVE 版本不可直接修改。
+            查閱目前使用中的計算依據與來源文件；ACTIVE 版本不可直接修改。
           </p>
         </div>
         <div className="actions">
@@ -84,14 +85,15 @@ export function RulesList() {
                   <td data-label="方法">
                     <span className="case-title">
                       {item.methodFamily === "CURRENT_QG"
-                        ? "現行 Q/G"
-                        : "舊版 Q/V"}
+                        ? basisForTrack("CURRENT_QG").shortLabel
+                        : basisForTrack("LEGACY_QV").shortLabel}
                     </span>
                     <span className="case-meta">{item.code}</span>
                   </td>
                   <td data-label="版本">{item.version}</td>
                   <td data-label="來源">
-                    {item.source}
+                    {basisForTrack(item.methodFamily).fullLabel}
+                    <span className="case-meta">來源文件：{item.source}</span>
                     <details>
                       <summary>來源雜湊</summary>
                       <code>{item.sourceHash}</code>

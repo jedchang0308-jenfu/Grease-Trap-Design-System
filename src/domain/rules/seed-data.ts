@@ -377,7 +377,7 @@ export const sourceDiscrepancies = [
   [
     "DISC-LEG-001",
     "SRC-LEGACY-FULL",
-    "舊版 q 的文字單位與公式語意不一致",
+    "臺北市衛工處 q 的文字單位與公式語意不一致",
     "正規化為 L/(人·餐)，保留原文差異",
   ],
   [

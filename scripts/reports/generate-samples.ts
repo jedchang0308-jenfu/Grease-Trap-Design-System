@@ -10,7 +10,7 @@ const currentRun: SnapshotRun = {
   id: "sample-current-run",
   track: "CURRENT_QG",
   methodCode: "CURRENT_BY_DINERS",
-  semantics: "現行設計需求 Q/G",
+  semantics: "內政部給排水規範（附錄 5）計算結果",
   inputHash: "a".repeat(64),
   raw: { qLpm: "388.8888888888888889", gKg: "112" },
   adopted: { qLpm: "388.9", gKg: "112.0" },
@@ -20,7 +20,7 @@ const currentRun: SnapshotRun = {
     checksum:
       "f644caad4a7a5e0f4f58b7e91fb16ba3c12725c4a2dd3b8f48f3fd4b1a6f23c1",
     sourceCode: "SRC-CURRENT-2020",
-    sourceTitle: "建築物給水排水設備設計技術規範 附錄 5",
+    sourceTitle: "內政部《建築物給水排水設備設計技術規範》附錄 5",
     sourceHash:
       "4B2112DBB61399F03BC928FCF85B5B0796A4939356848C2D12573344BFA418E0",
   },
@@ -51,7 +51,7 @@ const legacyRun: SnapshotRun = {
   id: "sample-legacy-run",
   track: "LEGACY_QV",
   methodCode: "LEGACY_BY_DINERS",
-  semantics: "舊版有效容積設計 Veff（歷史指引方法）",
+  semantics: "臺北市工務局衛工處設計說明計算結果：有效容積 Veff",
   inputHash: "b".repeat(64),
   raw: { qLph: "1068.75", effectiveVolumeL: "178.125" },
   adopted: { qLph: "1068.8", effectiveVolumeL: "178.2" },
@@ -61,7 +61,8 @@ const legacyRun: SnapshotRun = {
     checksum:
       "5884db83aed5dc4de785e14e6ba03f02b0a478bf11f2e868662906cfa6f764d2",
     sourceCode: "SRC-LEGACY-FULL",
-    sourceTitle: "油脂截留器使用維護及設計說明 9 頁",
+    sourceTitle:
+      "臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》",
     sourceHash:
       "33FBD41FBC2797C5F1EE1C2FB1C63F225DC07258EF9E30F0474C69C537CED4C8",
   },
@@ -89,7 +90,7 @@ const legacyRun: SnapshotRun = {
     {
       code: "HISTORICAL_METHOD",
       severity: "INFO",
-      message: "本結果採舊版歷史指引方法。",
+      message: "本結果依臺北市工務局衛工處設計說明計算。",
       details: {},
     },
   ],
@@ -101,6 +102,41 @@ function sample(
   runs: SnapshotRun[],
   assessments: ReportSnapshotData["assessments"],
 ): ReportSnapshotData {
+  const inputs: Record<string, unknown> = {};
+  if (runs.some((run) => run.track === "CURRENT_QG")) {
+    inputs.currentInputs = {
+      kind: "DINERS",
+      diningType: "CHINESE",
+      people: "1000",
+      greaseCleaningDays: "7",
+      sedimentCleaningDays: "7",
+    };
+  }
+  if (runs.some((run) => run.track === "LEGACY_QV")) {
+    inputs.legacyInputs = {
+      kind: "DINERS",
+      qLitersPerPersonMeal: "30",
+      operationHours: "4",
+      safetyClass: "A",
+      safetyFactor: "1.5",
+      selectionReason: "依來源 A 類餐飲條件採用。",
+      aggregation: "SOURCE_ARITHMETIC_MEAN",
+      periods: [
+        {
+          label: "午餐",
+          people: "100",
+          qLitersPerPersonMeal: "30",
+          operationHours: "4",
+        },
+        {
+          label: "晚餐",
+          people: "90",
+          qLitersPerPersonMeal: "30",
+          operationHours: "4",
+        },
+      ],
+    };
+  }
   return {
     schemaVersion: "1.0",
     reportNumber: `DRAFT-01JTEST${name.toUpperCase().replaceAll("-", "").padEnd(18, "0")}`,
@@ -121,7 +157,7 @@ function sample(
           ? "COMPLETE_WITH_REMINDER"
           : "COMPLETE",
     },
-    inputs: { fixture: name },
+    inputs,
     assessments,
     runs,
     overrides: [],
@@ -161,7 +197,7 @@ const variants: Array<[string, ReportSnapshotData]> = [
           status: "CALCULATED",
           missingFields: [],
           errors: [],
-          releaseRelevance: "現行軌有效。",
+          releaseRelevance: "內政部給排水規範（附錄 5）計算依據有效。",
         },
       ],
     ),
@@ -178,7 +214,7 @@ const variants: Array<[string, ReportSnapshotData]> = [
           status: "CALCULATED",
           missingFields: [],
           errors: [],
-          releaseRelevance: "舊版軌有效。",
+          releaseRelevance: "臺北市工務局衛工處設計說明計算依據有效。",
         },
       ],
     ),
@@ -195,14 +231,14 @@ const variants: Array<[string, ReportSnapshotData]> = [
           status: "CALCULATED",
           missingFields: [],
           errors: [],
-          releaseRelevance: "現行軌有效。",
+          releaseRelevance: "內政部給排水規範（附錄 5）計算依據有效。",
         },
         {
           track: "LEGACY_QV",
           status: "CALCULATED",
           missingFields: [],
           errors: [],
-          releaseRelevance: "舊版軌有效。",
+          releaseRelevance: "臺北市工務局衛工處設計說明計算依據有效。",
         },
       ],
     ),
@@ -219,14 +255,14 @@ const variants: Array<[string, ReportSnapshotData]> = [
           status: "CALCULATED",
           missingFields: [],
           errors: [],
-          releaseRelevance: "現行軌有效。",
+          releaseRelevance: "內政部給排水規範（附錄 5）計算依據有效。",
         },
         {
           track: "LEGACY_QV",
           status: "INSUFFICIENT_DATA",
           missingFields: ["legacyInputs"],
           errors: [],
-          releaseRelevance: "舊版軌未計算；不影響本次放行。",
+          releaseRelevance: "另一份計算依據未計算；不影響本次報告。",
         },
       ],
     ),

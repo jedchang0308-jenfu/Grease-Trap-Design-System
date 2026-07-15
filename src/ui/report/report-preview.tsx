@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
-import { StatusBadge } from "@/ui/components/status-badge";
 import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
+import { basisForTrack, modeDisplayFor } from "@/domain/rules/source-display";
 
 interface Preview {
-  snapshotHash: string;
   reportNumber: string;
   case: {
     caseNo: string;
@@ -20,20 +20,19 @@ interface Preview {
     calculationStatus: string;
   };
   assessments: Array<{ track: string; status: string }>;
-  actors: { preparedBy: string; reviewedBy: string; issuedBy: string };
   html: string;
 }
 
 interface IssuedReport {
   id: string;
   reportNumber: string;
-  snapshotHash: string;
   status: string;
   issuedAt: string;
   downloadUrl: string;
 }
 
 export function ReportPreview({ caseId }: { caseId: string }) {
+  const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [issued, setIssued] = useState<IssuedReport | null>(null);
@@ -62,6 +61,22 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     void load();
   }, [load]);
 
+  async function submitForReview() {
+    setSubmitting(true);
+    setProblem(null);
+    try {
+      await fetchJson(`/api/cases/${caseId}/submit-review`, { method: "POST" });
+      router.push(`/cases/${caseId}/review`);
+    } catch (error) {
+      setProblem(
+        error instanceof UiRequestError
+          ? error.problem
+          : { userMessage: "報告草稿尚未送出最終審核，請重試。" },
+      );
+      setSubmitting(false);
+    }
+  }
+
   async function issue() {
     setSubmitting(true);
     setProblem(null);
@@ -88,7 +103,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     return (
       <div className="page">
         <div className="state-banner" aria-live="polite">
-          正在建立報告預覽，完成後會顯示核發範圍與下一步。
+          正在建立報告草稿，完成後會顯示計算依據與報告內容。
         </div>
       </div>
     );
@@ -100,6 +115,8 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     );
   if (!preview) return null;
   const isIssued = issued || preview.case.lifecycleStatus === "ISSUED";
+  const isDraft = preview.case.lifecycleStatus === "CALCULATED";
+  const isInReview = preview.case.lifecycleStatus === "IN_REVIEW";
   return (
     <div className="page">
       <header className="page-header">
@@ -107,8 +124,8 @@ export function ReportPreview({ caseId }: { caseId: string }) {
           <p className="muted" style={{ marginBottom: 5 }}>
             {preview.case.caseNo}｜修訂 {preview.case.revisionNo}
           </p>
-          <h1>報告預覽與核發</h1>
-          <p className="lede">核發前確認完成軌、責任人與不可變快照。</p>
+          <h1>報告預覽</h1>
+          <p className="lede">只確認客戶需要的設計結果與完整計算過程。</p>
         </div>
         <div className="actions">
           <Link href={`/cases/${caseId}`}>返回案件</Link>
@@ -117,7 +134,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
       {problem ? <RuntimeError problem={problem} /> : null}
       {issued ? (
         <div className="state-banner" style={{ marginBottom: 18 }}>
-          <strong>報告已核發；此版本與快照不可修改。</strong>
+          <strong>報告已核發；如需變更內容，請建立新修訂版。</strong>
           <div className="button-row" style={{ marginTop: 12 }}>
             <a className="button primary" href={issued.downloadUrl}>
               下載已核發報告
@@ -137,47 +154,29 @@ export function ReportPreview({ caseId }: { caseId: string }) {
             </dd>
           </div>
           <div>
-            <dt>模式</dt>
-            <dd>{preview.case.mode}</dd>
+            <dt>客戶</dt>
+            <dd>{preview.case.customer}</dd>
           </div>
           <div>
-            <dt>完成軌</dt>
+            <dt>設置地點</dt>
+            <dd>{preview.case.location}</dd>
+          </div>
+          <div>
+            <dt>計算依據</dt>
+            <dd>{modeDisplayFor(preview.case.mode).label}</dd>
+          </div>
+          <div>
+            <dt>完成依據</dt>
             <dd>
               {preview.assessments
                 .filter((item) => item.status === "CALCULATED")
-                .map((item) => item.track)
+                .map((item) => basisForTrack(item.track).shortLabel)
                 .join("、")}
             </dd>
           </div>
           <div>
-            <dt>狀態</dt>
-            <dd>
-              <StatusBadge
-                status={issued ? "ISSUED" : preview.case.lifecycleStatus}
-              />
-            </dd>
-          </div>
-          <div>
-            <dt>編製／覆核</dt>
-            <dd>
-              {preview.actors.preparedBy} / {preview.actors.reviewedBy}
-            </dd>
-          </div>
-          <div>
-            <dt>核發人</dt>
-            <dd>{preview.actors.issuedBy}</dd>
-          </div>
-          <div>
             <dt>報告編號</dt>
             <dd>{issued?.reportNumber ?? preview.reportNumber}</dd>
-          </div>
-          <div>
-            <dt>快照短碼</dt>
-            <dd>
-              <code>
-                {(issued?.snapshotHash ?? preview.snapshotHash).slice(0, 12)}
-              </code>
-            </dd>
           </div>
         </dl>
         <div className="button-row end" style={{ marginTop: 18 }}>
@@ -191,6 +190,19 @@ export function ReportPreview({ caseId }: { caseId: string }) {
                 查看已核發紀錄
               </Link>
             )
+          ) : isDraft ? (
+            <button
+              className="button primary"
+              type="button"
+              disabled={submitting}
+              onClick={() => void submitForReview()}
+            >
+              {submitting ? "正在送審…" : "送出最終審核"}
+            </button>
+          ) : isInReview ? (
+            <Link className="button primary" href={`/cases/${caseId}/review`}>
+              開始最終審核
+            </Link>
           ) : (
             <button
               className="button primary"
@@ -205,7 +217,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
       <section className="panel">
         <h2>文件預覽</h2>
         <iframe
-          title="設計計算書預覽"
+          title="客戶設計計算報告預覽"
           srcDoc={preview.html}
           style={{
             width: "100%",
@@ -219,10 +231,9 @@ export function ReportPreview({ caseId }: { caseId: string }) {
       <dialog ref={dialog} onCancel={() => dialog.current?.close()}>
         <div className="dialog-body">
           <h2>確認核發此版本？</h2>
-          <p>核發後此版本與快照不可修改。若內容變更，需建立新修訂版。</p>
+          <p>核發後此版本內容固定。若內容變更，需建立新修訂版。</p>
           <p className="muted">
-            範圍：{preview.case.caseNo} 修訂 {preview.case.revisionNo}｜快照{" "}
-            {preview.snapshotHash.slice(0, 12)}
+            範圍：{preview.case.caseNo} 修訂 {preview.case.revisionNo}
           </p>
           <div className="button-row end">
             <button
