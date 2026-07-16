@@ -36,6 +36,9 @@ const legacyBase = {
   safetyFactor: decimalValue,
   safetyClass: z.enum(["A", "B", "C"]).optional(),
   selectionReason: z.string().optional(),
+  selectionSourceType: z.string().optional(),
+  selectionBasis: z.string().optional(),
+  selectionEvidence: z.string().optional(),
 };
 
 export const legacyInputSchema = z.discriminatedUnion("kind", [
@@ -68,6 +71,9 @@ export const legacyInputSchema = z.discriminatedUnion("kind", [
     operationHours: decimalValue,
     safetyFactor: decimalValue,
     selectionReason: z.string().optional(),
+    selectionSourceType: z.string().optional(),
+    selectionBasis: z.string().optional(),
+    selectionEvidence: z.string().optional(),
   }),
   z.object({
     kind: z.literal("REVERSE"),

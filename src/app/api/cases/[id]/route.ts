@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/application/auth/require-user";
 import { toProblemResponse } from "@/application/http/problem";
-import {
-  deleteCaseGroup,
-  getLatestCase,
-} from "@/application/cases/repository";
+import { deleteCaseGroup, getLatestCase } from "@/application/cases/repository";
 import { pool, withTransaction } from "@/infrastructure/db/pool";
 
 export async function GET(

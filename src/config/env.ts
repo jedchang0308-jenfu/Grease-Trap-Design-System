@@ -4,8 +4,7 @@ import { z } from "zod";
 loadDotenv({ path: ".env.local", quiet: true });
 loadDotenv({ path: ".env", quiet: true });
 
-const localDatabaseUrl =
-  "postgresql://gtc:gtc_local_only@localhost:55432/gtc_dev";
+const localDatabaseUrl = `postgresql://gtc:gtc_local_only@localhost:${process.env.POSTGRES_PORT ?? "55433"}/gtc_dev`;
 
 const envSchema = z.object({
   NODE_ENV: z

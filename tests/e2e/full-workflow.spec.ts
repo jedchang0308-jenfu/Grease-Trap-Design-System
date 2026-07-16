@@ -101,7 +101,16 @@ test("single actor completes a dual-track case through report issue", async ({
     page.getByText("先填完任一可用軌的必要資料，即可開始計算。"),
   ).toBeVisible();
   await expect(page.getByLabel("餐飲類型", { exact: true })).toBeVisible();
-  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(10);
+  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(12);
+  const calculationPanel = page.locator("section.panel").filter({
+    has: page.getByRole("heading", { name: "計算資料" }),
+  });
+  await expect(
+    calculationPanel.getByRole("button", { name: "開始計算" }),
+  ).toBeVisible();
+  await expect(
+    calculationPanel.getByRole("button", { name: "開始計算" }),
+  ).toHaveClass("button primary");
   const diningTypeHelp = page.getByRole("button", {
     name: "餐飲類型說明",
   });
@@ -125,15 +134,30 @@ test("single actor completes a dual-track case through report issue", async ({
   ).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("38.9", { exact: true })).toBeVisible();
   await expect(page.getByText("150", { exact: true })).toBeVisible();
+  await expect(
+    calculationPanel.getByRole("button", { name: "重新計算" }),
+  ).toBeVisible();
+  await expect(
+    calculationPanel.getByRole("button", { name: "重新計算" }),
+  ).toHaveClass("button primary");
+  const resultPanel = page.locator("section.panel").filter({
+    has: page.getByRole("heading", { name: "本次設計結果" }),
+  });
+  await expect(
+    resultPanel.getByRole("button", { name: "重新計算" }),
+  ).toHaveCount(0);
+  await expect(
+    resultPanel.getByRole("link", { name: "完成報告草稿" }),
+  ).toHaveClass("button primary");
   await visibleErrorSweep(page);
   await evidence(page, project, "05-calculation-complete");
 
   await page.getByRole("link", { name: "完成報告草稿" }).click();
-  await expect(page.getByRole("heading", { name: "報告草稿預覽" })).toBeVisible(
-    { timeout: 20_000 },
-  );
+  await expect(page.getByRole("heading", { name: "報告預覽" })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(
-    page.getByText("報告草稿已完成；下一步送出最終工程審核。"),
+    page.getByRole("button", { name: "送出最終審核" }),
   ).toBeVisible();
   await expect(page.getByTitle("客戶設計計算報告預覽")).toBeVisible();
   await expect(
@@ -166,9 +190,9 @@ test("single actor completes a dual-track case through report issue", async ({
   await page.getByLabel("覆核或退回說明").fill("E2E 覆核完成");
   await page.getByRole("button", { name: "完成覆核" }).click();
 
-  await expect(
-    page.getByRole("heading", { name: "報告預覽與核發" }),
-  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { name: "報告預覽" })).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(page.getByTitle("客戶設計計算報告預覽")).toBeVisible();
   await expect(
     page
@@ -215,12 +239,12 @@ test("area and reverse field groups expose help for every input", async ({
   page,
 }, testInfo) => {
   await createDualTrackCase(page, "我知道廚房與用餐區面積，要換算流量。");
-  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(13);
+  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(15);
   await expect(
-    page.getByRole("button", { name: "廚房面積（m²）說明" }),
+    page.getByRole("button", { name: "廚房面積說明" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "人員密度（人/m²）說明" }),
+    page.getByRole("button", { name: "人員密度說明" }),
   ).toBeVisible();
   await visibleErrorSweep(page);
   await evidence(page, testInfo.project.name, "11-area-field-help-matrix");
@@ -229,18 +253,18 @@ test("area and reverse field groups expose help for every input", async ({
     page,
     "我知道設備能力／有效容積，要反推等效人數及面積。",
   );
-  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(14);
+  await expect(page.locator(".field-help-trigger:visible")).toHaveCount(16);
   await expect(
-    page.getByRole("button", { name: "Q 設計能力（L/min）說明" }),
+    page.getByRole("button", { name: "Q 設計能力說明" }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "能力資料來源／證據說明" }),
   ).toBeVisible();
   const volumeHelp = page.getByRole("button", {
-    name: "有效容積（L）說明",
+    name: "有效容積說明",
   });
   await volumeHelp.click();
-  const dialog = page.getByRole("dialog", { name: "有效容積（L）說明" });
+  const dialog = page.getByRole("dialog", { name: "有效容積說明" });
   await expect(dialog).toContainText("請勿填外殼的名目容積。");
   await evidence(page, testInfo.project.name, "12-reverse-field-help-matrix");
   await dialog.getByRole("button", { name: "關閉說明" }).click();

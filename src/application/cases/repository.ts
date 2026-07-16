@@ -154,10 +154,9 @@ export async function deleteCaseGroup(
     `DELETE FROM scenario_decisions
       WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
   );
-  await client.query(
-    "DELETE FROM calculation_cases WHERE case_group_id=$1",
-    [caseGroupId],
-  );
+  await client.query("DELETE FROM calculation_cases WHERE case_group_id=$1", [
+    caseGroupId,
+  ]);
 
   return {
     caseId: caseGroupId,

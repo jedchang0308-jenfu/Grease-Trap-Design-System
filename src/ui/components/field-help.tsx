@@ -16,24 +16,45 @@ export function FieldLabelHelp({
   label: string;
   help: FieldHelpContent;
 }) {
+  const labelId = useId();
+  return (
+    <div className="field-label-row">
+      <label id={labelId} htmlFor={htmlFor}>
+        {label}
+      </label>
+      <FieldHelpButton ariaLabel={`${label}說明`} help={help} title={label} />
+    </div>
+  );
+}
+
+export function FieldHelpButton({
+  ariaLabel,
+  help,
+  showText = true,
+  title,
+}: {
+  ariaLabel: string;
+  help: FieldHelpContent;
+  showText?: boolean;
+  title: string;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
 
   return (
-    <div className="field-label-row">
-      <label htmlFor={htmlFor}>{label}</label>
+    <>
       <button
         type="button"
         className="field-help-trigger"
-        aria-label={`${label}說明`}
+        aria-label={ariaLabel}
         aria-haspopup="dialog"
         onClick={() => dialog.current?.showModal()}
       >
         <span className="field-help-icon" aria-hidden="true">
           ?
         </span>
-        <span>說明</span>
+        {showText ? <span>說明</span> : null}
       </button>
       <dialog
         ref={dialog}
@@ -43,7 +64,7 @@ export function FieldLabelHelp({
         onCancel={() => dialog.current?.close()}
       >
         <div className="dialog-body">
-          <h2 id={titleId}>{label}說明</h2>
+          <h2 id={titleId}>{title}說明</h2>
           <p id={descriptionId}>{help.description}</p>
           {help.note ? <p className="field-help-note">{help.note}</p> : null}
           <div className="button-row end">
@@ -57,6 +78,6 @@ export function FieldLabelHelp({
           </div>
         </div>
       </dialog>
-    </div>
+    </>
   );
 }

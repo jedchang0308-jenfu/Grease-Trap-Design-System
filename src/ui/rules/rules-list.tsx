@@ -80,33 +80,46 @@ export function RulesList() {
               </tr>
             </thead>
             <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td data-label="方法">
-                    <span className="case-title">
-                      {item.methodFamily === "CURRENT_QG"
-                        ? basisForTrack("CURRENT_QG").shortLabel
-                        : basisForTrack("LEGACY_QV").shortLabel}
-                    </span>
-                    <span className="case-meta">{item.code}</span>
-                  </td>
-                  <td data-label="版本">{item.version}</td>
-                  <td data-label="來源">
-                    {basisForTrack(item.methodFamily).fullLabel}
-                    <span className="case-meta">來源文件：{item.source}</span>
-                    <details>
-                      <summary>來源雜湊</summary>
-                      <code>{item.sourceHash}</code>
-                    </details>
-                  </td>
-                  <td data-label="狀態">
-                    <StatusBadge status={item.status} />
-                  </td>
-                  <td data-label="Checksum">
-                    <code>{item.checksum.slice(0, 12)}…</code>
-                  </td>
-                </tr>
-              ))}
+              {items.map((item) => {
+                const basis = basisForTrack(item.methodFamily);
+                return (
+                  <tr key={item.id}>
+                    <td data-label="方法">
+                      <span className="case-title">{basis.shortLabel}</span>
+                      <span className="case-meta">{item.code}</span>
+                    </td>
+                    <td data-label="版本">{item.version}</td>
+                    <td data-label="來源">
+                      {basis.fullLabel}
+                      <span className="case-meta source-document-meta">
+                        來源文件：{item.source}
+                      </span>
+                      {basis.pdfHref ? (
+                        <div className="source-document-actions">
+                          <a
+                            className="source-pdf-link"
+                            href={basis.pdfHref}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            開啟完整 PDF
+                          </a>
+                        </div>
+                      ) : null}
+                      <details>
+                        <summary>來源雜湊</summary>
+                        <code>{item.sourceHash}</code>
+                      </details>
+                    </td>
+                    <td data-label="狀態">
+                      <StatusBadge status={item.status} />
+                    </td>
+                    <td data-label="Checksum">
+                      <code>{item.checksum.slice(0, 12)}…</code>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </section>

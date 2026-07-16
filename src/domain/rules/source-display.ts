@@ -5,6 +5,7 @@ export interface CalculationBasisDisplay {
   sourceCode: string;
   shortLabel: string;
   fullLabel: string;
+  pdfHref: string;
   resultLabel: string;
 }
 
@@ -16,6 +17,8 @@ export const calculationBasisDisplay: Record<
     sourceCode: "SRC-CURRENT-2020",
     shortLabel: "內政部給排水規範（附錄 5）",
     fullLabel: "內政部《建築物給水排水設備設計技術規範》附錄 5",
+    pdfHref:
+      "/rule-sources/SRC-CURRENT-2020-building-water-drainage-appendix-5.pdf",
     resultLabel: "依內政部給排水規範（附錄 5）計算",
   },
   LEGACY_QV: {
@@ -23,6 +26,8 @@ export const calculationBasisDisplay: Record<
     shortLabel: "臺北市工務局衛工處設計說明",
     fullLabel:
       "臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》",
+    pdfHref:
+      "/rule-sources/SRC-LEGACY-FULL-taipei-grease-interceptor-design.pdf",
     resultLabel: "依臺北市工務局衛工處設計說明計算",
   },
 };
@@ -51,6 +56,7 @@ export function basisForTrack(track: string): CalculationBasisDisplay {
       sourceCode: "",
       shortLabel: "計算依據",
       fullLabel: "計算依據",
+      pdfHref: "",
       resultLabel: "依本案計算依據計算",
     }
   );

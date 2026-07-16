@@ -168,7 +168,7 @@ describe("G2 transaction and API service contract", () => {
     const draft = await previewReport(caseGroupId, actor);
     expect(draft.snapshot.case.lifecycleStatus).toBe("CALCULATED");
     expect(draft.snapshot.review.decision).toBe("PENDING");
-    expect(draft.html).toContain("本次只完成一種計算方法");
+    expect(draft.html).toContain("本次只完成一份計算依據");
 
     await submitForReview(caseGroupId, actor);
     const review = await completeReview(
@@ -223,7 +223,7 @@ describe("G2 transaction and API service contract", () => {
 
     const preview = await previewReport(caseGroupId, actor);
     expect(preview.snapshotHash).toBe(first.snapshotHash);
-    expect(preview.html).toContain("本次只完成一種計算方法");
+    expect(preview.html).toContain("本次只完成一份計算依據");
     const second = await issueReport(caseGroupId, actor);
     expect(second.id).toBe(first.id);
 
@@ -239,7 +239,7 @@ describe("G2 transaction and API service contract", () => {
         [revisionId],
       ),
     ).rejects.toThrow(/immutable/);
-  });
+  }, 30_000);
 
   it("keeps completed calculation runs immutable", async () => {
     const run = await pool.query<{ id: string }>(

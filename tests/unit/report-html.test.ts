@@ -115,7 +115,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("數值算式");
     expect(html).toContain("每人用水量");
     expect(html).toContain("29.1667 L/min");
-    expect(html).toContain("統一比對值");
+    expect(html).toContain("原始值換算（未取整）");
     expect(html).toContain("清除週期油脂量使用 kg");
     expect(html).not.toContain("kg/day");
     expect(html).not.toContain("給客戶的設計需求摘要");
@@ -150,9 +150,9 @@ describe("report snapshot HTML", () => {
       ...(data.inputs as Record<string, unknown>),
       legacyInputs: {
         kind: "DINERS",
-        people: "100",
+        people: "95",
         qLitersPerPersonMeal: "30",
-        operationHours: "5",
+        operationHours: "4",
         safetyClass: "A",
         safetyFactor: "1.5",
         selectionReason: "依來源 A 類餐飲條件採用。",
@@ -165,8 +165,8 @@ describe("report snapshot HTML", () => {
       methodCode: "LEGACY_BY_DINERS",
       semantics: "臺北市工務局衛工處設計說明計算結果：有效容積 Veff",
       inputHash: "d".repeat(64),
-      raw: { qLph: "900", effectiveVolumeL: "150" },
-      adopted: { qLph: "900", effectiveVolumeL: "150" },
+      raw: { qLph: "1068.75", effectiveVolumeL: "178.125" },
+      adopted: { qLph: "1068.8", effectiveVolumeL: "178.2" },
       ruleSet: {
         code: "RULE-LEGACY-QV",
         version: "1",
@@ -181,8 +181,8 @@ describe("report snapshot HTML", () => {
           sequence: 1,
           formulaCode: "LEG-DIN-Q",
           expression: "Qhour=(n×q/t)×k",
-          substitution: "100×30÷5×1.5",
-          result: "900",
+          substitution: "95×30÷4×1.5",
+          result: "1068.75",
           unit: "L/h",
           sourceRef: "SRC-LEGACY-FULL",
         },
@@ -190,8 +190,8 @@ describe("report snapshot HTML", () => {
           sequence: 2,
           formulaCode: "LEG-VEFF",
           expression: "Veff=Qhour/6",
-          substitution: "900÷6",
-          result: "150",
+          substitution: "1068.75÷6",
+          result: "178.125",
           unit: "L",
           sourceRef: "SRC-LEGACY-FULL",
         },
@@ -205,15 +205,20 @@ describe("report snapshot HTML", () => {
     );
     expect(html).toContain("計算設計處理水量（每小時）");
     expect(html).toContain("計算設備所需有效容積");
-    expect(html).toContain("900÷6");
-    expect(html).toContain("15 L/min");
+    expect(html).toContain("1068.75÷6");
+    expect(html).toContain("下表顯示正式採用值");
+    expect(html).toContain(
+      'output-value">17.8133</strong> <span class="unit">L/min',
+    );
+    expect(html).toContain("原始值換算（未取整）");
+    expect(html).toContain("17.8125 L/min");
     expect(html).not.toContain("原始設計處理水量");
-    expect(html).toContain("900");
+    expect(html).toContain("1,068.75");
     expect(html).toContain("L/h");
     expect(html).toContain("單餐期用餐人數");
     expect(html).toContain("每人每餐用水量 q");
     expect(html).toContain("設備所需有效容積");
     expect(html).toContain("此依據無法計算");
-    expect(html).toContain(">計算結果</span><strong>150 L</strong>");
+    expect(html).toContain(">計算結果</span><strong>178.125 L</strong>");
   });
 });

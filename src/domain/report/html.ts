@@ -2,6 +2,7 @@ import Decimal from "decimal.js";
 import { basisForTrack, modeDisplayFor } from "../rules/source-display";
 import {
   buildInputGroups,
+  buildInputCompletenessBadges,
   buildDesignResults,
   formulaValues,
   reportTracksForMode,
@@ -89,13 +90,26 @@ function stepComparisonValue(step: SnapshotRun["steps"][number]): string {
 }
 
 function roleBadge(role: string): string {
-  const className =
-    role === "本案條件"
-      ? "role-case"
-      : role === "計算依據參數"
-        ? "role-source"
-        : "role-derived";
+  const className = ["案件資料", "本案條件", "設備資料", "實測資料"].includes(
+    role,
+  )
+    ? "role-case"
+    : ["工程選值", "法規表值", "計算依據參數", "覆寫值"].includes(role)
+      ? "role-source"
+      : "role-derived";
   return `<span class="role-badge ${className}">${escapeHtml(role)}</span>`;
+}
+
+function conditionBadgeStrip(
+  badges: ReturnType<typeof buildInputCompletenessBadges>,
+): string {
+  if (!badges.length) return "";
+  return `<div class="condition-badges">${badges
+    .map(
+      (badge) =>
+        `<span class="condition-badge ${escapeHtml(badge.tone)}">${escapeHtml(badge.label)}${badge.detail ? `<small>${escapeHtml(badge.detail)}</small>` : ""}</span>`,
+    )
+    .join("")}</div>`;
 }
 
 function inputRows(
@@ -108,10 +122,10 @@ function inputRows(
   if (!rows.length) {
     return `<p class="empty-note">本次快照沒有可列出的輸入條件；報告不以 0 或推測值補齊。</p>`;
   }
-  return `<table class="input-table"><thead><tr><th>條件</th><th>輸入值</th><th>資料角色</th></tr></thead><tbody>${rows
+  return `<table class="input-table"><thead><tr><th>條件</th><th>輸入值</th><th>類型</th><th>來源/理由</th></tr></thead><tbody>${rows
     .map(
       (row) =>
-        `<tr><td>${escapeHtml(row.label)}</td><td class="number-cell"><strong>${escapeHtml(row.value)}</strong>${row.unit ? ` <span class="unit">${escapeHtml(row.unit)}</span>` : ""}</td><td>${roleBadge(row.role)}</td></tr>`,
+        `<tr><td>${escapeHtml(row.label)}</td><td class="number-cell"><strong>${escapeHtml(row.value)}</strong>${row.unit ? ` <span class="unit">${escapeHtml(row.unit)}</span>` : ""}</td><td>${roleBadge(row.role)}</td><td>${escapeHtml(row.sourceNote ?? "—")}</td></tr>`,
     )
     .join("")}</tbody></table>`;
 }
@@ -143,7 +157,7 @@ function outputOverview(snapshot: ReportSnapshotData): string {
   );
   if (!rows.length)
     return `<div class="empty-note">本次尚無可列出的設計結果；報告不以 0 或推測值補齊。</div>`;
-  return `<div class="table-scroll"><table class="output-table"><thead><tr><th>輸出項目</th>${tracks
+  return `<p class="result-guide"><strong>下表顯示正式採用值。</strong>完整計算過程另列未取整原始值及其單位換算，因此兩處數字可能不同。</p><div class="table-scroll"><table class="output-table"><thead><tr><th>輸出項目</th>${tracks
     .map((track) => `<th>${escapeHtml(basisForTrack(track).shortLabel)}</th>`)
     .join("")}</tr></thead><tbody>${rows
     .map(
@@ -166,7 +180,7 @@ function formulaValueTable(
     inputGroup?.track === "CURRENT_QG" &&
     value.symbol === "t" &&
     usesActualMinutes
-      ? { ...value, label: "每日實際使用時間", role: "本案條件" as const }
+      ? { ...value, label: "每日實際使用時間", role: "覆寫值" as const }
       : value,
   );
   if (!values.length)
@@ -185,14 +199,14 @@ function algorithmProcess(
 ): string {
   const basis = basisForTrack(run.track);
   const methodInputs = inputGroup
-    ? inputRows(inputGroup, "本案條件")
+    ? inputRows(inputGroup)
     : `<p class="empty-note">本次快照沒有可列出的輸入條件；報告不以 0 或推測值補齊。</p>`;
   if (!run.steps.length)
     return `<section class="algorithm-method"><span class="method-badge">${escapeHtml(basis.shortLabel)}</span><h3>計算依據：${escapeHtml(basis.fullLabel)}</h3><h4>本方法使用的條件</h4>${methodInputs}<p class="muted">目前沒有可列出的計算步驟。</p></section>`;
   return `<section class="algorithm-method"><span class="method-badge">${escapeHtml(basis.shortLabel)}</span><h3>計算依據：${escapeHtml(basis.fullLabel)}</h3><div class="method-inputs"><h4>本方法使用的條件</h4>${methodInputs}</div><ol class="algorithm-steps">${run.steps
     .map((step) => {
       const comparison = stepComparisonValue(step);
-      return `<li class="algorithm-step"><span class="step-number">步驟 ${escapeHtml(step.sequence)}</span><div class="step-content"><p class="step-purpose">${escapeHtml(formulaPurpose(step.formulaCode))}</p><p class="step-line"><span class="step-label">公式</span><span class="step-expression">${escapeHtml(step.expression)}</span></p><div class="formula-block"><p class="step-label">代入內容</p>${formulaValueTable(step, inputGroup)}</div><p class="step-line"><span class="step-label">數值算式</span><span class="step-expression">${escapeHtml(step.substitution)}</span></p><p class="step-line step-result"><span class="step-label">計算結果</span><strong>${formatStepResult(step.result, step.unit)}</strong></p>${comparison ? `<p class="step-line step-comparison"><span class="step-label">統一比對值</span><strong>${comparison}</strong></p>` : ""}</div></li>`;
+      return `<li class="algorithm-step"><span class="step-number">步驟 ${escapeHtml(step.sequence)}</span><div class="step-content"><p class="step-purpose">${escapeHtml(formulaPurpose(step.formulaCode))}</p><p class="step-line"><span class="step-label">公式</span><span class="step-expression">${escapeHtml(step.expression)}</span></p><div class="formula-block"><p class="step-label">代入內容</p>${formulaValueTable(step, inputGroup)}</div><p class="step-line"><span class="step-label">數值算式</span><span class="step-expression">${escapeHtml(step.substitution)}</span></p><p class="step-line step-result"><span class="step-label">計算結果</span><strong>${formatStepResult(step.result, step.unit)}</strong></p>${comparison ? `<p class="step-line step-comparison"><span class="step-label">原始值換算（未取整）</span><strong>${comparison}</strong></p>` : ""}</div></li>`;
     })
     .join("")}</ol></section>`;
 }
@@ -216,6 +230,11 @@ export function renderReportHtml(snapshot: ReportSnapshotData): string {
     snapshot.inputs,
     snapshot.runs.map((run) => run.track),
   );
+  const conditionBadges = buildInputCompletenessBadges(
+    snapshot.inputs,
+    snapshot.runs.map((run) => run.track),
+    snapshot.case.mode,
+  );
   const groupForTrack = (track: string) =>
     inputGroups.find((group) => group.track === track);
   const overviewInputCount = inputGroups.reduce(
@@ -234,16 +253,17 @@ h1 { font-size: 24pt; line-height: 1.18; margin: 0 0 3mm; color: #123d37; letter
 .summary { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #b9c8cc; margin: 4mm 0; } .summary div { padding: 2mm 3mm; border-bottom: 1px solid #dce3e5; } .summary div:nth-last-child(-n+2) { border-bottom: 0; } .summary dt { font-size: 8pt; color: #66737c; } .summary dd { margin: .5mm 0 0; font-weight: 700; } .summary dd small { display: block; color: #65756f; font-weight: 400; font-size: 8pt; }
 .flow-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 4mm 0 5mm; border: 1px solid #b8cec8; background: #f6faf8; } .flow-step { position: relative; padding: 3mm 4mm; min-height: 17mm; } .flow-step + .flow-step { border-left: 1px solid #b8cec8; } .flow-step + .flow-step::before { content: "→"; position: absolute; left: -3.2mm; top: 5.3mm; width: 6mm; text-align: center; color: #287365; background: #f6faf8; font-weight: 800; } .flow-step span { display: block; color: #61736e; font-size: 7.5pt; } .flow-step strong { display: block; color: #174b43; margin-top: .5mm; }
 .banner { border-left: 4px solid #167064; background: #edf7f3; padding: 3mm 4mm; margin: 4mm 0; break-inside: avoid; } .banner.warning { border-color: #bd7621; background: #fff5e4; }
+.condition-badges { display: flex; flex-wrap: wrap; gap: 2mm; margin: 0 0 3mm; } .condition-badge { display: inline-flex; flex-direction: column; gap: .4mm; border-radius: 3mm; padding: 1.4mm 2.3mm; font-size: 8pt; font-weight: 800; background: #eef4f2; color: #244d47; } .condition-badge small { font-size: 7pt; color: #516763; font-weight: 500; } .condition-badge.warning { background: #fff1d7; color: #7a4c12; } .condition-badge.info { background: #eaf0f8; color: #365373; }
 .input-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3mm; } .input-group { border: 1px solid #c8d6d4; padding: 3mm; break-inside: avoid; } .input-groups > .input-group:only-child { grid-column: 1 / -1; } .group-source { color: #66737c; font-size: 7.5pt; font-weight: 800; margin: 0; }
 table { width: 100%; border-collapse: collapse; } th, td { border-bottom: 1px solid #d9e3e1; padding: 1.6mm 2mm; text-align: left; vertical-align: top; } thead th { color: #526862; font-size: 7.5pt; background: #f1f6f4; } tbody tr:last-child > * { border-bottom: 0; } .input-table { font-size: 8.2pt; } .input-table th:nth-child(1) { width: 38%; } .input-table th:nth-child(2) { width: 32%; } .number-cell { white-space: nowrap; } .unit { color: #596e68; font-size: .9em; white-space: nowrap; }
 .role-badge { display: inline-block; border-radius: 99px; padding: .4mm 1.5mm; font-size: 7pt; font-weight: 800; white-space: nowrap; } .role-case { color: #1d5a50; background: #e5f3ef; } .role-source { color: #70511d; background: #fff1d4; } .role-derived { color: #495d79; background: #eaf0f8; }
-.result-section { break-inside: avoid; } .table-scroll { border: 1px solid #b7c9c5; break-inside: avoid; } .output-table th, .output-table td { padding: 1.6mm 2.5mm; } .output-table thead th { font-size: 8pt; } .output-table tbody th { color: #435c56; width: 34%; background: #f8faf9; } .output-value { color: #123d37; font-size: 11pt; } .cell-state { font-size: 8pt; font-weight: 800; } .not-completed { color: #8a4b08; } .not-applicable { color: #6d777b; }
+.result-section { break-inside: avoid; } .result-guide { color: #465d59; font-size: 8.5pt; margin: 0 0 2mm; } .result-guide strong { color: #174b43; margin-right: 1mm; } .table-scroll { border: 1px solid #b7c9c5; break-inside: avoid; } .output-table th, .output-table td { padding: 1.6mm 2.5mm; } .output-table thead th { font-size: 8pt; } .output-table tbody th { color: #435c56; width: 34%; background: #f8faf9; } .output-value { color: #123d37; font-size: 11pt; } .cell-state { font-size: 8pt; font-weight: 800; } .not-completed { color: #8a4b08; } .not-applicable { color: #6d777b; }
 .empty-note { color: #6b7478; background: #f6f8f8; border-left: 3px solid #a8b4b8; padding: 2mm 3mm; margin: 2mm 0; } .empty-note.compact { font-size: 8pt; }
 .page-break { break-before: page; } .comparison-guide { color: #465d59; background: #f3f8f5; border-left: 4px solid #348678; padding: 2.5mm 3mm; margin: 0 0 4mm; font-size: 8.5pt; } .muted { color: #65747b; font-size: 8.5pt; }
 .method-badge { display: inline-block; padding: 1mm 2.5mm; border-radius: 99px; background: #e7f0ed; color: #2d6258; font-size: 8pt; font-weight: 800; } .algorithm-method { margin: 4mm 0 6mm; } .algorithm-method + .algorithm-method { border-top: 2px solid #a9c9c0; padding-top: 5mm; } .method-inputs { break-inside: avoid; margin-bottom: 4mm; } .method-inputs .input-table { border: 1px solid #d5e0de; }
 .algorithm-steps { list-style: none; margin: 2mm 0 0; padding: 0; } .algorithm-step { display: grid; grid-template-columns: 17mm 1fr; gap: 2mm; border-top: 1px solid #d8e2e1; padding: 2mm 0; break-inside: avoid; } .step-number { color: #2d6258; font-size: 8pt; font-weight: 800; padding-top: 1mm; } .step-content { min-width: 0; } .step-purpose { color: #1d4f47; font-weight: 800; margin: 0 0 1mm; } .step-line { display: grid; grid-template-columns: 19mm 1fr; gap: 2mm; margin: 0 0 .6mm; font-size: 8.5pt; } .step-label { color: #66737c; font-weight: 700; } .step-expression { color: #32464d; overflow-wrap: anywhere; } .formula-block { margin: 1mm 0; } .formula-block > .step-label { display: block; margin-bottom: .6mm; } .formula-values { border: 1px solid #d9e3e1; font-size: 7.7pt; } .formula-values th, .formula-values td { padding: 1mm 1.5mm; } .formula-values .symbol { color: #1d4f47; font-family: Consolas, monospace; font-weight: 800; } .step-result { color: #123d37; font-weight: 800; margin-top: .6mm; } .step-comparison { color: #1d5a50; background: #edf7f3; padding: .8mm 1.5mm; margin-top: .6mm; }
 </style></head><body>
-<section class="overview"><p class="eyebrow">鉦富機械有限公司 / 客戶設計計算報告</p><h1>油脂截留器設計計算報告</h1><p class="document-number">文件編號：${escapeHtml(snapshot.reportNumber)}</p><dl class="summary"><div><dt>案件</dt><dd>${escapeHtml(snapshot.case.caseNo)} / 修訂 ${escapeHtml(snapshot.case.revisionNo)}</dd></div><div><dt>客戶</dt><dd>${escapeHtml(snapshot.case.customer)}</dd></div><div><dt>設置地點</dt><dd>${escapeHtml(snapshot.case.location)}</dd></div><div><dt>需求目的</dt><dd>${escapeHtml(task)}</dd></div><div><dt>計算依據</dt><dd>${escapeHtml(mode.label)}<small>${escapeHtml(mode.description)}</small></dd></div></dl><div class="flow-strip"><div class="flow-step"><span>01 輸入</span><strong>本次輸入條件</strong></div><div class="flow-step"><span>02 計算</span><strong>${escapeHtml(mode.label)}</strong></div><div class="flow-step"><span>03 輸出</span><strong>本次設計結果</strong></div></div>${missingWorkflowBanner(snapshot)}<h2>本次輸入條件</h2>${inputOverview(inputGroups)}<div class="result-section"><h2>本次設計結果</h2>${outputOverview(snapshot)}</div></section>
-<section class="${detailsClass}"><h2>完整計算過程</h2><p class="comparison-guide">設計處理水量統一換算為 L/min 方便比對；來源公式的原始單位仍完整保留。清除週期油脂量使用 kg，有效容積使用 L，兩者用途不同，不互相比較。</p>${snapshot.runs.map((run) => algorithmProcess(run, groupForTrack(run.track))).join("")}</section>
+<section class="overview"><p class="eyebrow">鉦富機械有限公司 / 客戶設計計算報告</p><h1>油脂截留器設計計算報告</h1><p class="document-number">文件編號：${escapeHtml(snapshot.reportNumber)}</p><dl class="summary"><div><dt>案件</dt><dd>${escapeHtml(snapshot.case.caseNo)} / 修訂 ${escapeHtml(snapshot.case.revisionNo)}</dd></div><div><dt>客戶</dt><dd>${escapeHtml(snapshot.case.customer)}</dd></div><div><dt>設置地點</dt><dd>${escapeHtml(snapshot.case.location)}</dd></div><div><dt>需求目的</dt><dd>${escapeHtml(task)}</dd></div><div><dt>計算依據</dt><dd>${escapeHtml(mode.label)}<small>${escapeHtml(mode.description)}</small></dd></div></dl><div class="flow-strip"><div class="flow-step"><span>01 輸入</span><strong>本次輸入條件</strong></div><div class="flow-step"><span>02 計算</span><strong>${escapeHtml(mode.label)}</strong></div><div class="flow-step"><span>03 輸出</span><strong>本次設計結果</strong></div></div>${missingWorkflowBanner(snapshot)}<h2>本次輸入條件</h2>${conditionBadgeStrip(conditionBadges)}${inputOverview(inputGroups)}<div class="result-section"><h2>本次設計結果</h2>${outputOverview(snapshot)}</div></section>
+<section class="${detailsClass}"><h2>完整計算過程</h2><p class="comparison-guide">本區保留未取整原始值；設計處理水量另列「原始值換算（未取整）」的 L/min 數值方便比對。正式採用值依規則取整，請以「本次設計結果」為準。清除週期油脂量使用 kg，有效容積使用 L，兩者用途不同，不互相比較。</p>${snapshot.runs.map((run) => algorithmProcess(run, groupForTrack(run.track))).join("")}</section>
 </body></html>`;
 }

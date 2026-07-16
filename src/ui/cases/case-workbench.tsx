@@ -1,14 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { buildInputCompletenessBadges } from "@/domain/report/presentation";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
 } from "@/domain/rules/source-display";
 import { DesignResultsTable } from "@/ui/components/design-results-table";
 import {
-  FieldLabelHelp,
+  FieldHelpButton,
   type FieldHelpContent,
 } from "@/ui/components/field-help";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
@@ -86,6 +94,42 @@ const taskLabels: Record<string, string> = {
   T05_DESIGN_TO_DINERS_AND_AREA: "設備能力反推人數及面積",
 };
 
+type VisibleInputSourceType =
+  | "案件資料"
+  | "工程選值"
+  | "設備資料"
+  | "實測資料"
+  | "覆寫值";
+
+const inputSourceDescriptions: Record<VisibleInputSourceType, string> = {
+  案件資料: "來自本案人數、面積、時間或週期。",
+  工程選值: "需依來源範圍、餐飲型態或工程理由選定。",
+  設備資料: "來自設備能力、有效容積或證據文件。",
+  實測資料: "來自現場量測或營運紀錄。",
+  覆寫值: "有案件證據時取代來源表預設值。",
+};
+
+const inputSourceTones: Record<VisibleInputSourceType, string> = {
+  案件資料: "case",
+  工程選值: "engineering",
+  設備資料: "equipment",
+  實測資料: "measured",
+  覆寫值: "override",
+};
+
+const legacyWaterReferenceRows = [
+  { category: "觀光飯店", q: "70～120", turnover: "3", density: "0.5" },
+  { category: "中小型餐廳", q: "30～50", turnover: "5", density: "0.5" },
+  { category: "西式速食", q: "13～33", turnover: "8", density: "0.5" },
+  { category: "便當中心", q: "25～100", turnover: "不適用", density: "不適用" },
+  {
+    category: "機關團體餐廳",
+    q: "100～150",
+    turnover: "不適用",
+    density: "不適用",
+  },
+];
+
 const fieldHelp = {
   diningType: {
     description:
@@ -118,6 +162,11 @@ const fieldHelp = {
   capacitySource: {
     description: "記錄設備流量與油脂能力數值的來源，讓反推結果可追溯。",
     note: "例如：型錄頁次、規格書版本、設備圖面或實測紀錄。",
+  },
+  actualUseMinutes: {
+    description:
+      "只有在已知本案每日實際使用時間，且要取代內政部來源表 t 值時填寫。",
+    note: "此欄屬於覆寫值；請確認資料來源，報告會標示為特殊條件。",
   },
   greaseDays: {
     description: "填寫兩次完整清除油脂之間的天數；本計算依據允許 7～14 day。",
@@ -173,6 +222,18 @@ const fieldHelp = {
       "說明 q、餐飲類別與 exact k 的選用依據，供後續工程覆核與追溯。",
     note: "例如：餐飲型態、來源表格、實測紀錄或工程判斷。",
   },
+  selectionSourceType: {
+    description: "選擇 q、餐飲分類或 exact k 的主要依據來源類型。",
+    note: "這會進入報告條件摘要，協助覆核者判斷數字憑什麼來。",
+  },
+  selectionBasis: {
+    description: "用一句話說明為什麼採用這組 q、分類與 exact k。",
+    note: "避免只寫「依來源選用」；請補上餐飲型態或保守性判斷。",
+  },
+  selectionEvidence: {
+    description: "填寫文件名稱、頁次、實測紀錄或客戶確認紀錄。",
+    note: "若目前沒有正式附件，可先填口頭確認或資料提供者。",
+  },
 } satisfies Record<string, FieldHelpContent>;
 
 export function CaseWorkbench({ caseId }: { caseId: string }) {
@@ -190,6 +251,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     qCapacityLpm: "100",
     gCapacityKg: "30",
     evidenceSource: "客戶提供設備能力資料",
+    actualUseMinutes: "",
   });
   const [legacy, setLegacy] = useState<Record<string, string>>({
     people: "100",
@@ -198,6 +260,9 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     safetyFactor: "1.5",
     safetyClass: "A",
     selectionReason: "依來源餐飲分類選用",
+    selectionSourceType: "來源表範圍選值",
+    selectionBasis: "依餐飲型態與來源分類選用",
+    selectionEvidence: "",
     areaM2: "200",
     dinerDensity: "0.5",
     turnover: "5",
@@ -258,6 +323,17 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
         Boolean(result),
       ),
     [latestResults],
+  );
+  const conditionBadges = useMemo(
+    () =>
+      item
+        ? buildInputCompletenessBadges(
+            item.input_payload,
+            designResultRuns.map((result) => result.track),
+            item.mode,
+          )
+        : [],
+    [designResultRuns, item],
   );
 
   async function calculate(event: FormEvent) {
@@ -323,6 +399,14 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   const displayTitle = item.title.trim() || item.case_no;
   const displayCustomer = item.customer.trim() || "未填客戶";
   const displayLocation = item.location.trim() || "未填地點";
+  const hasCalculationAttempt =
+    Boolean(item.calculation_status) ||
+    designResultRuns.length > 0 ||
+    item.assessments.length > 0;
+  const calculationButtonText = hasCalculationAttempt ? "重新計算" : "開始計算";
+  const submittingCalculationText = hasCalculationAttempt
+    ? "正在重新計算…"
+    : "正在計算…";
 
   return (
     <div className="page">
@@ -374,7 +458,20 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
             </dd>
           </div>
         </dl>
-        <NextAction item={item} />
+        {item.calculation_status || item.assessments.length > 0 ? (
+          <div className="condition-badge-row" aria-label="計算完整性">
+            {conditionBadges.map((badge) => (
+              <span
+                className={`condition-pill ${badge.tone}`}
+                key={`${badge.label}-${badge.detail ?? ""}`}
+              >
+                <strong>{badge.label}</strong>
+                {badge.detail ? <small>{badge.detail}</small> : null}
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <NextAction item={item} placement="summary" />
       </section>
 
       <form className="stack" onSubmit={calculate}>
@@ -386,20 +483,11 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                 欄位依任務與模式顯示；每個數值旁都保留單位語意。
               </p>
             </div>
-            {!readonly ? (
-              <button
-                className="button primary"
-                type="submit"
-                disabled={submitting}
-              >
-                {submitting
-                  ? "正在計算…"
-                  : item.calculation_status
-                    ? "重新計算"
-                    : "開始計算"}
-              </button>
-            ) : null}
           </div>
+          <details className="input-legend-details">
+            <summary>輸入屬性說明</summary>
+            <InputSourceLegend />
+          </details>
           <div className="track-grid">
             {currentEnabled ? (
               <fieldset
@@ -437,6 +525,17 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           <p className="help" style={{ marginTop: 16, marginBottom: 0 }}>
             本系統未執行特定產品或證書符合性判定。
           </p>
+          {!readonly ? (
+            <div className="button-row end" style={{ marginTop: 16 }}>
+              <button
+                className="button primary"
+                type="submit"
+                disabled={submitting}
+              >
+                {submitting ? submittingCalculationText : calculationButtonText}
+              </button>
+            </div>
+          ) : null}
         </section>
 
         {item.calculation_status || item.assessments.length > 0 ? (
@@ -458,6 +557,9 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
               </div>
             ) : null}
             <DesignResultsTable mode={item.mode} runs={designResultRuns} />
+            {item.lifecycle_status === "CALCULATED" ? (
+              <NextAction item={item} placement="result" />
+            ) : null}
           </section>
         ) : null}
       </form>
@@ -465,13 +567,20 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   );
 }
 
-function NextAction({ item }: { item: CaseDetail }) {
+function NextAction({
+  item,
+  placement = "summary",
+}: {
+  item: CaseDetail;
+  placement?: "summary" | "result";
+}) {
   if (
     item.lifecycle_status === "CALCULATED" &&
     ["COMPLETE", "COMPLETE_WITH_REMINDER"].includes(
       item.calculation_status ?? "",
     )
   ) {
+    if (placement !== "result") return null;
     return (
       <div
         className={
@@ -495,6 +604,9 @@ function NextAction({ item }: { item: CaseDetail }) {
         </div>
       </div>
     );
+  }
+  if (item.lifecycle_status === "CALCULATED" && placement !== "result") {
+    return null;
   }
   if (item.lifecycle_status === "IN_REVIEW") {
     return (
@@ -566,35 +678,32 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
   const area =
     taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
   return (
-    <div className="form-grid" style={{ marginTop: 12 }}>
-      <div className="field span-2">
-        <FieldLabelHelp
-          htmlFor="current-dining"
-          label="餐飲類型"
-          help={fieldHelp.diningType}
-        />
-        <select
-          id="current-dining"
-          required
-          value={values.diningType}
-          onChange={(event) => set("diningType", event.target.value)}
-        >
-          <option value="" disabled>
-            請選擇餐飲類型
+    <InputMatrix>
+      <SelectField
+        id="current-dining"
+        label="餐飲類型"
+        help={fieldHelp.diningType}
+        sourceType="工程選值"
+        value={values.diningType}
+        onChange={(value) => set("diningType", value)}
+        required
+      >
+        <option value="" disabled>
+          請選擇餐飲類型
+        </option>
+        {diningOptions.map(([value, label]) => (
+          <option value={value} key={value}>
+            {label}
           </option>
-          {diningOptions.map(([value, label]) => (
-            <option value={value} key={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
+        ))}
+      </SelectField>
       {!area && !reverse ? (
         <NumberField
           id="current-people"
           label="每日用餐人數"
           unit="人/day"
           help={fieldHelp.currentPeople}
+          sourceType="案件資料"
           value={values.people}
           onChange={(value) => set("people", value)}
         />
@@ -606,6 +715,7 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
             label="廚房面積"
             unit="m²"
             help={fieldHelp.kitchenArea}
+            sourceType="案件資料"
             value={values.kitchenArea}
             onChange={(value) => set("kitchenArea", value)}
           />
@@ -614,6 +724,7 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
             label="用餐區面積"
             unit="m²"
             help={fieldHelp.currentDiningArea}
+            sourceType="案件資料"
             value={values.diningArea}
             onChange={(value) => set("diningArea", value)}
           />
@@ -626,6 +737,7 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
             label="Q 設計能力"
             unit="L/min"
             help={fieldHelp.qCapacity}
+            sourceType="設備資料"
             value={values.qCapacityLpm}
             onChange={(value) => set("qCapacityLpm", value)}
           />
@@ -634,22 +746,19 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
             label="G 設計能力"
             unit="kg"
             help={fieldHelp.gCapacity}
+            sourceType="設備資料"
             value={values.gCapacityKg}
             onChange={(value) => set("gCapacityKg", value)}
           />
-          <div className="field span-2">
-            <FieldLabelHelp
-              htmlFor="capacity-source"
-              label="能力資料來源／證據"
-              help={fieldHelp.capacitySource}
-            />
-            <input
-              id="capacity-source"
-              required
-              value={values.evidenceSource}
-              onChange={(event) => set("evidenceSource", event.target.value)}
-            />
-          </div>
+          <TextField
+            id="capacity-source"
+            label="能力資料來源／證據"
+            help={fieldHelp.capacitySource}
+            sourceType="設備資料"
+            value={values.evidenceSource}
+            onChange={(value) => set("evidenceSource", value)}
+            required
+          />
         </>
       ) : null}
       <NumberField
@@ -657,6 +766,7 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
         label="油脂清除週期"
         unit="day"
         help={fieldHelp.greaseDays}
+        sourceType="案件資料"
         min="7"
         max="14"
         value={values.greaseCleaningDays}
@@ -667,12 +777,27 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
         label="殘渣清除週期"
         unit="day"
         help={fieldHelp.sedimentDays}
+        sourceType="案件資料"
         min="7"
         max="30"
         value={values.sedimentCleaningDays}
         onChange={(value) => set("sedimentCleaningDays", value)}
       />
-    </div>
+      <details className="input-matrix-details">
+        <summary>特殊條件 / 有資料再填</summary>
+        <InputMatrix nested>
+          <OptionalNumberField
+            id="actual-use-minutes"
+            label="每日實際使用時間"
+            unit="min/day"
+            help={fieldHelp.actualUseMinutes}
+            sourceType="覆寫值"
+            value={values.actualUseMinutes}
+            onChange={(value) => set("actualUseMinutes", value)}
+          />
+        </InputMatrix>
+      </details>
+    </InputMatrix>
   );
 }
 
@@ -683,13 +808,14 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
   const area =
     taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
   return (
-    <div className="form-grid" style={{ marginTop: 12 }}>
+    <InputMatrix>
       {!area && !reverse ? (
         <NumberField
           id="legacy-people"
           label="用餐人數"
           unit="人/餐"
           help={fieldHelp.legacyPeople}
+          sourceType="案件資料"
           value={values.people}
           onChange={(value) => set("people", value)}
         />
@@ -701,6 +827,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
             label="用餐區面積"
             unit="m²"
             help={fieldHelp.legacyArea}
+            sourceType="案件資料"
             value={values.areaM2}
             onChange={(value) => set("areaM2", value)}
           />
@@ -709,6 +836,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
             label="人員密度"
             unit="人/m²"
             help={fieldHelp.legacyDensity}
+            sourceType="工程選值"
             value={values.dinerDensity}
             onChange={(value) => set("dinerDensity", value)}
           />
@@ -717,6 +845,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
             label="翻桌率"
             unit="次"
             help={fieldHelp.legacyTurnover}
+            sourceType="工程選值"
             value={values.turnover}
             onChange={(value) => set("turnover", value)}
           />
@@ -729,6 +858,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
             label="有效容積"
             unit="L"
             help={fieldHelp.legacyVolume}
+            sourceType="設備資料"
             value={values.effectiveVolumeL}
             onChange={(value) => set("effectiveVolumeL", value)}
           />
@@ -737,6 +867,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
             label="人員密度"
             unit="人/m²"
             help={fieldHelp.legacyDensity}
+            sourceType="工程選值"
             value={values.dinerDensity}
             onChange={(value) => set("dinerDensity", value)}
           />
@@ -745,6 +876,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
             label="翻桌率"
             unit="次"
             help={fieldHelp.legacyTurnover}
+            sourceType="工程選值"
             value={values.turnover}
             onChange={(value) => set("turnover", value)}
           />
@@ -753,69 +885,84 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
       <NumberField
         id="legacy-q"
         label="每人每餐用水量 q"
+        detailLabel="q 參考表"
         unit="L/(人·餐)"
         help={fieldHelp.legacyQ}
+        sourceType="工程選值"
         value={values.qLitersPerPersonMeal}
         onChange={(value) => set("qLitersPerPersonMeal", value)}
-      />
+      >
+        <LegacyWaterReference />
+      </NumberField>
       <NumberField
         id="legacy-hours"
         label="操作時間 t"
         unit="h"
         help={fieldHelp.legacyHours}
+        sourceType="案件資料"
         value={values.operationHours}
         onChange={(value) => set("operationHours", value)}
       />
-      <div className="field">
-        <FieldLabelHelp
-          htmlFor="safety-class"
-          label="安全係數類別"
-          help={fieldHelp.safetyClass}
-        />
-        <select
-          id="safety-class"
-          value={values.safetyClass}
-          onChange={(event) => {
-            const safetyClass = event.target.value;
-            setValues((previous) => ({
-              ...previous,
-              safetyClass,
-              safetyFactor:
-                safetyClass === "A"
-                  ? "1.5"
-                  : safetyClass === "B"
-                    ? "1.3"
-                    : "1.2",
-            }));
-          }}
-        >
-          <option value="A">A 類</option>
-          <option value="B">B 類</option>
-          <option value="C">C 類</option>
-        </select>
-      </div>
+      <SelectField
+        id="safety-class"
+        label="安全係數類別"
+        help={fieldHelp.safetyClass}
+        sourceType="工程選值"
+        value={values.safetyClass}
+        onChange={(safetyClass) => {
+          setValues((previous) => ({
+            ...previous,
+            safetyClass,
+            safetyFactor:
+              safetyClass === "A" ? "1.5" : safetyClass === "B" ? "1.3" : "1.2",
+          }));
+        }}
+      >
+        <option value="A">A 類</option>
+        <option value="B">B 類</option>
+        <option value="C">C 類</option>
+      </SelectField>
       <NumberField
         id="legacy-k"
         label="exact k"
         unit="ratio"
         help={fieldHelp.legacyK}
+        sourceType="工程選值"
         value={values.safetyFactor}
         onChange={(value) => set("safetyFactor", value)}
       />
-      <div className="field span-2">
-        <FieldLabelHelp
-          htmlFor="legacy-reason"
-          label="參數選擇理由"
-          help={fieldHelp.legacyReason}
-        />
-        <input
-          id="legacy-reason"
-          required
-          value={values.selectionReason}
-          onChange={(event) => set("selectionReason", event.target.value)}
-        />
-      </div>
-    </div>
+      <SelectField
+        id="selection-source-type"
+        label="選值來源類型"
+        help={fieldHelp.selectionSourceType}
+        sourceType="工程選值"
+        value={values.selectionSourceType}
+        onChange={(value) => set("selectionSourceType", value)}
+        required
+      >
+        <option value="來源表範圍選值">來源表範圍選值</option>
+        <option value="客戶提供資料">客戶提供資料</option>
+        <option value="實測/現場紀錄">實測/現場紀錄</option>
+        <option value="工程保守判斷">工程保守判斷</option>
+      </SelectField>
+      <TextField
+        id="selection-basis"
+        label="選值原因"
+        help={fieldHelp.selectionBasis}
+        sourceType="工程選值"
+        value={values.selectionBasis}
+        onChange={(value) => set("selectionBasis", value)}
+        required
+      />
+      <TextField
+        id="selection-evidence"
+        label="證據備註"
+        help={fieldHelp.selectionEvidence}
+        sourceType="工程選值"
+        value={values.selectionEvidence}
+        onChange={(value) => set("selectionEvidence", value)}
+      />
+    </InputMatrix>
   );
 }
 
@@ -830,52 +977,335 @@ function NumberField({
   label,
   unit,
   help,
+  sourceType,
   value,
   onChange,
   min = "0.000001",
   max,
+  children,
+  detailLabel,
+}: {
+  id: string;
+  label: string;
+  detailLabel?: string;
+  unit: string;
+  help: FieldHelpContent;
+  sourceType: VisibleInputSourceType;
+  value: string;
+  onChange: (value: string) => void;
+  min?: string;
+  max?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <>
+      <InputMatrixRow id={id} label={label} help={help} sourceType={sourceType}>
+        <InputWithUnit unit={unit}>
+          <input
+            id={id}
+            type="number"
+            inputMode="decimal"
+            step="any"
+            min={min}
+            max={max}
+            required
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </InputWithUnit>
+      </InputMatrixRow>
+      {children ? (
+        <InputMatrixDetail
+          label={detailLabel ?? `${label}參考`}
+          sourceType={sourceType}
+        >
+          {children}
+        </InputMatrixDetail>
+      ) : null}
+    </>
+  );
+}
+
+function OptionalNumberField({
+  id,
+  label,
+  unit,
+  help,
+  sourceType,
+  value,
+  onChange,
 }: {
   id: string;
   label: string;
   unit: string;
   help: FieldHelpContent;
+  sourceType: VisibleInputSourceType;
   value: string;
   onChange: (value: string) => void;
-  min?: string;
-  max?: string;
 }) {
   return (
-    <div className="field">
-      <FieldLabelHelp htmlFor={id} label={`${label}（${unit}）`} help={help} />
+    <InputMatrixRow id={id} label={label} help={help} sourceType={sourceType}>
+      <InputWithUnit unit={unit}>
+        <input
+          id={id}
+          type="number"
+          inputMode="decimal"
+          step="any"
+          min="0.000001"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </InputWithUnit>
+    </InputMatrixRow>
+  );
+}
+
+function TextField({
+  id,
+  label,
+  help,
+  sourceType,
+  value,
+  onChange,
+  required,
+}: {
+  id: string;
+  label: string;
+  help: FieldHelpContent;
+  sourceType: VisibleInputSourceType;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <InputMatrixRow id={id} label={label} help={help} sourceType={sourceType}>
       <input
         id={id}
-        type="number"
-        inputMode="decimal"
-        step="any"
-        min={min}
-        max={max}
-        required
+        required={required}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+    </InputMatrixRow>
+  );
+}
+
+function SelectField({
+  id,
+  label,
+  help,
+  sourceType,
+  value,
+  onChange,
+  required,
+  children,
+}: {
+  id: string;
+  label: string;
+  help: FieldHelpContent;
+  sourceType: VisibleInputSourceType;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <InputMatrixRow id={id} label={label} help={help} sourceType={sourceType}>
+      <select
+        id={id}
+        required={required}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        {children}
+      </select>
+    </InputMatrixRow>
+  );
+}
+
+function InputWithUnit({
+  unit,
+  children,
+}: {
+  unit: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="input-with-unit">
+      {children}
+      <span aria-hidden="true">{unit}</span>
     </div>
   );
 }
 
+function InputMatrix({
+  children,
+  nested = false,
+}: {
+  children: ReactNode;
+  nested?: boolean;
+}) {
+  return (
+    <div className={`input-matrix${nested ? " nested" : ""}`}>
+      {nested ? null : (
+        <div className="input-matrix-header" aria-hidden="true">
+          <span>屬性</span>
+          <span>條件</span>
+          <span>輸入值</span>
+          <span>說明</span>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function InputMatrixRow({
+  id,
+  label,
+  help,
+  sourceType,
+  children,
+}: {
+  id: string;
+  label: string;
+  help: FieldHelpContent;
+  sourceType: VisibleInputSourceType;
+  children: ReactNode;
+}) {
+  return (
+    <div className="input-matrix-row">
+      <div className="input-matrix-source">
+        <span className={`field-source-pill ${inputSourceTones[sourceType]}`}>
+          {sourceType}
+        </span>
+      </div>
+      <div className="input-matrix-condition">
+        <label htmlFor={id}>{label}</label>
+      </div>
+      <div className="input-matrix-control">{children}</div>
+      <div className="input-matrix-help">
+        <FieldHelpButton
+          ariaLabel={`${label}說明`}
+          help={help}
+          showText={false}
+          title={label}
+        />
+      </div>
+    </div>
+  );
+}
+
+function InputMatrixDetail({
+  label,
+  sourceType,
+  children,
+}: {
+  label: string;
+  sourceType: VisibleInputSourceType;
+  children: ReactNode;
+}) {
+  return (
+    <div className="input-matrix-row input-matrix-detail-row">
+      <div className="input-matrix-source">
+        <span className={`field-source-pill ${inputSourceTones[sourceType]}`}>
+          {sourceType}
+        </span>
+      </div>
+      <div className="input-matrix-condition">
+        <span>{label}</span>
+      </div>
+      <div className="input-matrix-detail-content">{children}</div>
+      <div className="input-matrix-help" aria-hidden="true" />
+    </div>
+  );
+}
+
+function InputSourceLegend() {
+  const sourceTypes: VisibleInputSourceType[] = [
+    "案件資料",
+    "工程選值",
+    "設備資料",
+    "實測資料",
+    "覆寫值",
+  ];
+  return (
+    <div className="field-source-legend" aria-label="輸入類型說明">
+      {sourceTypes.map((type) => (
+        <span className="field-source-legend-item" key={type}>
+          <span className={`field-source-pill ${inputSourceTones[type]}`}>
+            {type}
+          </span>
+          <small>{inputSourceDescriptions[type]}</small>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LegacyWaterReference() {
+  return (
+    <details className="field-reference">
+      <summary>臺北市用水量參考表</summary>
+      <div className="reference-table-wrap">
+        <table className="reference-table">
+          <thead>
+            <tr>
+              <th>餐廳類別</th>
+              <th>q 範圍 L/(人·餐)</th>
+              <th>翻桌率</th>
+              <th>密度 人/m²</th>
+            </tr>
+          </thead>
+          <tbody>
+            {legacyWaterReferenceRows.map((row) => (
+              <tr key={row.category}>
+                <th scope="row">{row.category}</th>
+                <td>{row.q}</td>
+                <td>{row.turnover}</td>
+                <td>{row.density}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p>
+        q 優先採用實測；無實測時在來源範圍內選 exact
+        value，並於選值原因留下依據。
+      </p>
+    </details>
+  );
+}
+
+function withOptional(
+  input: Record<string, string>,
+  key: string,
+  value: string | undefined,
+) {
+  return value?.trim() ? { ...input, [key]: value } : input;
+}
+
 function buildCurrentInput(taskCode: string, values: Record<string, string>) {
-  const base = {
-    diningType: values.diningType,
-    greaseCleaningDays: values.greaseCleaningDays,
-    sedimentCleaningDays: values.sedimentCleaningDays,
-  };
+  const base = withOptional(
+    {
+      diningType: values.diningType,
+      greaseCleaningDays: values.greaseCleaningDays,
+      sedimentCleaningDays: values.sedimentCleaningDays,
+    },
+    "actualUseMinutes",
+    values.actualUseMinutes,
+  );
   if (taskCode === "T05_DESIGN_TO_DINERS_AND_AREA")
-    return {
-      kind: "REVERSE",
-      ...base,
-      qCapacityLpm: values.qCapacityLpm,
-      gCapacityKg: values.gCapacityKg,
-      evidenceSource: values.evidenceSource,
-    };
+    return withOptional(
+      {
+        kind: "REVERSE",
+        ...base,
+        qCapacityLpm: values.qCapacityLpm,
+        gCapacityKg: values.gCapacityKg,
+        evidenceSource: values.evidenceSource,
+      },
+      "actualUseMinutes",
+      values.actualUseMinutes,
+    );
   if (taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN")
     return {
       kind: "AREA",
@@ -886,13 +1316,25 @@ function buildCurrentInput(taskCode: string, values: Record<string, string>) {
   return { kind: "DINERS", ...base, people: values.people };
 }
 
+function buildSelectionReason(values: Record<string, string>) {
+  const parts = [
+    values.selectionSourceType ? `來源：${values.selectionSourceType}` : "",
+    values.selectionBasis ? `原因：${values.selectionBasis}` : "",
+    values.selectionEvidence ? `證據：${values.selectionEvidence}` : "",
+  ].filter(Boolean);
+  return parts.join("；") || values.selectionReason;
+}
+
 function buildLegacyInput(taskCode: string, values: Record<string, string>) {
   const base = {
     qLitersPerPersonMeal: values.qLitersPerPersonMeal,
     operationHours: values.operationHours,
     safetyFactor: values.safetyFactor,
     safetyClass: values.safetyClass,
-    selectionReason: values.selectionReason,
+    selectionReason: buildSelectionReason(values),
+    selectionSourceType: values.selectionSourceType,
+    selectionBasis: values.selectionBasis,
+    selectionEvidence: values.selectionEvidence,
   };
   if (taskCode === "T05_DESIGN_TO_DINERS_AND_AREA")
     return {

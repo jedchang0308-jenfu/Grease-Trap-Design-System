@@ -8,7 +8,13 @@
 
 ## 本地啟動
 
-需求：Node.js 24+、npm、Docker Desktop。
+需求：Node.js 24+、npm，以及 PostgreSQL。
+
+PostgreSQL 有兩種啟動方式：
+
+- 預設：若本機有 PostgreSQL binaries，`npm run dev:local` 會自動在 `%LOCALAPPDATA%\GreaseTrapDesignSystem\postgres-data-18` 啟動專案專用 PostgreSQL，不需要 Docker。
+- 備援：使用 Docker Desktop，由 `npm run dev:local` 自動啟動 `docker compose` 裡的 PostgreSQL。
+- 不用 Docker：自行啟動 PostgreSQL，並在 `.env.local` 設定可連線的 `DATABASE_URL`。
 
 ```powershell
 npm install
@@ -16,7 +22,25 @@ npx playwright install chromium
 npm run dev:local
 ```
 
-固定入口為 `http://localhost:3100`。`dev:local` 會啟動本地 PostgreSQL、等待 healthy、依序執行 migration／seed／verify，再啟動 Next.js；port 3100 或 55432 被其他非本專案程序占用時會安全停止並說明原因。
+固定入口為 `http://localhost:3100`。`dev:local` 採用與隔壁 `AI_PDM` 相同的 Windows 啟動器模式：先準備資料庫，背景啟動 Next.js，等待 `/api/health`、`/`、`/cases` 通過後列出 `Local URL` 並開啟瀏覽器。若已有健康的本專案 3100 server，會直接沿用並開瀏覽器。
+
+輔助指令：
+
+```powershell
+npm run dev:local:check
+npm run dev:local:restart
+```
+
+`dev:local:check` 只檢查既有 3100 server；`dev:local:restart` 會停止本專案 stale process、清除 `.next-dev` 並重新啟動。若 port 3100 被非本專案程序占用，腳本只會列出 PID 與 command，不會未經確認就停止外部程序。
+
+資料庫處理仍維持原規則：若目前 `DATABASE_URL` 連得上，就跳過 Docker，直接執行 migration／seed／verify；若連不上且使用預設本地 DB URL，會優先嘗試啟動專案專用 PostgreSQL；再不行才提示需要 Docker Desktop 或自行啟動 PostgreSQL。
+
+Docker Compose 不使用固定容器名稱，由各工作目錄的 Compose project name 自動隔離。本專案預設 PostgreSQL host port 為 `55433`，避開舊版 `grease-trap-calculation-system` 常用的 `55432`。若另一個工作目錄已占用預設的 `55433`，請在未提交的 `.env.local` 同時設定其他 host port 與對應 URL，例如：
+
+```dotenv
+POSTGRES_PORT=55434
+DATABASE_URL=postgresql://gtc:gtc_local_only@localhost:55434/gtc_dev
+```
 
 環境變數範本位於 `.env.example`；不得提交正式 secret。development 預設使用具備全部內部角色的 seed identity，production 預設關閉 seed auth。
 
