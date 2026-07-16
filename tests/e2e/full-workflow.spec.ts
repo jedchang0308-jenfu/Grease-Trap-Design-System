@@ -28,7 +28,7 @@ async function visibleErrorSweep(page: Page) {
 }
 
 async function evidence(page: Page, project: string, name: string) {
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(100);
   const directory = path.resolve("output", "playwright", "evidence", project);

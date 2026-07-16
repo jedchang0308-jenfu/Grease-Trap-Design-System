@@ -349,7 +349,7 @@ A_by_G = 1000 × Gcapacity × n0 / (n × (gu × iu + gb × ib))
 
 ## 10. 精度與捨入
 
-- domain 使用 decimal，資料庫正式數值至少 `numeric(24,10)`。
+- domain 使用 Decimal 字串保存與運算；Firestore／memory adapter 不得把正式數值轉為 JavaScript 浮點數後再判定。
 - `rawValue`：完整運算與匹配，不先截斷。
 - `sourceDisplayValue`：重現來源顯示，只作 QA evidence。
 - `adoptedValue`：正式報告採用值。
@@ -419,43 +419,33 @@ DRAFT
 - `IN_REVIEW → REVIEWED`：目前使用者完成覆核；或退回 `CALCULATED` 並記錄原因。
 - `REVIEWED → ISSUED`：以 reviewed revision 建立報告快照與 PDF。
 - `CALCULATED` 與 `IN_REVIEW` 均可讀取 deterministic 報告草稿預覽；`IN_REVIEW` 後不得再新增人工採用，退回後回到 `CALCULATED` 修正。
-- 同一 actor 可以依序完成 `CALCULATED → 報告草稿 → IN_REVIEW → REVIEWED → ISSUED`；每次狀態轉換與責任事件仍須獨立、具名且有時間戳的 audit event。
+- 同一 actor 可以依序完成 `CALCULATED → 報告草稿 → IN_REVIEW → REVIEWED → ISSUED`；`preparedBy`、`reviewedBy`、`issuedBy` 與時間必須分開保存，但不要求法規級 audit event stream。
 - 已核發輸入不可修改；變更時建立新 case revision。新修訂核發後，前版標 `SUPERSEDED`，檔案保留。
 - `BLOCKED` 是計算狀態，不是案件生命週期；阻擋時案件留在 DRAFT／INPUT_READY 並顯示補資料動作。
 
 ## 14. 資料模型
 
-所有主鍵用 UUID；時間用 UTC `timestamptz`；顯示時轉 Asia/Taipei。
+所有 ID 使用 UUID／ULID，時間以 UTC ISO 8601 字串保存，顯示時轉 Asia/Taipei。正式環境使用 Firebase Auth、Cloud Firestore 與 Cloud Storage；本機 memory adapter 必須遵守相同 application contract。
 
-| Aggregate／table        | 必要欄位與約束                                                                                                                                                               |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `users`                 | id、display_name、status、created_at；identity subject 透過 adapter mapping                                                                                                  |
-| `user_roles`            | user_id、role；unique(user_id, role)                                                                                                                                         |
-| `source_documents`      | code、title、authority_level、published_at、checked_at、uri、sha256、status                                                                                                  |
-| `source_discrepancies`  | code、source_document_id、page、description、resolution、approved_by                                                                                                         |
-| `rule_sets`             | code、version、method_family、effective_from/to、status、checksum；已 ACTIVE 不可修改                                                                                        |
-| `factor_tables`         | rule_set_id、table_code、dimension_schema、unit_schema                                                                                                                       |
-| `factor_points`         | table_id、dining_type、dimension_key、value nullable、source_state；保留 VALUE／DASH／BLANK                                                                                  |
-| `calculation_cases`     | id、case_no、revision_no、customer、location、task_code、mode、lifecycle_status、created_by；unique(case_no, revision_no)                                                    |
-| `case_inputs`           | case_revision_id、track、field_code、raw_value、normalized_decimal、unit、source_type、evidence_uri                                                                          |
-| `scenario_decisions`    | case_revision_id、selected_mode、reason、decided_by、decided_at                                                                                                              |
-| `assumptions`           | case_revision_id、track、code、value、impact、confirmed_by                                                                                                                   |
-| `track_assessments`     | request_id、track、status、required_fields_json、missing_fields_json、errors_json、rule_set_id                                                                               |
-| `calculation_runs`      | case_revision_id、track、task_code、method_code、rule_set_id、input_hash、status、result_semantics、raw_result_json、adopted_result_json；完成後不可更新，隨案件刪除一併刪除 |
-| `calculation_steps`     | run_id、sequence、formula_code、expression、substitution、result、unit、source_ref                                                                                           |
-| `warnings`              | owner_type/id、code、severity、track、message、details_json                                                                                                                  |
-| `engineering_overrides` | case_revision_id、field/result path、before、after、reason、evidence、requested_by、approved_by、status；requested_by 可等於 approved_by                                     |
-| `review_records`        | case_revision_id、prepared_by、reviewed_by、checklist_json、decision、note、reviewed_at；prepared_by 可等於 reviewed_by                                                      |
-| `report_snapshots`      | case_revision_id、snapshot_json、snapshot_hash、report_number nullable、status、created_by、issued_by、issued_at；核發後不可更新，隨案件刪除一併刪除                         |
-| `audit_events`          | actor_id、action、aggregate_type/id、before_hash、after_hash、metadata_json、created_at                                                                                      |
+### 14.1 Firestore collections
 
-資料庫 constraints：
+| Collection | Document | 必要內容與約束 |
+| --- | --- | --- |
+| `cases` | `{caseGroupId}` | 目前 revision 的案件 aggregate：輸入、狀態、version、計算結果、assessment、override、review、report summary、有限 idempotency cache |
+| `reports` | `{reportId}` | snapshot、snapshot hash、caseGroupId、revisionNo、report number、storage path、createdBy、issuedBy、issuedAt |
+| `system` | `health` | 僅供 server healthcheck；不存在也不得造成寫入 |
 
-- 所有正式數值 > 0；清除週期 iu 介於 7～14，ib 介於 7～30。
-- 同一 `idempotency_key + case_revision_id` 唯一。
-- active RuleSet 的 code＋version 唯一且不可 update；修正建立新版本。
-- issued ReportSnapshot 禁止 update；案件明確刪除時，案件及其所有修訂與關聯資料一併實體刪除。
-- completed run 的 input hash、rule set 與 result 不可修改。
+規則、來源 metadata 與 factor tables 不存入 Firestore，改由版本控制內的唯讀 catalog 與 checksum 管理。
+
+### 14.2 Application invariants
+
+- 所有正式輸入先經 schema／domain 驗證；清除週期等限制不得只依賴資料庫。
+- `CaseStore.mutate` 必須原子檢查 optimistic version 與 lifecycle，Firestore adapter 使用 transaction。
+- 相同 idempotency key 與相同 payload 回傳原結果；不同 payload 回傳 409。
+- `IN_REVIEW`、`REVIEWED`、`ISSUED`、`SUPERSEDED` 不得重新計算；修改需建立 revision。
+- report snapshot 建立後不更新；刪除案件時一併刪除 report metadata，Storage object 由 report storage 流程處理。
+- production 強制 Firebase backend；memory 只允許 development／test。
+- Firestore／Storage client rules deny all；所有業務存取由 server Admin SDK 驗證身份後執行。
 
 ## 15. API／Service Contract
 

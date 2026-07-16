@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
-import { query } from "@/infrastructure/db/pool";
+import { dataHealthcheck } from "@/application/cases/repository";
+import { env } from "@/config/env";
 
 export async function GET() {
   try {
-    await query("SELECT 1");
+    await dataHealthcheck();
     return NextResponse.json({
       status: "ok",
       service: "grease-trap-calculation-system",
+      dataBackend: env.DATA_BACKEND,
     });
   } catch {
     return NextResponse.json(

@@ -12,14 +12,14 @@ export default defineConfig({
     ["html", { outputFolder: "output/playwright/report", open: "never" }],
   ],
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: "http://127.0.0.1:3100",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
   webServer: {
-    command: "npm run db:prepare && npm run dev:server",
-    url: "http://localhost:3100/api/health",
+    command: "npm run dev:local",
+    url: "http://127.0.0.1:3100/api/health",
     reuseExistingServer: true,
     timeout: 120_000,
   },

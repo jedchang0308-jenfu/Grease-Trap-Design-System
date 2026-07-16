@@ -31,6 +31,18 @@ body {
   margin: 0;
 }
 
+.auth-page {
+  min-height: calc(100vh - 72px);
+  display: grid;
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(100%, 420px);
+  display: grid;
+  gap: 16px;
+}
+
 body {
   background: var(--bg);
 }

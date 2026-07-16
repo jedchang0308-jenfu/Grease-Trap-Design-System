@@ -1,6 +1,6 @@
 # ADR-003｜採 provider-neutral 模組化 Web 單體
 
-狀態：Accepted for Phase 1  
+狀態：Superseded by ADR-007
 日期：2026-07-13  
 決策類型：AI engineering decision；不改變使用者產品語意
 
@@ -40,3 +40,5 @@
 ## Compatibility / migration
 
 目前無程式與資料，無 migration。若未來改用等價 framework，只要資料、API、交易、權限與測試契約不變，不需新 ADR；改成微服務、vendor-specific schema／auth 或改變 module ownership 時必須建立後繼 ADR。
+
+2026-07-17：使用者已明確要求改採 Firebase 代管式多人協作架構；持久層、Auth、Storage 與本機開發方式由 ADR-007 取代。本 ADR 只保留作原始架構決策紀錄。

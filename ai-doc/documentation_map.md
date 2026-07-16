@@ -1,9 +1,9 @@
 # 文件地圖｜油脂截留器雙軌計算系統
 
-文件狀態：`Local Engineering Complete — Human Pilot Pending`  
-權威版本：`2.2`
-最後更新：`2026-07-15`
-專案根目錄：`C:\VIBE CODING\grease-trap-calculation-system`
+文件狀態：`Firebase Local Engineering Complete — Human Pilot Pending`
+權威版本：`2.3`
+最後更新：`2026-07-17`
+專案根目錄：`C:\VIBE CODING\Grease-Trap-Design-System`
 
 ## 冷啟動讀取順序
 
@@ -31,6 +31,7 @@
 | [ADR-004-exclude-product-certificate-matching.md](decisions/ADR-004-exclude-product-certificate-matching.md) | 排除產品／證書匹配      | 全角色                    | Scope、反推輸入或報告內容衝突時      |
 | [ADR-005-single-user-review-issue.md](decisions/ADR-005-single-user-review-issue.md)                         | 單人編製／覆核／核發    | 全角色                    | 權限、狀態或 audit 衝突時            |
 | [ADR-006-cloud-internal-access-boundary.md](decisions/ADR-006-cloud-internal-access-boundary.md)             | 雲端內部存取邊界        | Tech Lead、RD、QA         | Auth、API exposure 或 release 邊界時 |
+| [ADR-007-firebase-managed-architecture.md](decisions/ADR-007-firebase-managed-architecture.md)               | Firebase 後繼架構決策   | Tech Lead、RD、QA、QC     | 資料、Auth、Storage 或本機開發時     |
 | [QA-001-validation-plan.md](qa/QA-001-validation-plan.md)                                                    | 第一階段驗證權威計畫    | QA、QC、RD                | 測試設計、驗收與證據蒐集             |
 | [QC-001-local-acceptance.md](qa/QC-001-local-acceptance.md)                                                  | 本地實作與驗收事實紀錄  | PM、QA、QC、Release Owner | 查驗測試、PDF、UI 證據與殘留人工事項 |
 
@@ -50,6 +51,7 @@
 | HD-10 | 建案時餐飲類型移至後續計算資料；客戶、地點、案件名稱、用途及資料提供者／證據全部選填。             | 使用者 2026-07-14     |
 | HD-11 | 編製者先完成可預覽的報告草稿；審核者最後針對完整報告及其依據集中審核一次，核准後才核發不可變快照。 | 使用者 2026-07-15     |
 | HD-12 | 案件不論生命週期狀態均可由授權工程人員直接刪除；刪除案件時一併刪除所有修訂、計算、覆核與報告紀錄。 | 使用者 2026-07-15     |
+| HD-13 | 舊資料可捨棄；先提交目前版本，再以 Firebase Auth、Firestore、Storage 與 App Hosting 重構供同事共同使用。 | 使用者 2026-07-17     |
 
 已拒絕方向：強制不同帳號覆核、單機限定、公司內網限定，以及內建產品／證書匹配。重新引入任一方向都需要新的 Human Decision Brief 與 ADR。
 
@@ -58,7 +60,7 @@
 發生衝突時依下列順序處理：
 
 1. 最新使用者明確決策。
-2. ADR-004～006 的 scope、責任與雲端存取邊界。
+2. ADR-007 的 Firebase 架構，以及 ADR-004～006 未被取代的 scope、責任與雲端存取邊界。
 3. ADR-002 的雙軌放行狀態與 ADR-001 的雙軌隔離規則。
 4. SPEC-001 的公式、參數、資料、API 與報告契約。
 5. SPEC-002 的 UI 呈現與操作契約。
@@ -69,19 +71,19 @@
 
 ## 目前狀態與下一步
 
-- 文件與程式：8 個有效產品交付點全部完成；DEV-006 依 ADR-004 跳過；DEV-013 已完成 DEV-007 的建案流程調整；DEV-014 已完成報告草稿與最終覆核順序調整。
-- 本地工程：固定啟動、PostgreSQL、雙軌計算、案件／覆核／audit、不可變快照、四種 PDF 與三 viewport UI 均完成。
-- QA／QC：21 個單元、9 個既有整合、12 個三 viewport E2E、production build 與 22 頁 PDF render 已通過；詳見 QC-001。
+- 文件與程式：既有版本已提交於 `bb1c675`；DEV-018 已完成 Firebase 代管式架構的本地重構。
+- 本地工程：預設 memory adapter，不需要 SQL、Docker、Java 或雲端 credential；production 強制 Firebase Auth、Firestore 與 Storage。
+- QA／QC：27 個單元、8 個 memory 整合、12 個三 viewport E2E 與 production build 已通過；Firebase Emulator 因本機缺 Java 未執行，詳見 QC-001。
 - Git：repository 已初始化；本輪建立本地交付 commit boundary，不執行 merge／PR。
 - 下一步：人類提供 3～5 個去識別實際案件與人工預期值，完成 DEV-011 parallel pilot。
-- 本輪未執行：雲端 provider／正式 Auth 選型、部署、release、rollback、production smoke。
+- 本輪未執行：建立正式 Firebase project、正式帳號、部署、release、rollback、production smoke。
 
 ## Blocker 與 Re-entry Trigger
 
 目前沒有 P0／P1 defect。下列事項不阻擋本地工程交付，但在對應邊界前必須重新進入：
 
 - DEV-011 真實案件平行試算：提供 3～5 個去識別案件、人工結果與可接受差異後恢復。
-- 正式環境身份提供者、託管平台與成本：雲端 End-State 已固定，特定 provider 進入 release gate 前確認。
+- 正式 Firebase project、Auth provider／角色、成本與 App Hosting：進入 release gate 時建立並確認。
 - 正式報告編號格式：首次 production release 前確認；local/dev 僅使用草稿識別碼。
 - 法規或主管機關來源版本變更：啟用新 RuleSet，不回寫既有報告。
 

@@ -1,16 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { AppProblem } from "@/application/http/problem";
-import { sha256 } from "@/domain/shared/canonical";
 import type { AuthenticatedUser } from "@/infrastructure/auth/auth-port";
-import { withTransaction } from "@/infrastructure/db/pool";
-import { getLatestCase } from "./repository";
+import { mutateCase } from "./repository";
 
 export async function submitForReview(
   caseGroupId: string,
   user: AuthenticatedUser,
 ) {
-  return withTransaction(async (client) => {
-    const row = await getLatestCase(client, caseGroupId, user, true);
+  return mutateCase(caseGroupId, user, (row) => {
     if (
       !row.calculation_status ||
       !["COMPLETE", "COMPLETE_WITH_REMINDER"].includes(row.calculation_status)
@@ -30,18 +27,19 @@ export async function submitForReview(
         status: 409,
       });
     }
-    await client.query(
-      "UPDATE calculation_cases SET lifecycle_status='IN_REVIEW', version=version+1, updated_at=now() WHERE id=$1",
-      [row.id],
-    );
-    await client.query(
-      "INSERT INTO audit_events(actor_id, action, aggregate_type, aggregate_id, metadata_json) VALUES($1,'SUBMITTED_FOR_REVIEW','CASE',$2,$3)",
-      [user.id, row.id, { actorCanSelfReview: true }],
-    );
+    const now = new Date().toISOString();
     return {
-      caseId: caseGroupId,
-      lifecycleStatus: "IN_REVIEW",
-      caseVersion: row.version + 1,
+      next: {
+        ...row,
+        lifecycle_status: "IN_REVIEW",
+        version: row.version + 1,
+        updated_at: now,
+      },
+      result: {
+        caseId: caseGroupId,
+        lifecycleStatus: "IN_REVIEW",
+        caseVersion: row.version + 1,
+      },
     };
   });
 }
@@ -55,8 +53,7 @@ export async function completeReview(
   },
   user: AuthenticatedUser,
 ) {
-  return withTransaction(async (client) => {
-    const row = await getLatestCase(client, caseGroupId, user, true);
+  return mutateCase(caseGroupId, user, (row) => {
     if (row.lifecycle_status !== "IN_REVIEW") {
       throw new AppProblem({
         code: "INVALID_REVIEW_STATE",
@@ -92,37 +89,32 @@ export async function completeReview(
         status: 400,
       });
     }
-    const status = input.decision === "APPROVED" ? "REVIEWED" : "CALCULATED";
-    await client.query(
-      "INSERT INTO review_records(id, case_revision_id, prepared_by, reviewed_by, checklist_json, decision, note) VALUES($1,$2,$3,$4,$5,$6,$7)",
-      [
-        randomUUID(),
-        row.id,
-        row.prepared_by ?? row.created_by,
-        user.id,
-        checklist,
-        input.decision,
-        input.note ?? "",
-      ],
-    );
-    await client.query(
-      "UPDATE calculation_cases SET lifecycle_status=$2, reviewed_by=$3, version=version+1, updated_at=now() WHERE id=$1",
-      [row.id, status, input.decision === "APPROVED" ? user.id : null],
-    );
-    await client.query(
-      "INSERT INTO audit_events(actor_id, action, aggregate_type, aggregate_id, after_hash, metadata_json) VALUES($1,$2,'CASE',$3,$4,$5)",
-      [
-        user.id,
-        input.decision === "APPROVED" ? "REVIEW_COMPLETED" : "REVIEW_RETURNED",
-        row.id,
-        sha256({ checklist, note: input.note }),
-        { checklist, note: input.note ?? "" },
-      ],
-    );
+    const lifecycleStatus =
+      input.decision === "APPROVED" ? "REVIEWED" : "CALCULATED";
+    const now = new Date().toISOString();
     return {
-      caseId: caseGroupId,
-      lifecycleStatus: status,
-      caseVersion: row.version + 1,
+      next: {
+        ...row,
+        lifecycle_status: lifecycleStatus,
+        reviewed_by: input.decision === "APPROVED" ? user.id : null,
+        reviewed_by_name:
+          input.decision === "APPROVED" ? user.displayName : null,
+        review: {
+          preparedBy: row.prepared_by_name ?? row.created_by_name,
+          reviewedBy: user.displayName,
+          checklist,
+          decision: input.decision,
+          note: input.note ?? "",
+          reviewedAt: now,
+        },
+        version: row.version + 1,
+        updated_at: now,
+      },
+      result: {
+        caseId: caseGroupId,
+        lifecycleStatus,
+        caseVersion: row.version + 1,
+      },
     };
   });
 }
@@ -131,8 +123,7 @@ export async function createRevision(
   caseGroupId: string,
   user: AuthenticatedUser,
 ) {
-  return withTransaction(async (client) => {
-    const row = await getLatestCase(client, caseGroupId, user, true);
+  return mutateCase(caseGroupId, user, (row) => {
     if (row.lifecycle_status !== "ISSUED") {
       throw new AppProblem({
         code: "REVISION_REQUIRES_ISSUED_CASE",
@@ -141,37 +132,41 @@ export async function createRevision(
         status: 409,
       });
     }
-    const id = randomUUID();
-    const revision = row.revision_no + 1;
-    await client.query(
-      `INSERT INTO calculation_cases(
-         id, case_group_id, case_no, revision_no, customer, location, title, purpose, dining_type,
-         task_code, mode, lifecycle_status, created_by
-       ) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'DRAFT',$12)`,
-      [
-        id,
-        row.case_group_id,
-        row.case_no,
-        revision,
-        row.customer,
-        row.location,
-        row.title,
-        row.purpose,
-        row.dining_type,
-        row.task_code,
-        row.mode,
-        user.id,
-      ],
-    );
-    await client.query(
-      "INSERT INTO audit_events(actor_id, action, aggregate_type, aggregate_id, metadata_json) VALUES($1,'REVISION_CREATED','CASE',$2,$3)",
-      [user.id, id, { previousRevisionId: row.id, revisionNo: revision }],
-    );
+    const revisionNo = row.revision_no + 1;
+    const now = new Date().toISOString();
     return {
-      caseId: caseGroupId,
-      revisionNo: revision,
-      lifecycleStatus: "DRAFT",
-      caseVersion: 1,
+      next: {
+        ...row,
+        id: randomUUID(),
+        revision_no: revisionNo,
+        lifecycle_status: "DRAFT",
+        calculation_status: null,
+        input_payload: {},
+        version: 1,
+        created_by: user.id,
+        created_by_name: user.displayName,
+        prepared_by: null,
+        prepared_by_name: null,
+        reviewed_by: null,
+        reviewed_by_name: null,
+        issued_by: null,
+        issued_by_name: null,
+        created_at: now,
+        updated_at: now,
+        calculations: [],
+        assessments: [],
+        overrides: [],
+        review: null,
+        reports: [],
+        latestReportId: null,
+        calculationRequests: {},
+      },
+      result: {
+        caseId: caseGroupId,
+        revisionNo,
+        lifecycleStatus: "DRAFT",
+        caseVersion: 1,
+      },
     };
   });
 }

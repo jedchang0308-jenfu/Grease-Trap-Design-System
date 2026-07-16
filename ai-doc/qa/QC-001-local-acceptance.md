@@ -1,85 +1,73 @@
 # QC-001｜本地 RD／QA／QC 驗收紀錄
 
-文件狀態：`Conditional Pass — Human Pilot Pending`
-版本：`1.1`
-驗證日期：`2026-07-15`
-適用範圍：`DEV-001～005、DEV-007～011、DEV-014` 的本地工程與自動化驗收；不含 `DEV-012` 正式發版
+文件狀態：`Conditional Pass - Human Pilot and Firebase Release Pending`
+版本：`2.0`
+驗證日期：`2026-07-17`
+適用範圍：本地計算、工作流、PDF 與 DEV-018 Firebase 架構重構；不含正式 Firebase 部署
 
 ## 結論
 
-8 個有效產品交付點已完成，本地 lint、型別、單元、資料庫整合、production build、跨視窗 E2E、PDF 產生與視覺檢查均通過，未發現 P0／P1 defect。
+本機 memory 模式不依賴 SQL、Docker、Java 或雲端 credential，已通過格式、lint、型別、27 個單元測試、8 個 application／memory 整合測試、production build，以及 3 種 viewport 共 12 個 E2E。未發現 P0／P1 defect。
 
-`DEV-011` 仍保留一項不可由 AI 假造的人工證據：使用者需提供 3～5 個已去識別實際案件與既有人工試算結果，才能完成真實案件平行差異比對。因此本文件不把 synthetic fixture 宣稱為真實案件；目前狀態為「本地工程關卡通過，Human Pilot Pending」。
+計算正確性的最終人工作業證據仍待使用者提供 3～5 個去識別實際案件及既有人工預期值。正式 Firestore／Auth／Storage 尚未建立 Firebase project；本機也未安裝 Java，因此 Firebase Emulator integration 未執行。這兩項不阻擋本機重構完成，但阻擋宣告正式多人環境可上線。
 
-## 2026-07-14｜DEV-013 增補驗證
+## DEV-018 重構事實
 
-- 結論：通過；基本資料可全空白建案，餐飲類型只在內政部給排水規範（附錄 5）計算資料出現且未預選。
-- 自動證據：21 unit、lint、typecheck、format、production build、三 viewport 9 E2E 全部通過。
-- 手動流程：驗證 Step 3 無餐飲類型、五個基本資料皆標示選填、返回後資料保留、空白案件使用案件編號及「未填」替代文字、未選餐飲類型不可送出計算。
-- UI 證據：1440×900 與 390×844 截圖無重疊、裁切或水平溢出，browser console 0 errors。
-- 註記：build 與 E2E 首次並行執行時 Windows build worker 發生資源競爭；改為依序執行後兩者均通過，未列為產品缺陷。
-
-## 2026-07-15｜DEV-014 報告順序調整驗證
-
-- 結論：通過；編製者可在 `CALCULATED` 先完成完整報告草稿與人工採用，送出後才進入 `IN_REVIEW`，審核者只針對完整送審報告完成一次工程覆核，核准後才可核發。
-- 自動證據：21 unit、9 integration、lint、typecheck、format、production build、三 viewport 12 E2E 全部通過。
-- 狀態證據：未覆核草稿可預覽但不可核發；`IN_REVIEW` 的人工採用面板為唯讀；`REVIEWED` 才顯示核發；`ISSUED` 保留不可變快照與下載入口。
-- UI 證據：1440×900、1024×768、390×844 均完成「報告草稿 → 最終工程覆核 → 報告預覽 → 核發」流程，visible error、未預期 API 失敗、console error 與水平溢位 sweep 通過。
+- 基線版本已提交於 `bb1c675`；重構在 `codex/firebase-refactor` 執行。
+- PostgreSQL、migration、seed、Docker Compose 與資料庫啟動器已移除。
+- `npm run dev:local` 直接啟動 Next.js 3100，健康檢查回傳 `dataBackend: memory`。
+- production 環境強制 Firestore 與 Firebase Auth，禁止 memory／local auth。
+- Firestore 以單一案件 aggregate document 保存目前 revision、計算、評估、覆核與報告摘要；報告 snapshot 另存 `reports` collection。
+- 所有具系統角色的同事可共同讀取與處理案件；未授權者仍由 server auth 拒絕。
+- Cloud Storage adapter 保存 PDF；本機 adapter 保存至 `output/pdf`。
+- 規則與來源 checksum 由版本控制內 catalog 提供，不再依賴 seed database。
+- client rules 對 Firestore 與 Storage 預設 deny all；存取只經 server Admin SDK。
 
 ## 可重跑證據
 
-| 門檻          | 指令／證據                                                  | 結果                                                             |
-| ------------- | ----------------------------------------------------------- | ---------------------------------------------------------------- |
-| 程式品質      | `npm run lint`、`npm run typecheck`、`npm run format:check` | 通過，0 warning／error                                           |
-| 單元測試      | `npm test`                                                  | 5 files，21 tests passed                                         |
-| DB 與服務整合 | `npm run test:integration`                                  | 1 file，9 tests passed                                           |
-| 正式建置      | `npm run build`                                             | Next.js production build 通過，全部 routes 編譯成功              |
-| 瀏覽器流程    | `npm run test:e2e`                                          | 1440、1024、390 三種 viewport；12 tests passed                   |
-| 依賴弱點      | `npm audit`                                                 | 0 vulnerabilities                                                |
-| DB seed       | `npm run db:verify`                                         | A-34 50、A-35 10、A-36 171、A-37 55、LEGACY-K 5、LEGACY-WATER 20 |
+| 門檻 | 指令 | 結果 |
+| --- | --- | --- |
+| 格式 | `npm run format:check` | 通過 |
+| 程式品質 | `npm run lint`、`npm run typecheck` | 通過，0 warning／error |
+| 單元測試 | `npm run test` | 7 files，27 tests passed |
+| Application／memory 整合 | `npm run test:integration` | 1 file，8 tests passed |
+| 正式建置 | `npm run build` | Next.js production build 通過 |
+| 瀏覽器流程 | `npm run test:e2e` | 1440、1024、390；12 tests passed |
+| 依賴稽核 | `npm audit`／`npm audit --omit=dev` | 9／6 moderate；皆為 Firebase／Google Cloud transitive dependency，0 high／critical |
+| Firebase Emulator | `npm run test:firebase` | 未執行：本機缺少 Java |
+| 正式 Firebase | DEV-012 release gate | 未建立 project、未部署、未 smoke |
+
+`npm audit fix --force` 會把 `firebase-admin` 降為不相容舊版，未採用。現有 advisory 位於 Google Cloud Storage 的 `uuid` 相依鏈；本系統未直接呼叫受影響的 UUID buffer API，但正式部署前仍須重跑 audit 並優先採用上游相容修正版。
 
 ## 計算與資料事實驗證
 
-- 內政部給排水規範（附錄 5）：官方人數與學校案例、A-36 的 610 m² 來源例外、相鄰數值內插、反推嚴格比較均有單元測試。
-- 臺北市工務局衛工處設計說明：用餐人數、學校漏零修正、實測、面積與反推向下取整均有單元測試；B／C 類未提供 exact k 時拒絕猜值。
-- 雙軌：任一有效軌可形成 `COMPLETE_WITH_REMINDER`；未完成軌不建立假 run／result；零有效軌才阻擋。
-- 一致性：計算請求具 idempotency 與 optimistic version；ACTIVE RuleSet、COMPLETED run、ISSUED snapshot／case 均由資料庫約束保護。
-- 責任鏈：同一 seed actor 可完成編製、提交、覆核與核發，但 audit 事件、時間、checklist 與責任欄位分開保存。
+- 兩份計算依據的來源案例、內插、反推、嚴格比較、單位與捨入由獨立 expected values 的 unit tests 驗證。
+- 雙軌任一有效軌可形成 `COMPLETE_WITH_REMINDER`；未完成軌不建立假 run 或 result。
+- 規則 catalog checksum 與計算 core 共用於 memory／Firestore adapter，不因儲存技術改變公式。
+- 計算請求具 idempotency；相同 key 與不同 payload 衝突、stale optimistic version 均回傳 409。
+- 已送審、已覆核、已核發狀態禁止重新計算；新修改以 revision 進行。
+- PDF 由同一 snapshot 產生，整合測試驗證核發、讀回與重試不建立第二份報告。
+- 第二位授權工程師可讀取團隊案件；刪除案件會刪除 report metadata 並最佳努力清除 PDF object。
 
-## UI／UX 與負向路徑
+## E2E 與負向路徑
 
-- 三種 viewport 均完整操作「案件清單 → 三步任務精靈 → 雙軌工作台 → 報告草稿 → 最終工程覆核 → 報告預覽 → 不可逆核發確認 → 已核發下載 → 規則來源」。
-- 自動 sweep 驗證無 visible runtime error、未預期 4xx／5xx API、未預期 console error 與 document 水平溢位。
-- 未登入 API 回傳安全的 `application/problem+json`；未登入 UI 顯示人類可理解訊息、重試／安全返回與 correlation ID，不揭露 SQL 或內部 schema。
-- 工程覆核預設顯示採用值、中文名稱與單位；高精度 raw 值收在可展開稽核明細。
-- 證據位置：`output/playwright/evidence/{desktop-1440,tablet-1024,mobile-390}`。
+- 三種 viewport 均完成「建案 → 雙軌計算 → 報告草稿 → 覆核 → 核發 → 下載」。
+- 每個輸入欄位的說明入口、未登入 API 的安全 problem details、未登入 UI 的可恢復狀態均通過。
+- E2E 共 12/12；無未預期 4xx／5xx、runtime error 或關鍵流程阻斷。
 
-## PDF 驗證
+## Gate 判定
 
-| 樣本                                                  | 頁數 | 尺寸 | 結果 |
-| ----------------------------------------------------- | ---: | ---- | ---- |
-| `output/pdf/grease-trap-current-sample.pdf`           |    5 | A4   | 通過 |
-| `output/pdf/grease-trap-legacy-sample.pdf`            |    5 | A4   | 通過 |
-| `output/pdf/grease-trap-dual-sample.pdf`              |    6 | A4   | 通過 |
-| `output/pdf/grease-trap-dual-single-track-sample.pdf` |    6 | A4   | 通過 |
+| Gate | 判定 | 說明 |
+| --- | --- | --- |
+| 計算核心 | Pass | 27 unit tests 與來源 checksum 通過 |
+| 工作流與 PDF | Pass | 8 integration、12 E2E 與 build 通過 |
+| DEV-018 本地架構 | Pass | memory default 與 Firebase adapters 已完成 |
+| Firebase Emulator | Not Run | 本機缺 Java；部署前需補驗證 |
+| 真實案件平行試算 | Pending Human | 尚未收到 3～5 個去識別案例 |
+| 正式 release | Not Run | 未建立 Firebase project 或部署 |
 
-四份 PDF 共 22 頁均以 Poppler 渲染為 PNG 並逐頁／代表頁人工視覺檢查：繁體中文可讀、頁碼正常，無黑方塊、裁切、重疊或缺頁；雙軌單軌完成樣本明確標示未完成軌且沒有假值。HTML content regression 另驗證不含產品／證書匹配結論。
+## Human Re-entry
 
-瀏覽器的 full-page screenshot 對當下 viewport 外的 sandboxed `srcDoc` iframe 偶爾只截到白框，這是 Chromium 截圖限制，不作 PDF 通過證據。E2E 會直接進入 iframe 驗證報告標題；最終版面證據以實體 PDF 的 22 頁渲染結果為準。
-
-## 關卡判定
-
-| Gate                    | 判定          | 說明                                                                              |
-| ----------------------- | ------------- | --------------------------------------------------------------------------------- |
-| G1 Foundation           | Pass          | 固定本地入口、Git、PostgreSQL、migration／seed／checksum、auth port 均完成        |
-| G2 Calculation          | Pass          | 兩份計算依據、對照與邊界測試通過                                                  |
-| G3 Workflow             | Pass          | 案件、覆核、override、revision、snapshot、PDF 與 RWD 完成                         |
-| G4 Automated Acceptance | Pass          | 自動化、UI QC、PDF QC 無 P0／P1 defect                                            |
-| G4 Human Parallel Pilot | Pending Human | 尚未收到 3～5 個去識別實際案件與人工預期值                                        |
-| Release                 | Not Run       | `DEV-012` 未獲 release 型指令，未選 provider／Auth、未部署、未做 production smoke |
-
-## Human Re-entry 清單
-
-1. 提供 3～5 個已去識別實際案件：輸入、採用參數、既有人工結果與可接受差異，供 `DEV-011` 平行試算簽核。
-2. 首次 production release 前決定正式報告編號格式。
-3. 提出 release 型指令後，才進入 `DEV-012` 選定雲端 provider、正式 Auth、成本、備份、rollback 與 production smoke。
+1. 提供 3～5 個去識別實際案件、人工結果與可接受差異，完成計算正確性平行簽核。
+2. 準備正式多人使用時建立 Firebase project、Auth 使用者與 role claims，執行 emulator／staging／production smoke。
+3. 若未來報告改列重要資產或需稽核，再新增保存期限、備份、復原與 immutable audit 契約。

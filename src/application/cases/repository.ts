@@ -1,165 +1,145 @@
-import type { PoolClient } from "pg";
-import { AppProblem } from "@/application/http/problem";
+import { randomUUID } from "node:crypto";
 import type { AuthenticatedUser } from "@/infrastructure/auth/auth-port";
+import { caseStore } from "@/infrastructure/data";
+import { reportStorage } from "@/infrastructure/storage/report-storage";
+import type {
+  CaseMutator,
+  CaseRecord,
+  ReportRecord,
+} from "@/infrastructure/data/case-store";
 
-export interface CaseRow {
-  id: string;
-  case_group_id: string;
-  case_no: string;
-  revision_no: number;
-  customer: string;
-  location: string;
-  title: string;
-  purpose: string;
-  dining_type: string | null;
-  task_code: string;
-  mode: string;
-  lifecycle_status: string;
-  calculation_status: string | null;
-  input_payload: Record<string, unknown>;
-  version: number;
-  created_by: string;
-  prepared_by: string | null;
-  reviewed_by: string | null;
-  issued_by: string | null;
-  created_at: Date;
-  updated_at: Date;
+export type CaseRow = CaseRecord;
+
+function makeCaseNumber() {
+  const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
+  return `GTC-${date}-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+export async function createCase(
+  input: {
+    customer: string;
+    location: string;
+    title: string;
+    purpose: string;
+    taskCode: string;
+    mode: string;
+  },
+  user: AuthenticatedUser,
+) {
+  const now = new Date().toISOString();
+  const caseGroupId = randomUUID();
+  const record: CaseRecord = {
+    id: randomUUID(),
+    case_group_id: caseGroupId,
+    case_no: makeCaseNumber(),
+    revision_no: 1,
+    customer: input.customer,
+    location: input.location,
+    title: input.title,
+    purpose: input.purpose,
+    dining_type: null,
+    task_code: input.taskCode,
+    mode: input.mode,
+    lifecycle_status: "DRAFT",
+    calculation_status: null,
+    input_payload: {},
+    version: 1,
+    created_by: user.id,
+    created_by_name: user.displayName,
+    prepared_by: null,
+    prepared_by_name: null,
+    reviewed_by: null,
+    reviewed_by_name: null,
+    issued_by: null,
+    issued_by_name: null,
+    created_at: now,
+    updated_at: now,
+    calculations: [],
+    assessments: [],
+    overrides: [],
+    review: null,
+    reports: [],
+    latestReportId: null,
+    calculationRequests: {},
+  };
+  return caseStore.create(record);
+}
+
+export async function listCases(
+  user: AuthenticatedUser,
+  filters: { search: string; mode: string; status: string },
+) {
+  const search = filters.search.toLocaleLowerCase("zh-Hant");
+  return (await caseStore.list(user))
+    .filter((record) => {
+      const matchesSearch =
+        !search ||
+        [record.customer, record.case_no, record.title].some((value) =>
+          value.toLocaleLowerCase("zh-Hant").includes(search),
+        );
+      const matchesMode = !filters.mode || record.mode === filters.mode;
+      const matchesStatus =
+        !filters.status ||
+        record.lifecycle_status === filters.status ||
+        record.calculation_status === filters.status;
+      return matchesSearch && matchesMode && matchesStatus;
+    })
+    .sort((left, right) => right.updated_at.localeCompare(left.updated_at));
 }
 
 export async function getLatestCase(
-  client: PoolClient,
-  caseGroupId: string,
-  user: AuthenticatedUser,
-  lock = false,
-): Promise<CaseRow> {
-  const result = await client.query<CaseRow>(
-    `SELECT * FROM calculation_cases
-      WHERE case_group_id = $1
-      ORDER BY revision_no DESC LIMIT 1 ${lock ? "FOR UPDATE" : ""}`,
-    [caseGroupId],
-  );
-  const row = result.rows[0];
-  if (!row) {
-    throw new AppProblem({
-      code: "CASE_NOT_FOUND",
-      title: "找不到案件",
-      userMessage: "找不到這筆案件，請返回案件清單。",
-      status: 404,
-    });
-  }
-  const canReadAll =
-    user.roles.includes("SYSTEM_ADMIN") || user.roles.includes("RULE_ADMIN");
-  if (!canReadAll && row.created_by !== user.id) {
-    throw new AppProblem({
-      code: "CASE_ACCESS_DENIED",
-      title: "無權存取",
-      userMessage: "你沒有這筆案件的存取權限，請返回安全頁面。",
-      status: 403,
-    });
-  }
-  return row;
-}
-
-export async function deleteCaseGroup(
-  client: PoolClient,
   caseGroupId: string,
   user: AuthenticatedUser,
 ) {
-  const latest = await getLatestCase(client, caseGroupId, user, true);
-  const revisions = await client.query<{
-    id: string;
-    revisionNo: number;
-    lifecycleStatus: string;
-  }>(
-    `SELECT id, revision_no AS "revisionNo", lifecycle_status AS "lifecycleStatus"
-       FROM calculation_cases
-      WHERE case_group_id=$1
-      ORDER BY revision_no DESC
-      FOR UPDATE`,
-    [caseGroupId],
-  );
+  return caseStore.get(caseGroupId, user);
+}
 
-  await client.query(
-    `CREATE TEMP TABLE case_delete_revisions (
-       id uuid PRIMARY KEY
-     ) ON COMMIT DROP`,
-  );
-  await client.query(
-    `INSERT INTO case_delete_revisions(id)
-     SELECT id FROM calculation_cases WHERE case_group_id=$1`,
-    [caseGroupId],
-  );
+export async function mutateCase<T>(
+  caseGroupId: string,
+  user: AuthenticatedUser,
+  mutator: CaseMutator<T>,
+) {
+  return caseStore.mutate(caseGroupId, user, mutator);
+}
 
-  await client.query(
-    "INSERT INTO audit_events(actor_id, action, aggregate_type, aggregate_id, metadata_json) VALUES($1,'CASE_DELETED','CASE',$2,$3)",
-    [
-      user.id,
-      latest.id,
-      {
-        caseGroupId,
-        caseNo: latest.case_no,
-        deletedRevisions: revisions.rows.map((revision) => ({
-          revisionNo: revision.revisionNo,
-          lifecycleStatus: revision.lifecycleStatus,
-        })),
-      },
-    ],
+export async function deleteCaseGroup(
+  caseGroupId: string,
+  user: AuthenticatedUser,
+) {
+  const deleted = await caseStore.delete(caseGroupId, user);
+  await Promise.allSettled(
+    deleted.storagePaths.map((storagePath) =>
+      reportStorage.delete(storagePath),
+    ),
   );
+  return { caseId: caseGroupId, deletedRevisionCount: deleted.revisionCount };
+}
 
-  await client.query(
-    `DELETE FROM warnings
-      WHERE owner_type='CALCULATION_RUN'
-        AND owner_id IN (
-          SELECT cr.id
-            FROM calculation_runs cr
-            JOIN case_delete_revisions cdr ON cdr.id=cr.case_revision_id
-        )`,
-  );
-  await client.query(
-    `DELETE FROM calculation_steps
-      WHERE run_id IN (
-        SELECT cr.id
-          FROM calculation_runs cr
-          JOIN case_delete_revisions cdr ON cdr.id=cr.case_revision_id
-      )`,
-  );
-  await client.query(
-    `DELETE FROM track_assessments
-      WHERE request_id IN (
-        SELECT id FROM calculation_requests
-         WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)
-      )`,
-  );
-  await client.query(
-    `DELETE FROM calculation_runs
-      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
-  );
-  await client.query(
-    `DELETE FROM calculation_requests
-      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
-  );
-  await client.query(
-    `DELETE FROM engineering_overrides
-      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
-  );
-  await client.query(
-    `DELETE FROM review_records
-      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
-  );
-  await client.query(
-    `DELETE FROM report_snapshots
-      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
-  );
-  await client.query(
-    `DELETE FROM scenario_decisions
-      WHERE case_revision_id IN (SELECT id FROM case_delete_revisions)`,
-  );
-  await client.query("DELETE FROM calculation_cases WHERE case_group_id=$1", [
+export async function commitIssuedReport(
+  caseGroupId: string,
+  expectedVersion: number,
+  report: ReportRecord,
+  user: AuthenticatedUser,
+) {
+  return caseStore.commitIssuedReport(
     caseGroupId,
-  ]);
+    expectedVersion,
+    report,
+    user,
+  );
+}
 
-  return {
-    caseId: caseGroupId,
-    deletedRevisionCount: revisions.rowCount ?? 0,
-  };
+export async function getReport(reportId: string, user: AuthenticatedUser) {
+  return caseStore.getReport(reportId, user);
+}
+
+export async function dataHealthcheck() {
+  return caseStore.healthcheck();
+}
+
+export function presentCase(record: CaseRecord) {
+  const item = structuredClone(record) as unknown as Record<string, unknown>;
+  delete item.calculationRequests;
+  delete item.review;
+  return { ...item, caseId: record.case_group_id };
 }

@@ -204,7 +204,7 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 | Gate           | 對應 DEV | 通過條件                                                                                      |
 | -------------- | -------- | --------------------------------------------------------------------------------------------- |
-| G1 Foundation  | 001～002 | 固定啟動入口、schema、migration、全部 factor seed checksum 與 source fixtures 通過            |
+| G1 Foundation  | 001～002、018 | 固定啟動入口、規則 catalog checksum、memory／Firestore adapter 契約與 source fixtures 通過 |
 | G2 Calculation | 003～005 | 兩份來源案例、reverse、precision、對照 matrix 全通過                                          |
 | G3 Workflow    | 007～009 | case、single-user review／issue、snapshot、PDF integration／E2E 通過；DEV-006 依 ADR-004 跳過 |
 | G4 Acceptance  | 010～011 | 完整 regression、UI QC、manual engineering QC 通過                                            |
@@ -215,8 +215,8 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 - 測試命令、commit／worktree 狀態與完整 exit code。
 - 自動測試 report、coverage 摘要、fixture 與 input/output snapshot。
-- RuleSet／source hash、seed checksum、migration 版本。
-- API contract 與 DB constraint 測試結果。
+- RuleSet／source hash 與版本控制 catalog checksum。
+- API contract、application invariant、optimistic transaction 與 idempotency 測試結果。
 - 身份、session、匿名、角色不足、跨案件與單一 actor 全流程測試結果。
 - 每個 critical UI route／viewport 截圖與 visible error sweep。
 - 兩份來源、對照與單份完成 PDF 樣本與 render PNG。
@@ -237,3 +237,22 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 ## 18. 最終通過標準
 
 所有 Critical／High 風險案例通過；G1～G4 通過；無未處理 P0／P1 defect；必要 evidence 完整。Production release 仍需另進 release gate，QA 完成不等於已上線。
+
+## 19. DEV-018 Firebase 架構驗證
+
+### 本機必過
+
+- `npm run dev:local` 在沒有 PostgreSQL、Docker、Java 與 Firebase credential 時可啟動，`/api/health` 回傳 `dataBackend: memory`。
+- unit、memory integration、production build 與三 viewport E2E 全部通過。
+- memory 與 Firestore 共用 `CaseStore` 契約；calculator 不 import 任一 persistence adapter。
+- production 設定 memory／local auth 時必須 fail fast。
+- Firestore／Storage rules 預設拒絕 client 直接讀寫。
+
+### Emulator／release 前必過
+
+- Auth Emulator：登入、session cookie、登出、無角色與過期 token。
+- Firestore Emulator：建案、calculate transaction、idempotency、stale version、review、issue、revision、delete。
+- Storage Emulator：核發 PDF 寫入、授權下載與刪除案件後的物件處理政策。
+- App Hosting staging：環境變數、Admin SDK credential、cookie secure policy、Firestore index、健康檢查與完整 smoke。
+
+本機缺少 Java 時可把 emulator 標記為 `Not Run`，但不得把正式 Firebase 整合或 release 宣告為 Pass。

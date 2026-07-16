@@ -12,6 +12,9 @@ export async function fetchJson<T>(
 ): Promise<T> {
   const response = await fetch(input, init);
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new UiRequestError(body as UiProblem);
+  if (!response.ok) {
+    const problem = body as UiProblem & { code?: string };
+    throw new UiRequestError(problem);
+  }
   return body as T;
 }

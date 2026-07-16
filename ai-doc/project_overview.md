@@ -1,147 +1,114 @@
 # 專案總覽｜油脂截留器雙軌計算與設計報告系統
 
-文件狀態：`Local Engineering Complete — Human Pilot Pending`
-版本：`2.1`
-日期：`2026-07-15`
+文件狀態：`Firebase Local Engineering Complete - Human Pilot Pending`
+版本：`3.0`
+日期：`2026-07-17`
 
 ## 1. 產品目的
 
-把每案重新找公式、挑參數、排版與說明的人工流程，轉成可版本化、可追溯、可覆核的工程規則系統：
+核心目標是讓每次設計需求計算可重算、可解釋且結果正確。案件與報告是多人作業的便利資料，不承擔法規稽核或長期資產保存要求。
 
 ```text
-選擇客戶任務 → 選擇計算模式 → 補必要資料 → 系統計算
-→ 編製者完成報告草稿 → 審核者最後一次工程覆核
-→ 建立不可變報告快照 → 核發設計計算書
+選擇客戶任務 → 選擇計算模式 → 補必要資料 → server-side 計算
+→ 完成報告草稿 → 工程覆核 → 產生 snapshot 與 PDF
 ```
 
-主要使用者是鉦富已授權的內部計算使用者與規則管理者；同一位計算使用者可完成編製、覆核與核發。客戶不直接操作第一階段系統。
+第一階段由鉦富已授權的內部使用者操作；客戶不直接登入。
 
 ## 2. End-State Architecture
 
 ```mermaid
 flowchart LR
-    U["已授權內部計算使用者"] --> NET["雲端登入與安全 Session"]
-    RA["規則管理者"] --> NET
-
-    NET --> UI["案件與計算工作台"]
-
-    UI --> APP["模組化 Web Application"]
-    APP --> CASE["案件／輸入／假設模組"]
-    APP --> ORCH["雙軌 Orchestrator"]
-    APP --> REVIEW["覆核／核發模組"]
-    APP --> ADMIN["規則與來源模組"]
-
-    ORCH --> CUR["內政部給排水規範（附錄 5）計算核心"]
-    ORCH --> LEG["臺北市工務局衛工處設計說明計算核心"]
-    CUR --> TRACE["計算步驟與來源快照"]
-    LEG --> TRACE
-    ORCH --> GATE["案件狀態判定"]
-    GATE -->|"兩軌有效"| COMPLETE["COMPLETE"]
-    GATE -->|"一軌有效"| REMIND["COMPLETE_WITH_REMINDER"]
-    GATE -->|"零軌有效"| BLOCK["BLOCKED"]
-
-    COMPLETE --> DRAFT_REPORT["報告草稿預覽"]
-    REMIND --> DRAFT_REPORT
-    DRAFT_REPORT --> REVIEW["最終工程覆核"]
-    REVIEW --> SNAP["不可變 ReportSnapshot"]
-    SNAP --> PDF["客戶設計計算書 PDF"]
-
-    CASE --> DB[("PostgreSQL")]
-    TRACE --> DB
-    ADMIN --> DB
-    REVIEW --> DB
-    SRC["官方來源／版本化參數"] --> ADMIN
-    AUTH["Identity Provider Adapter"] --> NET
+    U["已授權內部使用者"] --> AUTH["Firebase Auth"]
+    AUTH --> APP["Next.js on App Hosting"]
+    APP --> API["Server API／Application Services"]
+    API --> CALC["Decimal 計算核心"]
+    API --> RULE["版本控制規則 Catalog"]
+    API --> FS[("Cloud Firestore")]
+    API --> STORE[("Cloud Storage")]
+    CALC --> SNAP["計算結果與報告 Snapshot"]
+    SNAP --> FS
+    SNAP --> PDF["Server-side PDF"]
+    PDF --> STORE
 ```
+
+信任邊界：
+
+- 公式只存在於純 TypeScript／Decimal domain calculator。
+- UI、API controller 與 PDF template 不複製公式。
+- 所有正式寫入由 Next.js server 驗證 Firebase session 與角色後執行。
+- Firestore transaction 保護案件 aggregate 的 optimistic version 與狀態轉換。
+- 本機 memory adapter 與 Firestore adapter 共用同一 `CaseStore` 契約。
 
 ## 3. 不可妥協規則
 
-1. 新舊兩軌使用不同的 calculator、參數命名空間、單位與結論語意。
-2. 任一有效軌可讓雙軌案件進入覆核；不足軌只提醒，不能關閉主要 CTA。
+1. 新舊兩軌使用不同 calculator、參數命名空間、單位與結論語意。
+2. 任一有效軌可讓雙軌案件進入覆核；不足軌只能提醒。
 3. 資料不足軌不建立假 `CalculationRun`，只保存 `TrackAssessment`。
-4. 公式只存在於 domain calculator；UI、API controller 與 PDF 模板不得重算。
-5. 所有正式比較與反推限制使用高精度 raw 值；來源顯示值只作回歸證據。
-6. 已核發報告以完整快照封存；後續規則變更不能改變舊報告。
-7. 內政部給排水規範（附錄 5）的 Q/G、臺北市工務局衛工處設計說明的 Veff 與案件輸入的 Q/G 設計能力不得互相等同。
-8. 系統不執行產品型號或證書匹配；反推能力值由使用者輸入並保存證據來源。
-9. 同一位使用者可以依序編製、覆核與核發，但三個責任事件必須分開記錄。
-10. 雲端 End-State 只允許已授權內部帳號；匿名與未授權 API access 必須拒絕。
+4. 正式比較與反推限制使用高精度 raw 值；來源顯示值只作回歸證據。
+5. 核發 PDF 只從當下 snapshot 產生，不在輸出階段重算。
+6. 系統不執行產品型號、能力真偽或證書符合性判定。
+7. 同一位使用者可依序完成編製、覆核與核發；責任欄位與時間仍分開保存。
+8. production 不得使用 memory adapter，也不得接受匿名或未授權 API 存取。
 
 ## 4. 參考技術架構
 
-第一階段採 provider-neutral 的模組化單體，避免在尚未確認託管平台時綁定雲端服務：
+- 語言：TypeScript；套件版本由 lockfile 固定。
+- Web：Next.js 模組化單體，UI 與 application 共用型別，不共用 side effect。
+- 計算：Decimal.js；禁止 JavaScript `number` 作正式精度判定。
+- 規則：版本控制內的唯讀 TypeScript catalog 與 checksum。
+- 資料：本機 memory；正式 Cloud Firestore aggregate documents。
+- 身分：本機開發 identity；正式 Firebase Auth session cookie 與 role custom claims。
+- 報告：snapshot → deterministic HTML → server-side Chromium → PDF。
+- 檔案：本機 `output/pdf`；正式 Cloud Storage。
+- 託管：Firebase App Hosting；正式設定與部署進入 DEV-012 release gate。
 
-- 語言：TypeScript，所有套件版本於建立 lockfile 時固定。
-- Web：React／Next.js 類型的 server-capable framework；UI 與 server application 共用型別，不共用 domain side effect。
-- Database：PostgreSQL；透過 repository boundary 隔離 ORM。
-- 數學：十進位高精度函式庫，不用 JavaScript `number` 作正式判定。
-- Schema validation：runtime schema validator；API 與 domain input 分層驗證。
-- 測試：unit／integration、瀏覽器 E2E 與 PDF snapshot 分層。
-- PDF：由已封存 `ReportSnapshot` 產生 deterministic HTML，再由 server-side Chromium 或等價 adapter 轉 PDF。
-- Auth：`AuthPort` adapter；本地使用 seed users，End-State 為雲端內部登入，正式 identity provider 延後到 release gate 確認。
-
-詳細決策見 ADR-003。若 RD 選用等價框架，必須維持相同模組、交易、測試與 provider-neutral 邊界。
+架構決策以 [ADR-007](decisions/ADR-007-firebase-managed-architecture.md) 為準；ADR-003 的 PostgreSQL 與 provider-neutral persistence 已被取代。
 
 ## 5. 模組責任
 
-| 模組           | 責任                                             | 禁止事項             |
-| -------------- | ------------------------------------------------ | -------------------- |
-| Case           | 案件、任務、模式、輸入、證據、假設               | 不做公式運算         |
-| Rule           | SourceDocument、RuleSet、FactorTable、版本與核准 | 不直接修改已啟用版本 |
-| Q/G Calculator | 內政部給排水規範的面積／人數／反推 Q/G           | 不讀 UI、DB 或 PDF   |
-| Q/V Calculator | 臺北市工務局衛工處設計說明的人數／面積／反推 Q/V | 不借用 Q/G 參數      |
-| Orchestrator   | 軌別完整性、隔離執行、案件級狀態                 | 不建立第三套混合公式 |
-| Review         | 送審、退回、最終覆核、override、核發             | 不覆寫既有核發紀錄   |
-| Report         | 快照、HTML、PDF、版本、雜湊                      | 不在輸出時重新計算   |
-| Audit          | 重要狀態與管理操作紀錄                           | 不保存無意義 UI 雜訊 |
+| 模組 | 責任 | 禁止事項 |
+| --- | --- | --- |
+| Case | 內部團隊共享案件、revision、輸入、狀態與 optimistic version | 不做公式運算 |
+| Rule | 來源 metadata、規則版本與 checksum | 不在 runtime 修改 ACTIVE 規則 |
+| Calculators | 兩份依據的正向與反向計算 | 不讀 UI、Firestore 或 PDF |
+| Orchestrator | 軌別完整性、隔離執行與案件級狀態 | 不建立第三套混合公式 |
+| Review | 草稿、送審、退回、覆核與核發狀態 | 不允許唯讀狀態重新計算 |
+| Report | snapshot、HTML、PDF、雜湊與儲存 | 不在輸出時重新計算 |
+| Auth | local／Firebase 身分與角色驗證 | 不信任 client 傳入的角色 |
+| Data | memory／Firestore `CaseStore` adapter | 不把儲存格式帶入 domain calculator |
 
-## 6. 角色與責任
+## 6. 角色
 
-| 角色           | 可執行                                                                    |
-| -------------- | ------------------------------------------------------------------------- |
-| `ENGINEER`     | 建立案件、輸入資料、計算、提交與完成覆核、核准 override、核發、建立修訂版 |
-| `RULE_ADMIN`   | 建立未啟用 RuleSet、匯入參數、執行回歸、啟用版本                          |
-| `SYSTEM_ADMIN` | 使用者與角色管理；不能改計算結果                                          |
+| 角色 | 可執行 |
+| --- | --- |
+| `ENGINEER` | 建案、輸入、計算、覆核、核發與建立修訂版 |
+| `RULE_ADMIN` | 檢視規則與來源；後續規則版本管理 |
+| `SYSTEM_ADMIN` | 使用者與角色管理；不得改計算結果 |
 
-同一帳號可同時承擔編製、覆核與核發；資料模型分別保存 `preparedBy`、`reviewedBy`、`issuedBy`，且允許三者相同。覆核 checklist 與核發確認仍不可省略。
+## 7. Phase Coverage
 
-## 7. Phase Coverage Matrix
+| Phase | 狀態 | 證據／下一步 |
+| --- | --- | --- |
+| 計算與工作流 | Complete | unit、integration、E2E、PDF |
+| Firebase 本地重構 DEV-018 | Complete | memory adapter、Firebase adapters、production build、三 viewport E2E |
+| 真實案件平行試算 DEV-011 | Pending Human | 需 3～5 個去識別案件與人工預期值 |
+| 正式部署 DEV-012 | Release Gate Required | 建立 Firebase project、帳號、claims、環境變數、部署與 smoke |
 
-| Phase / DEV      | 執行邊界     | 文件狀態                               | 主要範圍                      | 不做事項                             | 進入條件               | 驗收                                           | 證據                   |
-| ---------------- | ------------ | -------------------------------------- | ----------------------------- | ------------------------------------ | ---------------------- | ---------------------------------------------- | ---------------------- |
-| Phase 0 文件     | 完成         | `Complete`                             | 完整 SPEC、ADR、DEV、QA       | 程式與 release                       | 使用者要求建立文件     | 跨文件 gate 通過                               | 文件檢查結果           |
-| Phase 1 基礎     | DEV-001～002 | `Complete`                             | 專案骨架、DB、規則與參數 seed | 業務 UI 完成                         | 使用者要求開發         | 本地啟動、schema、參數回歸                     | build／migration／unit |
-| Phase 2 計算核心 | DEV-003～005 | `Complete`                             | 兩份計算依據與對照狀態        | PDF 與完整管理 UI                    | Phase 1 通過           | 官方案例、反向、隔離、放行矩陣通過             | unit／integration      |
-| Phase 3 工作流   | DEV-007～009 | `Complete`                             | 案件 UI、單人覆核／核發、PDF  | 產品／證書匹配、外部客戶入口         | Phase 2 通過           | 同一帳號端到端完成案件與核發                   | E2E／PDF／audit        |
-| Phase 4 驗收     | DEV-010～011 | `Automated Pass / Human Pilot Pending` | QA 自動化、UI QC、本地驗收    | production release                   | Phase 3 通過           | 自動化與本地 QC 通過；待真實案件 parallel diff | QC-001／screenshots    |
-| Production       | DEV-012      | `Release Gate Required`                | 未展開                        | 部署計畫、rollback、production smoke | 使用者明確提出 release | 由 release gate 定義                           | 待建立                 |
+## 8. 主要風險與控制
 
-## 8. Fixed Decisions
+- 計算回歸：公式、來源 checksum、邊界與 golden cases 由 unit tests 固定。
+- 單位或捨入混用：raw、source display、adopted 分欄；正式判定只用 raw。
+- Firestore 競爭寫入：transaction 加 optimistic version，衝突回傳 409。
+- 團隊協作：所有具系統角色的同事共享案件；正式環境由 Firebase Auth 與 role claims 限制在內部人員。
+- client 越權：Firestore／Storage rules deny all，client 只呼叫 server API。
+- memory 誤用於 production：環境解析在 production 強制 Firebase backend。
+- 雲端設定錯誤：DEV-012 執行 staging／production release gate 與 smoke test。
+- 報告不屬重要資產：不重建 SQL audit event stream；需要正式保存政策時另立 ADR。
 
-- 雙軌與五大任務均為第一階段。
-- 新案件預設 `CURRENT_QG`，工程人員可選 `LEGACY_QV` 或 `DUAL_COMPARISON`。
-- 雙軌任一有效軌可放行，狀態名固定為 `COMPLETE_WITH_REMINDER`。
-- 報告只從快照產生。
-- 現行反推以使用者輸入的 Q/G 能力 raw 值執行限制比較；不驗證產品或證書。
-- 來源文件中的文字差異不作真值，採重新運算與來源差異紀錄。
-- 同一帳號可完成編製、覆核與核發，不實作 separation-of-duty gate。
-- 雲端內部使用已確認；特定 provider 尚未確認，架構保持可替換 adapter。
+## 9. Re-entry Trigger
 
-## 9. Deferred Decisions 與 Re-entry Trigger
-
-| 項目               | 現況                                    | Re-entry trigger                 |
-| ------------------ | --------------------------------------- | -------------------------------- |
-| 正式 Auth／SSO     | 只定義 adapter 與角色                   | 準備 staging／production         |
-| 託管平台與外部成本 | 未選 provider                           | 使用者提出部署或成本評估         |
-| 客戶入口           | `Future Phase Captured / Not Requested` | 內部流程穩定且確認帳號／隱私邊界 |
-
-## 10. 主要風險
-
-- 法規與舊指引語意混用：以 RuleSet、軌別命名空間與報告標籤隔離。
-- PDF 表格錯字被抄入程式：以 source discrepancy 與重新運算案例防回歸。
-- 單位 L/min 與 L/h 混算：資料欄位與 value object 分開，不接受裸數值。
-- 不足軌阻擋有效軌：案件狀態只由有效軌數判定並有 integration test。
-- 規則更新改變舊報告：核發時封存規則、輸入與計算證據快照。
-- UI 警示被誤認為阻擋：非阻擋提醒明示「可完成報告草稿」，主要 CTA 維持可用。
-- 單人流程被誤做成等待他人：IN_REVIEW 顯示目前使用者可直接繼續覆核，不要求切換帳號。
-- 雲端 exposure 被當成公開資料：所有頁面與 API 預設 authenticated-only，正式安全控制由 release gate 驗證。
+- 正式 Firebase project、Auth provider、角色 claim、成本與備份：使用者提出部署時進入 DEV-012。
+- 真實案件計算差異：收到去識別資料後進入 DEV-011。
+- 報告保存或稽核要求改變：重新評估資料模型、留存、備份與不可變性。
+- 法規來源更新：建立新規則版本與 regression evidence，不覆寫既有 catalog。

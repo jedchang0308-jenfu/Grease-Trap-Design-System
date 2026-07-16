@@ -1,27 +1,27 @@
 # Dev Task｜油脂截留器雙軌計算系統
 
-文件狀態：`Local Engineering Complete — Human Pilot Pending`  
-版本：`2.6`
-最後更新：`2026-07-16`
-本輪執行邊界：本地 RD／自動化 QA／地端頁面 QC 執行 DEV-017 案件工作台結果後操作區調整；真實案件平行試算待人類輸入；release 未獲指令
-產品完成基準：8 個有效交付點，目前完成 8／8（100%）；DEV-006 已由使用者決策跳過，不計入分母
+文件狀態：`Firebase Local Engineering Complete — Human Pilot Pending`
+版本：`2.7`
+最後更新：`2026-07-17`
+本輪執行邊界：DEV-018 本地 RD／自動化 QA／QC 已完成；未建立正式 Firebase project、未部署、未搬移舊 PostgreSQL 資料
+產品完成基準：9 個有效交付點，目前完成 9／9（100%）；DEV-006 已由使用者決策跳過，不計入分母
 
 ## 總任務清單
 
 - ✓ DEV-001 [交付點] [完成] [P0] 建立本地可啟動的專案骨架
-  - 摘要：建立固定啟動入口、模組目錄、型別／格式／測試基礎與本地資料庫連線，讓後續 DEV 有一致執行環境。
+  - 摘要：建立固定啟動入口、模組目錄、型別／格式／測試基礎與 persistence boundary，讓後續 DEV 有一致執行環境；DEV-018 已將本機資料層替換為 memory adapter。
   - 來源 ID：`GTC-PH1-FOUNDATION-001`
   - 父任務：無
   - 下一步：無；固定入口為 `npm run dev:local`／`http://localhost:3100`
-  - 證據：Node 24、Next.js 16、Docker PostgreSQL 18、lockfile、health、lint、typecheck、build、Git boundary
+  - 證據：Node 24、Next.js 16、memory adapter、lockfile、health、lint、typecheck、build、Git boundary
   - 計入交付：是
 
 - ✓ DEV-002 [交付點] [完成] [P0] 建立版本化來源、規則與參數庫
-  - 摘要：把內政部給排水規範（附錄 5）的 A-34～A-37、臺北市工務局衛工處設計說明的 Q/V 參數、來源雜湊與 discrepancy 建成可查、不可靜默修改的 seed data。
+  - 摘要：把內政部給排水規範（附錄 5）的 A-34～A-37、臺北市工務局衛工處設計說明的 Q/V 參數、來源雜湊與 discrepancy 建成可查、不可靜默修改的版本化 catalog；DEV-018 已移除 database seed。
   - 來源 ID：`GTC-PH1-RULES-002`
   - 父任務：無
   - 下一步：只有新法規來源版本出現時建立新 RuleSet，不回寫 ACTIVE 版本
-  - 證據：2 份 migration、seed checksum、ACTIVE immutability、factor counts 與 DB integration tests
+  - 證據：版本控制 catalog、rule checksum、factor counts、unit 與 application integration tests
   - 計入交付：是
 
 - ✓ DEV-003 [交付點] [完成] [P0] 實作內政部給排水規範（附錄 5）Q/G 正向與反向計算核心
@@ -149,6 +149,15 @@
   - 證據：typecheck、lint、指定案件 1440／390 viewport snapshot、桌面／窄版 screenshot、document/body width sweep
   - 計入交付：否
 
+- ✓ DEV-018 [交付點] [完成] [P0] [本地工程] 重構為 Firebase 代管式多人協作架構
+  - 摘要：保留 server-side 計算核心與 UI／API 契約，將 PostgreSQL、seed identity 與本機 PDF 路徑替換為 Firebase Auth、Firestore、Storage 及 App Hosting-ready 設定。
+  - 來源 ID：`GTC-FIREBASE-ARCH-018`
+  - 父任務：DEV-001、DEV-005、DEV-007、DEV-009
+  - 下一步：正式多人部署時進入 DEV-012，建立 Firebase project 並補 emulator／staging／production smoke
+  - 阻塞／恢復條件：正式 Firebase project、credential 與 production deploy 仍屬 DEV-012；本 DEV 不得接觸正式資料或部署
+  - 證據：ADR-007、27 unit、8 memory integration、lint、typecheck、format、build、三 viewport 12 E2E；Firebase Emulator 因本機缺 Java 標記 Not Run
+  - 計入交付：是
+
 ## Phase 執行順序
 
 ```text
@@ -157,6 +166,7 @@ G1 Foundation: DEV-001 → DEV-002
 G2 Calculation:      └→ DEV-004 ─┴→ DEV-005
 G3 Workflow: DEV-005 → DEV-007 → DEV-008 → DEV-009 → DEV-014 → DEV-015 → DEV-016
 G4 Acceptance: DEV-003～005、007～009 → DEV-010 → DEV-011
+Architecture: DEV-018（本輪 Firebase 重構）
 Release: DEV-012（需另行指令）
 ```
 
@@ -540,7 +550,7 @@ Release: DEV-012（需另行指令）
 節點類型：關卡  
 是否計入產品交付：否
 
-只保存 re-entry trigger：DEV-011 通過，且使用者明確提出部署、上線或 release。雲端內部使用的拓撲已由 ADR-006 固定；屆時交由 deployment release gate 決定 provider、Auth、正式報告編號、資料備份、migration、rollback 與 production smoke；目前不得預寫或執行。
+只保存 re-entry trigger：DEV-011 通過，且使用者明確提出部署、上線或 release。Firebase 拓撲已由 ADR-007 固定；屆時交由 deployment release gate 建立 project、Auth、角色、正式報告編號、資料備份、rollback 與 production smoke；目前不得執行。
 
 ---
 

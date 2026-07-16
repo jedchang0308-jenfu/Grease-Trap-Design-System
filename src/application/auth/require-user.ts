@@ -1,5 +1,5 @@
 import { AppProblem } from "@/application/http/problem";
-import { authPort } from "@/infrastructure/auth/local-auth";
+import { authPort } from "@/infrastructure/auth";
 import type { Role } from "@/infrastructure/auth/auth-port";
 
 export async function requireUser(headers: Headers, requiredRole?: Role) {

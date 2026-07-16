@@ -21,6 +21,11 @@ export function RuntimeError({
         {problem.userMessage ?? "目前未完成這次操作，請重試或返回安全頁面。"}
       </strong>
       <div className="button-row" style={{ marginTop: 12 }}>
+        {problem.code === "AUTH_REQUIRED" ? (
+          <Link className="button primary" href="/login">
+            前往登入
+          </Link>
+        ) : null}
         {onRetry ? (
           <button className="button secondary" type="button" onClick={onRetry}>
             重試
