@@ -1,8 +1,8 @@
 # 專案總覽｜油脂截留器雙軌計算與報告草稿系統
 
-文件狀態：`Static Spark Local Acceptance Passed`
+文件狀態：`Static Spark Production Deployed`
 
-版本：`4.1`
+版本：`4.2`
 
 日期：`2026-07-17`
 
@@ -77,9 +77,9 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 | Phase                      | 狀態             | 說明                                                          |
 | -------------------------- | ---------------- | ------------------------------------------------------------- |
 | 雙軌計算與 UI              | Complete         | 既有核心與 responsive UI 保留                                 |
-| DEV-021 Spark 靜態重構     | Complete locally | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
+| DEV-021 Spark 靜態重構     | Complete         | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
 | 真實案件平行試算           | Pending Human    | 需 3～5 個去識別案件及人工預期                                |
-| Firebase production deploy | Not executed     | 需新 project、Anonymous Auth、Firestore 與人工 release gate   |
+| Firebase production deploy | Complete         | `jenfu-grease-trap-calculator.web.app`；production smoke 通過     |
 
 ## 8. 主要風險
 

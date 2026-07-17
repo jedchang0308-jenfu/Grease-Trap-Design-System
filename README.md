@@ -82,6 +82,8 @@ git diff --check
 
 只能建立本系統專用的新 Firebase project，不得使用既有 PDM 或 ProJED project。
 
+正式環境：[https://jenfu-grease-trap-calculator.web.app](https://jenfu-grease-trap-calculator.web.app)
+
 本輪設定目標：
 
 - Project ID：`jenfu-grease-trap-calculator`
@@ -98,7 +100,7 @@ git diff --check
 6. 執行 `npm run build`。
 7. 部署純靜態 Hosting：`firebase deploy --only hosting`。
 
-`firebase.json` 的 Hosting public 目錄為 `dist`，所有應用路徑 rewrite 至 `/index.html`。本輪重構不會自行建立 project、啟用計費或部署。
+`firebase.json` 的 Hosting public 目錄為 `dist`，所有應用路徑 rewrite 至 `/index.html`。2026-07-17 已部署至獨立 Spark project `jenfu-grease-trap-calculator`；未啟用 Blaze、Storage、Functions 或 App Hosting。
 
 ## 文件
 

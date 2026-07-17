@@ -1,14 +1,14 @@
 # QC-001｜Firebase Spark 純靜態版本本機驗收
 
-文件狀態：`Local Acceptance Passed`
+文件狀態：`Production Release Passed`
 
-版本：`2.2`
+版本：`3.0`
 
 日期：`2026-07-17`
 
 ## 結論
 
-Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、report draft、browser print 與 Hosting static config 已完成。本機程式、Rules、production static build 與三 viewport E2E 全部通過；尚未建立 Firebase production project 或部署。
+Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、report draft、browser print 與 Hosting static config 已完成。本機 gate、production artifact 與部署後 smoke 全部通過；已發布至獨立 Firebase Spark project `jenfu-grease-trap-calculator`。
 
 ## 已確認事實
 
@@ -37,6 +37,9 @@ Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、re
 | A4 列印輸出                    | PASS | Chromium PDF；5 頁 A4；逐頁視覺檢查     |
 | `dist`／source forbidden search | PASS | 無 server bundle 或禁用 runtime         |
 | production dependency audit     | PASS | 0 vulnerabilities                       |
+| Hosting deploy                  | PASS | release `1784302105130000`               |
+| production artifact provenance | PASS | 線上／本地 bundle SHA-256 相同             |
+| production smoke               | PASS | Auth、Firestore、routes、console、network      |
 | `git diff --check`              | PASS | 最終重跑                                |
 
 E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report preview、snapshot export、print stub、第二匿名 session、case/report route reload 及 revision +1。每個 viewport 均驗證 root overflow 與 critical console/page error；mobile 截圖另由人工抽查確認輸入矩陣、結果與 report cover 無裁切或重疊。
@@ -53,6 +56,11 @@ E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report 
 - 完整 `npm audit` 有 5 個 moderate，全部來自 dev-only `firebase-tools` 的 OpenTelemetry／uuid 相依鏈；`npm audit --omit=dev` 為 0。`npm audit fix --force` 會降級 firebase-tools，未採用。
 - integration／E2E 使用暫存目錄內官方 Temurin JRE 21.0.11；它不是專案 dependency，也未修改系統 Java 安裝。
 
-## Human Re-entry
+## Production Release
 
-本輪不部署。production 前由 release owner 建立本系統專用 Firebase Spark project、啟用 Anonymous Auth、建立 Firestore 與 Web App、設定 `.env.local`，再依 release gate 部署 Rules 與 Hosting。既有 PDM／ProJED project 不可使用。
+- URL：`https://jenfu-grease-trap-calculator.web.app`。
+- release commit：`f0ccc1c`；Hosting version：`ca30cb18c51ffbae`。
+- 未登入 Firestore 讀取為 403；兩個不同匿名 session 皆可讀取共享案件。
+- `/cases`、`/cases/new`、任意 case ID 與 report URL 皆由 Hosting SPA rewrite 回應 200。
+- post-deploy browser smoke 的 console error、page error、非預期 request failure 與 root overflow 皆為 0。
+- rollback：Hosting 前一 version `db5ac97927fc618a`；Firestore Rules 本次未變更。

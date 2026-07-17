@@ -1,8 +1,8 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-021 Local Acceptance Complete`
+文件狀態：`DEV-012 Production Release Complete`
 
-版本：`4.1`
+版本：`4.2`
 
 最後更新：`2026-07-17`
 
@@ -10,7 +10,7 @@
 
 ### DEV-021｜Firebase Spark 純靜態 SPA 重構
 
-狀態：`Complete Locally`
+狀態：`Complete`
 
 基線：`c5af308 chore: checkpoint public Firebase workflow`
 
@@ -35,7 +35,7 @@
 | format check                               | Passed              |
 | lint                                       | Passed              |
 | typecheck                                  | Passed              |
-| unit tests                                 | Passed: 34          |
+| unit tests                                 | Passed: 35          |
 | Firestore Rules／repository integration    | Passed: 5           |
 | production static build                    | Passed: 155 modules |
 | E2E 1440／1024／390                        | Passed: 3           |
@@ -51,16 +51,18 @@ Stop conditions：
 
 ### DEV-012｜Firebase production 發版
 
-狀態：`Pending Human / Not Executed`
+狀態：`Complete`
 
-前置：
+發版證據：
 
-- 本系統專用 Firebase Spark project 已建立：`jenfu-grease-trap-calculator`。
-- Anonymous Auth 已啟用；Firestore `(default)` 建於 `asia-east1` production mode；Web App nickname 為 `grease-trap-static-web`。
-- 設定公開 `VITE_FIREBASE_*` build variables。
-- 完成 DEV-021 全部 gate。
-
-發版：先部署 Firestore Rules，再 `npm run build` 與 `firebase deploy --only hosting`。發版後驗證匿名登入、共享案件、直接 route、刷新、配額錯誤提示與 browser console。
+- 目標：獨立 Firebase Spark project `jenfu-grease-trap-calculator`，未使用 PDM／ProJED。
+- 網址：`https://jenfu-grease-trap-calculator.web.app`。
+- release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
+- Hosting release：`1784302105130000`；version：`ca30cb18c51ffbae`。
+- Firestore Rules 部署前已與本地內容完全相同，本次未重複發布 ruleset。
+- production bundle SHA-256：`34d0577c23a41077d2383576abb54820219b8fb8115f8f6f5ab6564edf31e2d8`，線上與本地相同。
+- post-deploy smoke：Anonymous Auth、Firestore 讀取、未登入 403、雙匿名 session、SPA routes、console／page error／overflow 全數通過。
+- Hosting rollback 參考：前一 version `db5ac97927fc618a`；Rules rollback 參考 ruleset `301e841c-e32b-47a7-842c-e8e237964914`。
 
 ### DEV-011｜真實案件平行試算
 

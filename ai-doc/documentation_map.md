@@ -1,8 +1,8 @@
 # 文件地圖｜油脂截留器雙軌計算系統
 
-文件狀態：`Static Spark Local Acceptance Passed`
+文件狀態：`Static Spark Production Deployed`
 
-權威版本：`3.1`
+權威版本：`3.2`
 
 最後更新：`2026-07-17`
 
@@ -61,8 +61,9 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 ## 目前狀態
 
-- 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`。
+- 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。
+- DEV-012：已部署至 `https://jenfu-grease-trap-calculator.web.app`，production smoke 已通過。
 - 本輪不建立 Firebase project、不啟用計費、不部署。
 - Java 是 Firestore Emulator integration／E2E 的本機前置需求，不影響 production static build。
 
