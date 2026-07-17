@@ -1,13 +1,13 @@
-"use client";
-
-import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createCase } from "@/application/cases/repository";
+import { createCaseSchema } from "@/application/cases/schemas";
+import { AppProblem, toProblem } from "@/application/problem";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
 } from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
-import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
 
 const tasks = [
   ["T01_DINERS_TO_FLOW", "我知道每日用餐人數，要換算流量。"],
@@ -34,12 +34,12 @@ const modes = [
   [
     "DUAL_COMPARISON",
     calculationModeDisplay.DUAL_COMPARISON.label,
-    "兩份資料來源分開計算；任一份有效即可預覽並核發。",
+    "兩份資料來源分開計算；任一份有效即可預覽並匯出報告草稿。",
   ],
 ] as const;
 
 export function NewCaseWizard() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [taskCode, setTaskCode] = useState<(typeof tasks)[number][0]>(
     "T02_DINERS_TO_DESIGN",
@@ -63,22 +63,26 @@ export function NewCaseWizard() {
     setSubmitting(true);
     setProblem(null);
     try {
-      const created = await fetchJson<{ caseId: string }>("/api/cases", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          taskCode,
-          mode,
-          ...metadata,
-        }),
+      const parsed = createCaseSchema.safeParse({
+        taskCode,
+        mode,
+        ...metadata,
       });
-      router.push(`/cases/${created.caseId}`);
+      if (!parsed.success) {
+        throw new AppProblem({
+          code: "INVALID_CASE",
+          title: "案件資料格式不正確",
+          userMessage: "請修正欄位後再建立案件。",
+          fieldErrors: parsed.error.flatten().fieldErrors as Record<
+            string,
+            string[]
+          >,
+        });
+      }
+      const created = await createCase(parsed.data);
+      navigate(`/cases/${created.case_group_id}`);
     } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "案件建立未完成，已填資料仍保留。請重試。" },
-      );
+      setProblem(toProblem(error, "案件建立未完成，已填資料仍保留。請重試。"));
       setSubmitting(false);
     }
   }

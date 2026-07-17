@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import Decimal from "decimal.js";
 import { basisForTrack, modeDisplayFor } from "../rules/source-display";
 import {
@@ -26,18 +24,8 @@ function cssString(value: unknown): string {
   return JSON.stringify(String(value ?? "").replace(/<\/style/gi, "<\\/style"));
 }
 
-let jenfuLogoDataUriCache: string | null | undefined;
-
 function jenfuLogoDataUri(): string {
-  if (jenfuLogoDataUriCache !== undefined) return jenfuLogoDataUriCache ?? "";
-  try {
-    const logoPath = path.join(process.cwd(), "public", "jenfu-logo-small.png");
-    const logo = readFileSync(logoPath);
-    jenfuLogoDataUriCache = `data:image/png;base64,${logo.toString("base64")}`;
-  } catch {
-    jenfuLogoDataUriCache = null;
-  }
-  return jenfuLogoDataUriCache ?? "";
+  return "/jenfu-logo-small.png";
 }
 
 function logoMarkup(className: string): string {
@@ -183,7 +171,7 @@ function outputOverview(snapshot: ReportSnapshotData): string {
   );
   if (!rows.length)
     return `<div class="empty-note">本次尚無可列出的設計結果；報告不以 0 或推測值補齊。</div>`;
-  return `<p class="result-guide"><strong>下表顯示正式採用值。</strong>完整計算過程另列未取整原始值及其單位換算，因此兩處數字可能不同。</p><div class="table-scroll"><table class="output-table"><thead><tr><th>輸出項目</th>${tracks
+  return `<p class="result-guide"><strong>下表顯示本次採用值。</strong>完整計算過程另列未取整原始值及其單位換算，因此兩處數字可能不同。</p><div class="table-scroll"><table class="output-table"><thead><tr><th>輸出項目</th>${tracks
     .map((track) => `<th>${escapeHtml(basisForTrack(track).shortLabel)}</th>`)
     .join("")}</tr></thead><tbody>${rows
     .map(
@@ -252,7 +240,7 @@ function missingWorkflowBanner(snapshot: ReportSnapshotData): string {
 export function renderReportHtml(snapshot: ReportSnapshotData): string {
   const mode = modeDisplayFor(snapshot.case.mode);
   const task = taskLabels[snapshot.case.taskCode] ?? "設計需求計算";
-  const reportTitle = "油脂截留器設計計算報告";
+  const reportTitle = "油脂截留器設計計算報告草稿";
   const versionLabel = `修訂 ${snapshot.case.revisionNo}`;
   const preparedBy = snapshot.actors.preparedBy;
   const footerLogo = jenfuLogoDataUri();
@@ -277,13 +265,14 @@ export function renderReportHtml(snapshot: ReportSnapshotData): string {
   const detailsClass = overviewInputCount <= 8 ? "page-break" : "";
 
   return `<!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(snapshot.reportNumber)} - ${escapeHtml(reportTitle)}</title>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(snapshot.reportNumber)} - ${escapeHtml(reportTitle)}</title><link rel="stylesheet" href="/report-fonts/report-font.css" data-report-font>
 <style>
 @page cover { size: A4; margin: 12.7mm; @top-center { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }
-@page report { size: A4; margin: 12.7mm 12.7mm 18mm; @top-left { content: ${cssString(reportTitle)}; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; text-align: left; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @top-center { content: "報告編號：" ${cssString(snapshot.reportNumber)}; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; text-align: center; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @top-right { content: "版次：" ${cssString(versionLabel)}; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; text-align: left; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @bottom-left-corner { content: ""; width: 7mm; height: 7mm; border-top: .7pt solid #9A9A9A; border-left: .7pt solid #9A9A9A; } @bottom-center { content: "頁次 " counter(page) " / " counter(pages); font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; } @bottom-right { content: "鉦富機械有限公司"; ${footerLogoRule} font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 10pt; font-weight: 700; color: #777; text-align: right; white-space: nowrap; } @bottom-right-corner { content: ""; width: 7mm; height: 7mm; border-top: .7pt solid #9A9A9A; border-right: .7pt solid #9A9A9A; } }
+@page report { size: A4; margin: 12.7mm 12.7mm 18mm; @top-left { content: ${cssString(reportTitle)}; font-family: "Jenfu Report Sans", sans-serif; font-size: 9pt; color: #777; text-align: left; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @top-center { content: "報告編號：" ${cssString(snapshot.reportNumber)}; font-family: "Jenfu Report Sans", sans-serif; font-size: 9pt; color: #777; text-align: center; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @top-right { content: "版次：" ${cssString(versionLabel)}; font-family: "Jenfu Report Sans", sans-serif; font-size: 9pt; color: #777; text-align: left; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @bottom-left-corner { content: ""; width: 7mm; height: 7mm; border-top: .7pt solid #9A9A9A; border-left: .7pt solid #9A9A9A; } @bottom-center { content: "頁次 " counter(page); font-family: "Jenfu Report Sans", sans-serif; font-size: 9pt; color: #777; } @bottom-right { content: "鉦富機械有限公司"; ${footerLogoRule} font-family: "Jenfu Report Sans", sans-serif; font-size: 10pt; font-weight: 700; color: #777; text-align: right; white-space: nowrap; } @bottom-right-corner { content: ""; width: 7mm; height: 7mm; border-top: .7pt solid #9A9A9A; border-right: .7pt solid #9A9A9A; } }
 * { box-sizing: border-box; }
-body { margin: 0; color: #111; background: #fff; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 12pt; line-height: 1.45; }
-p { margin: 0 0 3mm; }
+html { color-scheme: light; font-synthesis: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+body { margin: 0; color: #111; background: #fff; font-family: "Jenfu Report Sans", sans-serif; font-size: 12pt; font-variant-numeric: tabular-nums; line-height: 1.45; text-rendering: geometricPrecision; }
+p { margin: 0 0 3mm; orphans: 3; widows: 3; }
 .cover-page { page: cover; min-height: calc(297mm - 25.4mm); display: flex; flex-direction: column; page-break-after: always; }
 .cover-brand { margin-top: 37mm; text-align: center; }
 .jenfu-logo { display: block; object-fit: contain; }
@@ -302,8 +291,9 @@ p { margin: 0 0 3mm; }
 h2 { margin: 6mm 0 3mm; padding: 0 0 1.4mm 2.4mm; border-left: 2.4mm solid #4472C4; border-bottom: .6pt solid #B8C0CC; color: #111; font-size: 14pt; line-height: 1.3; }
 h3 { margin: 3mm 0 2mm; color: #111; font-size: 12pt; line-height: 1.35; }
 h4 { margin: 3mm 0 2mm; color: #111; font-size: 10.5pt; line-height: 1.35; }
+h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
 .eyebrow { margin-bottom: 2mm; color: #4472C4; font-size: 9pt; font-weight: 700; letter-spacing: 0; }
-.document-number { color: #333; font: 9pt Consolas, monospace; margin-bottom: 3mm; }
+.document-number { color: #333; font-size: 9pt; font-variant-numeric: tabular-nums; margin-bottom: 3mm; }
 .summary-table { margin: 3mm 0 5mm; }
 .summary-table th { width: 24mm; background: #F2F2F2; color: #111; text-align: center; white-space: nowrap; }
 .summary-table td { width: 40%; font-weight: 700; }
@@ -327,6 +317,10 @@ h4 { margin: 3mm 0 2mm; color: #111; font-size: 10.5pt; line-height: 1.35; }
 .group-source { margin: 0 0 1mm; color: #555; font-size: 8pt; font-weight: 700; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 th, td { border: 1px solid #7f7f7f; padding: 1.6mm 2mm; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+thead { display: table-header-group; }
+tfoot { display: table-footer-group; }
+tr, th, td { break-inside: avoid; page-break-inside: avoid; }
+img { break-inside: avoid; page-break-inside: avoid; }
 thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; text-align: center; }
 .input-table { font-size: 8.2pt; }
 .input-table th:nth-child(1) { width: 34%; }
@@ -354,10 +348,10 @@ thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; t
 .page-break { break-before: page; }
 .comparison-guide { margin: 0 0 4mm; padding: 2.5mm 3mm; border: 1px solid #9FB3D8; border-left: 4px solid #4472C4; background: #F8FAFF; color: #333; font-size: 8.5pt; }
 .muted { color: #555; font-size: 8.5pt; }
-.method-badge { display: inline-block; padding: 1mm 2.5mm; border: 1px solid #9FB3D8; border-radius: 2mm; background: #F8FAFF; color: #111; font-size: 8pt; font-weight: 700; }
+.method-badge { display: inline-block; padding: 1mm 2.5mm; border: 1px solid #9FB3D8; border-radius: 2mm; background: #F8FAFF; color: #111; font-size: 8pt; font-weight: 700; break-after: avoid-page; page-break-after: avoid; }
 .algorithm-method { margin: 4mm 0 6mm; }
 .algorithm-method + .algorithm-method { padding-top: 5mm; border-top: 1.5pt solid #4472C4; }
-.method-inputs { margin-bottom: 4mm; break-inside: avoid; }
+.method-inputs { margin-bottom: 4mm; }
 .algorithm-steps { list-style: none; margin: 2mm 0 0; padding: 0; }
 .algorithm-step { display: grid; grid-template-columns: 17mm 1fr; gap: 2mm; padding: 2mm 0; border-top: 1px solid #BFBFBF; break-inside: avoid; }
 .step-number { padding-top: 1mm; color: #4472C4; font-size: 8pt; font-weight: 700; }
@@ -370,14 +364,15 @@ thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; t
 .formula-block > .step-label { display: block; margin-bottom: .6mm; }
 .formula-values { font-size: 7.7pt; }
 .formula-values th, .formula-values td { padding: 1mm 1.5mm; }
-.formula-values .symbol { color: #111; font-family: Consolas, monospace; font-weight: 700; }
+.formula-values .symbol { color: #111; font-variant-numeric: tabular-nums; font-weight: 700; }
 .step-result { color: #111; font-weight: 700; margin-top: .6mm; }
 .step-comparison { margin-top: .6mm; padding: .8mm 1.5mm; border: 1px solid #9FB3D8; background: #F8FAFF; color: #111; }
 @media screen { body { background: #E9EDF3; padding: 8mm 0; } .cover-page, .report-body { width: 210mm; margin: 0 auto 8mm; background: #fff; box-shadow: 0 0 0 1px #d9dfe8; } .cover-page { padding: 12.7mm; } .report-body { padding: 8mm 12.7mm 14mm; } .screen-report-header { display: grid; grid-template-columns: 1fr 1.3fr .7fr; column-gap: 6mm; align-items: end; margin: 0 0 7mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #4472C4; color: #777; font-size: 9pt; } .screen-report-header span:nth-child(2) { text-align: center; } .screen-report-footer { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; min-height: 10mm; margin-top: 12mm; color: #777; font-size: 9pt; } .screen-report-footer::before, .screen-report-footer::after { content: ""; position: absolute; bottom: 0; width: 8mm; height: 8mm; border-top: .7pt solid #9A9A9A; } .screen-report-footer::before { left: -6mm; border-left: .7pt solid #9A9A9A; } .screen-report-footer::after { right: -6mm; border-right: .7pt solid #9A9A9A; } .screen-footer-page { text-align: center; } .screen-footer-brand { display: inline-flex; grid-column: 3; align-items: center; justify-content: flex-end; gap: 1.3mm; font-size: 10pt; font-weight: 700; } .screen-footer-logo { width: 3.2mm; height: auto; } }
-@media print { .screen-report-header, .screen-report-footer { display: none; } }
+@media screen and (max-width: 800px) { body { padding: 0; background: #fff; font-size: 10pt; } .cover-page, .report-body { width: 100%; margin: 0; box-shadow: none; } .cover-page { min-height: 100vh; padding: 20px; } .cover-brand { margin-top: 34px; } .cover-logo { width: 54px; margin-bottom: 14px; } .cover-company-cn { font-size: 20pt; } .cover-company-en { font-size: 11pt; } .cover-title { margin-top: 54px; font-size: 20pt; } .cover-meta { margin: 24px 0 12px; } .cover-meta-strip { height: 12px; } .cover-meta-body { padding: 16px; font-size: 11pt; line-height: 1.55; overflow-wrap: anywhere; } .report-body { padding: 16px; } .screen-report-header { grid-template-columns: 1fr; gap: 4px; margin-bottom: 20px; } .screen-report-header span:nth-child(2) { text-align: left; overflow-wrap: anywhere; } .input-groups { grid-template-columns: 1fr; } .flow-strip { grid-template-columns: 1fr; } .flow-step + .flow-step { border-top: 1px solid #7f7f7f; border-left: 0; } .flow-step + .flow-step::before { display: none; } .summary-table, .summary-table tbody, .summary-table tr, .summary-table th, .summary-table td { display: block; width: 100%; } .summary-table th { text-align: left; white-space: normal; } .algorithm-step, .step-line { grid-template-columns: 1fr; } .screen-report-footer { grid-template-columns: 1fr; } .screen-footer-page { text-align: left; } .screen-footer-brand { grid-column: 1; justify-content: flex-start; } }
+@media print { html, body { background: #fff; } .cover-page, .report-body { box-shadow: none; } .screen-report-header, .screen-report-footer { display: none; } }
 </style></head><body>
-<section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div><div class="cover-company-en">Jenfu Machinery Co., LTD</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body"><p>編號：${escapeHtml(snapshot.reportNumber)}</p><p>版次：${escapeHtml(versionLabel)}</p><p>制定者：${escapeHtml(preparedBy)}</p><p>修訂日：</p></div></div></section>
-<main class="report-body"><div class="screen-report-header"><span>${escapeHtml(reportTitle)}</span><span>報告編號：${escapeHtml(snapshot.reportNumber)}</span><span>版次：${escapeHtml(versionLabel)}</span></div><section class="overview"><h2>案件資料</h2><p class="document-number">文件編號：${escapeHtml(snapshot.reportNumber)}</p><table class="summary-table"><tbody><tr><th>案件</th><td>${escapeHtml(snapshot.case.caseNo)} / ${escapeHtml(versionLabel)}</td><th>客戶</th><td>${escapeHtml(snapshot.case.customer)}</td></tr><tr><th>設置地點</th><td>${escapeHtml(snapshot.case.location)}</td><th>需求目的</th><td>${escapeHtml(task)}</td></tr><tr><th>計算依據</th><td colspan="3">${escapeHtml(mode.label)}<small>${escapeHtml(mode.description)}</small></td></tr></tbody></table><div class="flow-strip"><div class="flow-step"><span>01 輸入</span><strong>本次輸入條件</strong></div><div class="flow-step"><span>02 計算</span><strong>${escapeHtml(mode.label)}</strong></div><div class="flow-step"><span>03 輸出</span><strong>本次設計結果</strong></div></div>${missingWorkflowBanner(snapshot)}<h2>本次輸入條件</h2>${conditionBadgeStrip(conditionBadges)}${inputOverview(inputGroups)}<div class="result-section"><h2>本次設計結果</h2>${outputOverview(snapshot)}</div></section>
-<section class="${detailsClass}"><h2>完整計算過程</h2><p class="comparison-guide">本區保留未取整原始值；設計處理水量另列「原始值換算（未取整）」的 L/min 數值方便比對。正式採用值依規則取整，請以「本次設計結果」為準。清除週期油脂量使用 kg，有效容積使用 L，兩者用途不同，不互相比較。</p>${snapshot.runs.map((run) => algorithmProcess(run, groupForTrack(run.track))).join("")}</section><div class="screen-report-footer"><span></span><span class="screen-footer-page">頁次 -- / --</span><span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
+<section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div><div class="cover-company-en">Jenfu Machinery Co., LTD</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body"><p>草稿編號：${escapeHtml(snapshot.reportNumber)}</p><p>版次：${escapeHtml(versionLabel)}</p><p>制定者：${escapeHtml(preparedBy)}</p><p>匯出者：${escapeHtml(snapshot.actors.exportedBy)}</p></div></div></section>
+<main class="report-body"><div class="screen-report-header"><span>${escapeHtml(reportTitle)}</span><span>草稿編號：${escapeHtml(snapshot.reportNumber)}</span><span>版次：${escapeHtml(versionLabel)}</span></div><section class="overview"><div class="banner warning"><strong>報告草稿</strong><br>${escapeHtml(snapshot.limitation)}</div><h2>案件資料</h2><p class="document-number">草稿編號：${escapeHtml(snapshot.reportNumber)}</p><table class="summary-table"><tbody><tr><th>案件</th><td>${escapeHtml(snapshot.case.caseNo)} / ${escapeHtml(versionLabel)}</td><th>客戶</th><td>${escapeHtml(snapshot.case.customer)}</td></tr><tr><th>設置地點</th><td>${escapeHtml(snapshot.case.location)}</td><th>需求目的</th><td>${escapeHtml(task)}</td></tr><tr><th>計算依據</th><td colspan="3">${escapeHtml(mode.label)}<small>${escapeHtml(mode.description)}</small></td></tr></tbody></table><div class="flow-strip"><div class="flow-step"><span>01 輸入</span><strong>本次輸入條件</strong></div><div class="flow-step"><span>02 計算</span><strong>${escapeHtml(mode.label)}</strong></div><div class="flow-step"><span>03 輸出</span><strong>本次設計結果</strong></div></div>${missingWorkflowBanner(snapshot)}<h2>本次輸入條件</h2>${conditionBadgeStrip(conditionBadges)}${inputOverview(inputGroups)}<div class="result-section"><h2>本次設計結果</h2>${outputOverview(snapshot)}</div></section>
+<section class="${detailsClass}"><h2>完整計算過程</h2><p class="comparison-guide">本區保留未取整原始值；設計處理水量另列「原始值換算（未取整）」的 L/min 數值方便比對。本次採用值依規則取整，請以「本次設計結果」為準。清除週期油脂量使用 kg，有效容積使用 L，兩者用途不同，不互相比較。</p>${snapshot.runs.map((run) => algorithmProcess(run, groupForTrack(run.track))).join("")}</section><div class="screen-report-footer"><span></span><span class="screen-footer-page">報告草稿</span><span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
 </body></html>`;
 }

@@ -1,16 +1,40 @@
+import js from "@eslint/js";
 import { defineConfig, globalIgnores } from "eslint/config";
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTypescript from "eslint-config-next/typescript";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default defineConfig([
-  ...nextVitals,
-  ...nextTypescript,
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
   {
+    files: ["**/*.{ts,tsx}"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: { ...globals.browser, ...globals.node },
+    },
+    plugins: {
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+    },
     rules: {
-      "react-hooks/set-state-in-effect": "off",
+      ...reactHooks.configs.recommended.rules,
+      "react-refresh/only-export-components": [
+        "warn",
+        { allowConstantExport: true },
+      ],
+    },
+  },
+  {
+    files: ["scripts/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
     },
   },
   globalIgnores([
+    "dist/**",
     ".next/**",
     ".next-dev/**",
     "node_modules/**",

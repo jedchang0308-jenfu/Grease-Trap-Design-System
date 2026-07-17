@@ -47,7 +47,7 @@ export interface SnapshotRun {
 }
 
 export interface ReportSnapshotData {
-  schemaVersion: "1.0";
+  schemaVersion: "2.0";
   reportNumber: string;
   case: SnapshotCase;
   inputs: unknown;
@@ -68,6 +68,6 @@ export interface ReportSnapshotData {
     requestedBy: string;
     approvedBy: string;
   }>;
-  actors: { preparedBy: string; issuedBy: string };
-  limitation: "本報告未執行特定產品或證書符合性判定。";
+  actors: { preparedBy: string; exportedBy: string };
+  limitation: "本文件為瀏覽器產生的報告草稿，不代表公司身分驗證或公司簽核效力。";
 }

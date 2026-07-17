@@ -1,74 +1,110 @@
-# Grease Trap Calculation System
+# 油脂截留器雙軌計算系統
 
-鉦富機械使用的油脂截留器雙軌計算與設計計算書核發系統。
+本專案是 Vite + React 的純靜態 SPA，部署目標為 Firebase Spark 免費方案的傳統 Firebase Hosting。瀏覽器使用 Firebase Anonymous Auth 自動登入，並直接透過 Firebase Web SDK 存取 Cloud Firestore。
 
-文件狀態：`Public Firebase Pilot Release In Progress`
-文件版本：`3.1`
-更新日期：`2026-07-17`
+> 安全提醒：匿名登入不是公司身分驗證。任何取得網址的人都可能讀取、建立、修改或刪除共享案件。請勿輸入不適合公開連結環境的個資、機密或敏感資料。
+
+## 功能
+
+- 案件清單、建立案件、案件刪除與修訂。
+- 內政部給排水規範（附錄 5）Q/G 計算。
+- 臺北市工務局衛工處設計說明 Q/V 計算。
+- 單軌或雙軌計算、完整性提醒與設計結果。
+- 報告草稿預覽、案件內 snapshot、隨站 Noto Sans TC 與瀏覽器列印／另存 PDF。
+- `/cases`、`/cases/new`、`/cases/:id`、`/cases/:id/report` 直接開啟與重新整理。
+
+本版本不提供正式簽核或具後端可信度的正式核發，也不保存 PDF 檔案。列印前會等待隨站字型與圖片完成載入，並使用固定 A4、分頁與色彩樣式以降低環境差異；紙張、縮放及瀏覽器列印引擎仍可能造成細微差異。舊 `ISSUED` 資料只作唯讀歷史狀態相容。
 
 ## 架構
 
-- Next.js 提供 UI、API、身分驗證邊界與 server-side 計算。
-- Decimal.js 計算核心與規則 catalog 均納入版本控制；瀏覽器與 PDF 不重算。
-- 本機預設使用 local-file adapter，不需要 SQL、Docker、Java 或 Firebase credential。
-- 多人試用環境固定使用 Firebase Anonymous Auth、Cloud Firestore、Cloud Storage 與 App Hosting；開啟網址後自動建立 session，不顯示帳密登入。
-- Firestore／Storage client rules 預設拒絕直接存取，資料寫入只經過已驗證的 server API。
+```text
+Browser
+  -> Firebase Anonymous Auth
+  -> React Router SPA
+  -> TypeScript / Decimal.js calculation core
+  -> Firestore Web SDK transaction
+  -> report snapshot + HTML preview
+  -> browser print / Save as PDF
+```
 
-詳細決策見 [ADR-007](ai-doc/decisions/ADR-007-firebase-managed-architecture.md) 與 [ADR-008](ai-doc/decisions/ADR-008-public-link-anonymous-access.md)。
+production build 只產生 `dist/` 靜態檔案。專案不使用 server runtime、Firebase Admin SDK、Cloud Functions、Cloud Run、Cloud Storage 或 Firebase App Hosting。
 
-## 本機啟動
+## 本機需求
 
-需求：Node.js 24+、npm。
+- Node.js 24 或更新版本
+- npm
+- Java 21 或更新版本：只有 Firestore Emulator、integration 與 E2E 需要
+
+安裝：
 
 ```powershell
-npm install
-npx playwright install chromium
+npm ci
+```
+
+使用 Firebase Emulator Suite 啟動本機環境：
+
+```powershell
 npm run dev:local
 ```
 
-入口為 `http://localhost:3100`。本機案件資料保存於 `output/local-data/case-store.json`，重新啟動後仍會保留；核發 PDF 寫入 `output/pdf`。若要清空本機資料，可停止 dev server 後刪除 `output/local-data`。
+開啟 `http://127.0.0.1:3100/cases`。Emulator 使用 `demo-grease-trap`，不會連線或寫入任何正式 Firebase project。
 
-## Firebase Emulator
+## Firebase Web 設定
 
-只有需要驗證 Firebase adapter 時才使用 emulator；Firestore Emulator 額外需要 Java 21+。
+複製 `.env.example` 的欄位到 `.env.local`，填入新 Firebase Web App 的公開設定：
 
-```powershell
-npm run dev:firebase
-npm run test:firebase
+```dotenv
+VITE_FIREBASE_API_KEY=
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_APP_ID=
+VITE_USE_FIREBASE_EMULATORS=false
 ```
 
-`dev:firebase` 會啟動 Auth、Firestore、Storage Emulator，再啟動應用程式；公開模式會自動建立匿名身份。設定範本位於 [.env.example](.env.example)，不得提交正式 secret。
+Firebase Web config 不是秘密，但不得放入 service account、private key 或 Admin credential。
 
-## 驗證
+## 品質檢查
 
 ```powershell
 npm run format:check
-npm run test:all
-npm audit
+npm run lint
+npm run typecheck
+npm run test
+npm run test:integration
+npm run build
+npm run test:e2e
+git diff --check
 ```
 
-`test:all` 依序執行 lint、typecheck、單元測試、memory／local-file adapter 整合測試、production build，以及 1440／1024／390 三種 viewport 的 E2E。PDF 樣本可用 `npm run report:samples` 重建。
+`test:integration` 驗證 Firestore repository 與 Rules；`test:e2e` 以 Auth／Firestore Emulator 啟動 production static preview，並執行 1440、1024、390 viewport 流程。
 
-## 正式部署邊界
+## Firebase 部署
 
-正式環境強制 `DATA_BACKEND=firestore` 與 `AUTH_BACKEND=firebase`。App Hosting backend 必須連結 Firebase Web App，讓平台注入 Web／Admin SDK 設定；Firebase Console 需啟用 Anonymous provider，不需建立使用者或 custom role claims。首版使用 `hosted.app` 網址，custom domain、舊資料搬移與角色控管不在本次範圍。
+只能建立本系統專用的新 Firebase project，不得使用既有 PDM 或 ProJED project。
 
-公開連結等同存取權：知道網址的人可讀寫與刪除共享案件，也可核發報告。首版不得放入不適合公開連結環境的敏感資料。
+本輪設定目標：
 
-## 文件入口
+- Project ID：`jenfu-grease-trap-calculator`
+- Web App nickname：`grease-trap-static-web`
+- Plan：Spark
+- Firestore database：`(default)` / `asia-east1` / Production mode
+- Storage、App Hosting：不建立
 
-1. [文件地圖](ai-doc/documentation_map.md)
-2. [開發任務主控](ai-doc/dev_task.md)
-3. [功能與工程主規格](ai-doc/specs/SPEC-001-functional-engineering.md)
-4. [UI／UX 規格](ai-doc/specs/SPEC-002-ui-ux.md)
-5. [QA 驗證計畫](ai-doc/qa/QA-001-validation-plan.md)
-6. [本地 QC 紀錄](ai-doc/qa/QC-001-local-acceptance.md)
+1. Firebase Console 啟用 Authentication 的 Anonymous provider。
+2. 建立 Cloud Firestore database。
+3. 建立 Web App 並設定 `.env.local`。
+4. 確認 `.firebaserc` 指向 `jenfu-grease-trap-calculator`。
+5. 先部署 Firestore Rules：`firebase deploy --only firestore:rules`。
+6. 執行 `npm run build`。
+7. 部署純靜態 Hosting：`firebase deploy --only hosting`。
 
-## 不可破壞的產品規則
+`firebase.json` 的 Hosting public 目錄為 `dist`，所有應用路徑 rewrite 至 `/index.html`。本輪重構不會自行建立 project、啟用計費或部署。
 
-- 兩份計算依據與五個客戶任務必須可獨立使用。
-- 雙軌只要一軌有效即可預覽並核發；兩軌皆無有效結果時才阻擋。
-- 不得跨軌借值、混用單位，或為未完成軌產生假結果。
-- 正式比較與反推限制一律使用高精度 raw 值；報告採用值須明確標示。
-- 系統只計算設計需求，不執行產品型號或證書匹配。
-- 核發 PDF 必須由當下 snapshot 產生；報告保存不是法規稽核或長期資產需求。
+## 文件
+
+- [文件地圖](ai-doc/documentation_map.md)
+- [專案總覽](ai-doc/project_overview.md)
+- [功能與工程規格](ai-doc/specs/SPEC-001-functional-engineering.md)
+- [UI／UX 規格](ai-doc/specs/SPEC-002-ui-ux.md)
+- [驗證計畫](ai-doc/qa/QA-001-validation-plan.md)
+- [ADR-009：Spark 純靜態 Firebase 架構](ai-doc/decisions/ADR-009-static-firebase-spark-spa.md)

@@ -1,7 +1,9 @@
 node_modules/
+dist/
 next-env.d.ts
 .next/
 .next-dev/
+.firebase/
 coverage/
 playwright-report/
 test-results/
@@ -12,6 +14,7 @@ output/pdf/DRAFT-*.pdf
 output/pdf/RDR-*.pdf
 output/pdf/rendered/
 tmp/
+public/report-fonts/
 .env
 .env.local
 .env.*.local

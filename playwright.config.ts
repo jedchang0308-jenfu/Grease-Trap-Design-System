@@ -7,7 +7,7 @@ const playwrightOutputRoot = path.join(tmpdir(), "grease-trap-playwright");
 export default defineConfig({
   testDir: "./tests/e2e",
   outputDir: path.join(playwrightOutputRoot, "test-results"),
-  timeout: 120_000,
+  timeout: 180_000,
   fullyParallel: false,
   workers: 1,
   forbidOnly: true,
@@ -23,16 +23,16 @@ export default defineConfig({
     ],
   ],
   use: {
-    baseURL: "http://127.0.0.1:3100",
+    baseURL: "http://127.0.0.1:3210",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev:local",
-    url: "http://127.0.0.1:3100/api/health",
-    reuseExistingServer: true,
-    timeout: 120_000,
+    command: "npm run dev:e2e",
+    url: "http://127.0.0.1:3210/cases",
+    reuseExistingServer: false,
+    timeout: 180_000,
   },
   projects: [
     {

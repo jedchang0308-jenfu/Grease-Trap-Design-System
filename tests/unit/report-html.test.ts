@@ -4,7 +4,7 @@ import type { ReportSnapshotData } from "@/domain/report/types";
 
 function snapshot(): ReportSnapshotData {
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "2.0",
     reportNumber: "RDR-01TEST",
     case: {
       id: "1",
@@ -77,14 +77,25 @@ function snapshot(): ReportSnapshotData {
       },
     ],
     overrides: [],
-    actors: { preparedBy: "同一人", issuedBy: "同一人" },
-    limitation: "本報告未執行特定產品或證書符合性判定。",
+    actors: { preparedBy: "同一人", exportedBy: "同一人" },
+    limitation:
+      "本文件為瀏覽器產生的報告草稿，不代表公司身分驗證或公司簽核效力。",
   };
 }
 
 describe("report snapshot HTML", () => {
   it("renders a dual single-track report without fake values", () => {
     const html = renderReportHtml(snapshot());
+    expect(html).toContain(
+      '<link rel="stylesheet" href="/report-fonts/report-font.css"',
+    );
+    expect(html).toContain('font-family: "Jenfu Report Sans", sans-serif');
+    expect(html).toContain("print-color-adjust: exact");
+    expect(html).toContain("thead { display: table-header-group; }");
+    expect(html).toContain("orphans: 3; widows: 3;");
+    expect(html).not.toContain("Microsoft JhengHei");
+    expect(html).not.toContain("Consolas");
+    expect(html).not.toContain("counter(pages)");
     expect(html).toContain("本次只完成一份計算依據");
     expect(html).toContain("內政部給排水規範（附錄 5）");
     expect(html).toContain("臺北市工務局衛工處設計說明");
@@ -134,6 +145,7 @@ describe("report snapshot HTML", () => {
     expect(html).not.toContain("Snapshot schema");
     expect(html).not.toContain("相符型號");
     expect(html).not.toContain("matchedProduct");
+    expect(html).not.toContain("頁次 -- / --");
   });
 
   it("renders the full calculation process for each completed method", () => {
@@ -198,7 +210,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("計算設計處理水量（每小時）");
     expect(html).toContain("計算設備所需有效容積");
     expect(html).toContain("1068.75÷6");
-    expect(html).toContain("下表顯示正式採用值");
+    expect(html).toContain("下表顯示本次採用值");
     expect(html).toContain(
       'output-value">17.8133</strong> <span class="unit">L/min',
     );

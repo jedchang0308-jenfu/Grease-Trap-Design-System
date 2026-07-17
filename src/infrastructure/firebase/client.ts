@@ -1,42 +1,57 @@
-"use client";
-
 import { getApp, getApps, initializeApp } from "firebase/app";
 import {
+  browserLocalPersistence,
   connectAuthEmulator,
   getAuth,
-  inMemoryPersistence,
   setPersistence,
-  type Auth,
 } from "firebase/auth";
+import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
 
-let auth: Auth | null = null;
+const useEmulators = import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true";
 
-export function getFirebaseAuth() {
-  if (auth) return auth;
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  const app = getApps().length
-    ? getApp()
-    : apiKey
-      ? initializeApp({
-          apiKey,
-          authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-          projectId:
-            process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "demo-grease-trap",
-          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-          appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-        })
-      : initializeApp();
-  auth = getAuth(app);
-  if (process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL) {
-    connectAuthEmulator(
-      auth,
-      process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_URL,
-      { disableWarnings: true },
-    );
+function required(value: string | undefined, name: keyof ImportMetaEnv) {
+  if (!value && !useEmulators) {
+    throw new Error(`Missing Firebase web config: ${name}`);
   }
-  return auth;
+  return value || `demo-${String(name).toLowerCase()}`;
 }
 
-export async function setEphemeralFirebaseAuth(firebaseAuth: Auth) {
-  await setPersistence(firebaseAuth, inMemoryPersistence);
+const app = getApps().length
+  ? getApp()
+  : initializeApp({
+      apiKey: required(
+        import.meta.env.VITE_FIREBASE_API_KEY,
+        "VITE_FIREBASE_API_KEY",
+      ),
+      authDomain: required(
+        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        "VITE_FIREBASE_AUTH_DOMAIN",
+      ),
+      projectId: useEmulators
+        ? "demo-grease-trap"
+        : required(
+            import.meta.env.VITE_FIREBASE_PROJECT_ID,
+            "VITE_FIREBASE_PROJECT_ID",
+          ),
+      appId: required(
+        import.meta.env.VITE_FIREBASE_APP_ID,
+        "VITE_FIREBASE_APP_ID",
+      ),
+    });
+
+export const firebaseAuth = getAuth(app);
+export const firestore = getFirestore(app);
+
+let emulatorConnected = false;
+if (useEmulators && !emulatorConnected) {
+  connectAuthEmulator(firebaseAuth, "http://127.0.0.1:9099", {
+    disableWarnings: true,
+  });
+  connectFirestoreEmulator(firestore, "127.0.0.1", 8080);
+  emulatorConnected = true;
+}
+
+export async function prepareFirebaseAuth() {
+  await setPersistence(firebaseAuth, browserLocalPersistence);
+  return firebaseAuth;
 }

@@ -1,10 +1,9 @@
-"use client";
-
 import { useCallback, useEffect, useState } from "react";
+import { toProblem } from "@/application/problem";
+import { presentRuleSets } from "@/domain/rules/catalog";
 import { basisForTrack } from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { StatusBadge } from "@/ui/components/status-badge";
-import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
 
 interface RuleSet {
   id: string;
@@ -26,13 +25,9 @@ export function RulesList() {
     setLoading(true);
     setProblem(null);
     try {
-      setItems((await fetchJson<{ items: RuleSet[] }>("/api/rule-sets")).items);
+      setItems(presentRuleSets());
     } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "規則版本載入未完成，請重試。" },
-      );
+      setProblem(toProblem(error, "規則版本載入未完成，請重試。"));
     } finally {
       setLoading(false);
     }

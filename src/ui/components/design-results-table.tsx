@@ -94,7 +94,7 @@ export function DesignResultsTable({
                 ) : null}
               </td>
               {tracks.map((track) => (
-                <td key={track}>
+                <td data-label={basisForTrack(track).shortLabel} key={track}>
                   <ResultCell cell={row.cells[track]} />
                 </td>
               ))}

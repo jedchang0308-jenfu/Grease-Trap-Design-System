@@ -1,7 +1,8 @@
 # ADR-003｜採 provider-neutral 模組化 Web 單體
 
 狀態：Superseded by ADR-007
-日期：2026-07-13  
+日期：2026-07-13
+
 決策類型：AI engineering decision；不改變使用者產品語意
 
 ## Context

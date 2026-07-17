@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { sha256 as sha256Digest } from "@noble/hashes/sha2.js";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 function sortValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortValue);
@@ -18,5 +19,5 @@ export function canonicalJson(value: unknown): string {
 
 export function sha256(value: unknown): string {
   const input = typeof value === "string" ? value : canonicalJson(value);
-  return createHash("sha256").update(input, "utf8").digest("hex");
+  return bytesToHex(sha256Digest(new TextEncoder().encode(input)));
 }

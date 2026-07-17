@@ -1,6 +1,3 @@
-"use client";
-
-import Link from "next/link";
 import {
   FormEvent,
   type ReactNode,
@@ -9,6 +6,11 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Link } from "react-router-dom";
+import { calculateCase } from "@/application/cases/calculation-service";
+import { createRevision } from "@/application/cases/revision-service";
+import { getLatestCase, presentCase } from "@/application/cases/repository";
+import { toProblem } from "@/application/problem";
 import { buildInputCompletenessBadges } from "@/domain/report/presentation";
 import {
   calculationBasisDisplay,
@@ -21,7 +23,6 @@ import {
 } from "@/ui/components/field-help";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { StatusBadge } from "@/ui/components/status-badge";
-import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
 
 interface PersistedResult {
   id: string;
@@ -64,12 +65,6 @@ interface CaseDetail {
   calculations: PersistedResult[];
   assessments: Assessment[];
   reports: Array<{ id: string; status: string; reportNumber: string | null }>;
-}
-
-interface CalculationResponse {
-  status: string;
-  releaseEligible: boolean;
-  caseVersion: number;
 }
 
 const diningOptions = [
@@ -278,6 +273,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   const [item, setItem] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [creatingRevision, setCreatingRevision] = useState(false);
   const [problem, setProblem] = useState<UiProblem | null>(null);
   const [current, setCurrent] = useState<Record<string, string>>({
     diningType: "",
@@ -311,7 +307,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     setLoading(true);
     setProblem(null);
     try {
-      const data = await fetchJson<CaseDetail>(`/api/cases/${caseId}`);
+      const data = presentCase(await getLatestCase(caseId)) as CaseDetail;
       setItem(data);
       const storedCurrent = data.input_payload?.currentInputs;
       const storedLegacy = data.input_payload?.legacyInputs;
@@ -333,11 +329,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           ...stringValues(storedLegacy),
         }));
     } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "案件載入未完成，請重試。" },
-      );
+      setProblem(toProblem(error, "案件載入未完成，請重試。"));
     } finally {
       setLoading(false);
     }
@@ -380,35 +372,50 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     setSubmitting(true);
     setProblem(null);
     try {
-      await fetchJson<CalculationResponse>(`/api/cases/${caseId}/calculate`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          caseId,
-          revisionNo: item.revision_no,
-          taskCode: item.task_code,
-          mode: item.mode,
-          idempotencyKey: crypto.randomUUID(),
-          expectedCaseVersion: item.version,
-          currentInputs:
-            item.mode !== "LEGACY_QV"
-              ? buildCurrentInput(item.task_code, current)
-              : undefined,
-          legacyInputs:
-            item.mode !== "CURRENT_QG"
-              ? buildLegacyInput(item.task_code, legacy)
-              : undefined,
-        }),
+      await calculateCase({
+        caseId,
+        revisionNo: item.revision_no,
+        taskCode: item.task_code,
+        mode: item.mode,
+        idempotencyKey: crypto.randomUUID(),
+        expectedCaseVersion: item.version,
+        currentInputs:
+          item.mode !== "LEGACY_QV"
+            ? buildCurrentInput(item.task_code, current)
+            : undefined,
+        legacyInputs:
+          item.mode !== "CURRENT_QG"
+            ? buildLegacyInput(item.task_code, legacy)
+            : undefined,
       });
       await load();
     } catch (error) {
       setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "目前未完成這次計算，已填資料仍保留。請重試。" },
+        toProblem(error, "目前未完成這次計算，已填資料仍保留。請重試。"),
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function startRevision() {
+    if (!item) return;
+    if (
+      !window.confirm(
+        `確定建立修訂 ${item.revision_no + 1}？\n\n新修訂會保留案件基本資料，但會清除目前計算結果與報告草稿。`,
+      )
+    ) {
+      return;
+    }
+    setCreatingRevision(true);
+    setProblem(null);
+    try {
+      await createRevision(caseId, item.version);
+      await load();
+    } catch (error) {
+      setProblem(toProblem(error, "新修訂建立未完成，請重試。"));
+    } finally {
+      setCreatingRevision(false);
     }
   }
 
@@ -457,7 +464,18 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           </p>
         </div>
         <div className="actions">
-          <Link href="/cases">返回案件清單</Link>
+          {item.reports.length > 0 &&
+          item.lifecycle_status === "REPORT_DRAFT" ? (
+            <button
+              className="button secondary"
+              type="button"
+              disabled={creatingRevision}
+              onClick={() => void startRevision()}
+            >
+              {creatingRevision ? "正在建立修訂…" : "建立新修訂版"}
+            </button>
+          ) : null}
+          <Link to="/cases">返回案件清單</Link>
         </div>
       </header>
 
@@ -583,7 +601,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                 style={{ marginBottom: 16 }}
               >
                 <strong>可產生報告：已有一軌完成。</strong>
-                <p>另一軌未計算，不影響本次核發；你仍可補齊後重新計算。</p>
+                <p>另一軌未計算，不影響報告草稿；你仍可補齊後重新計算。</p>
               </div>
             ) : null}
             {item.calculation_status === "BLOCKED" ? (
@@ -622,47 +640,34 @@ function NextAction({
       >
         <strong>
           {item.calculation_status === "COMPLETE_WITH_REMINDER"
-            ? "已有一軌完成；可預覽並核發報告，另一軌未計算不影響核發。"
-            : "計算已完成；下一步預覽並核發報告。"}
+            ? "已有一軌完成；可預覽並匯出報告草稿，另一軌未計算不影響。"
+            : "計算已完成；下一步預覽並匯出報告草稿。"}
         </strong>
         <div className="button-row" style={{ marginTop: 12 }}>
-          <Link
-            className="button primary"
-            href={`/cases/${item.caseId}/report`}
-          >
-            預覽並核發報告
+          <Link className="button primary" to={`/cases/${item.caseId}/report`}>
+            預覽報告草稿
           </Link>
         </div>
       </div>
     );
   }
   if (
-    ["CALCULATED", "IN_REVIEW", "REVIEWED"].includes(item.lifecycle_status) &&
+    ["CALCULATED", "REPORT_DRAFT", "IN_REVIEW", "REVIEWED"].includes(
+      item.lifecycle_status,
+    ) &&
     placement !== "result"
   ) {
     return null;
   }
   if (item.lifecycle_status === "ISSUED") {
-    const report = item.reports.find((value) => value.status === "ISSUED");
     return (
       <div className="state-banner">
         <strong>
-          此版本已正式核發，不需再次核發。若內容要改，請建立新修訂版。
+          此版本是舊系統的歷史紀錄；靜態版僅供唯讀查看，不會建立新的公司簽核紀錄。
         </strong>
         <div className="button-row" style={{ marginTop: 12 }}>
-          {report ? (
-            <a
-              className="button primary"
-              href={`/api/reports/${report.id}/download`}
-            >
-              下載已核發報告
-            </a>
-          ) : null}
-          <Link
-            className="button secondary"
-            href={`/cases/${item.caseId}/report`}
-          >
-            查看報告紀錄
+          <Link className="button primary" to={`/cases/${item.caseId}/report`}>
+            查看歷史報告資料
           </Link>
         </div>
       </div>
@@ -677,7 +682,9 @@ function NextAction({
 
 function isReportReady(item: CaseDetail) {
   return (
-    ["CALCULATED", "IN_REVIEW", "REVIEWED"].includes(item.lifecycle_status) &&
+    ["CALCULATED", "REPORT_DRAFT", "IN_REVIEW", "REVIEWED"].includes(
+      item.lifecycle_status,
+    ) &&
     ["COMPLETE", "COMPLETE_WITH_REMINDER"].includes(
       item.calculation_status ?? "",
     )

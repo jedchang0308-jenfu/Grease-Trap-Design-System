@@ -1,74 +1,58 @@
-# QC-001｜本地 RD／QA／QC 驗收紀錄
+# QC-001｜Firebase Spark 純靜態版本本機驗收
 
-文件狀態：`Conditional Pass - Public Firebase Release Target Pending`
-版本：`2.4`
-驗證日期：`2026-07-17`
-適用範圍：本地計算、工作流、PDF、DEV-018 Firebase 架構與 DEV-012 公開匿名存取；不含正式 Firebase 部署
+文件狀態：`Local Acceptance Passed`
+
+版本：`2.2`
+
+日期：`2026-07-17`
 
 ## 結論
 
-本機 local-file 模式不依賴 SQL、Docker、Java 或雲端 credential，重啟後仍保留案件；memory 保留為測試隔離用 adapter。已通過格式、lint、型別、單元測試、application／memory／local-file 整合測試與本地瀏覽器主流程。未發現 P0／P1 defect。
+Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、report draft、browser print 與 Hosting static config 已完成。本機程式、Rules、production static build 與三 viewport E2E 全部通過；尚未建立 Firebase production project 或部署。
 
-計算正確性的最終人工作業證據仍待使用者提供 3～5 個去識別實際案件及既有人工預期值。DEV-012 已完成匿名 token／session 的聚焦單元驗證，但尚未建立本系統專用 Firebase project；本機也未安裝 Java，因此 Firebase Emulator integration 未執行。這些缺口不阻擋本機實作，但阻擋宣告公開網址已上線。
+## 已確認事實
 
-## DEV-018 重構事實
+- 基線已提交：`c5af308 chore: checkpoint public Firebase workflow`。
+- production framework 已由 Next.js 改為 Vite + React Router。
+- `firebase.json` public 為 `dist`，`**` rewrite `/index.html`。
+- Firebase Web SDK 只使用 Authentication 與 Firestore。
+- 未登入 Rules 拒絕、已登入匿名使用者可依 strict schema 存取共享 `cases`。
+- create、calculate、revision 與 report draft 使用 client transaction／version。
+- 報告保存案件內 snapshot；系統不在後端生成、上傳或保存 PDF。
+- 報告 HTML 使用專案內建的 Noto Sans TC 字型檔，列印入口會等待字型與圖片完成載入後才開放。
+- UI 使用「報告草稿」「匯出」，舊 `ISSUED` 唯讀。
+- 已移除 server API、Admin SDK、server session、Storage adapter 與 server PDF renderer。
 
-- 基線版本已提交於 `bb1c675`；重構在 `codex/firebase-refactor` 執行。
-- PostgreSQL、migration、seed、Docker Compose 與資料庫啟動器已移除。
-- `npm run dev:local` 直接啟動 Next.js 3100，健康檢查回傳 `dataBackend: local-file`，案件資料保存於 `output/local-data/case-store.json`。
-- production 環境強制 Firestore 與 Firebase Auth，禁止 local-file／memory／local auth。
-- Firestore 以單一案件 aggregate document 保存目前 revision、計算、評估與報告摘要；報告 snapshot 另存 `reports` collection。
-- 第一版使用 Firebase Anonymous Auth；瀏覽器自動建立 session，無需同事帳號或 role claims，所有有效 session 共享案件與功能。
-- Cloud Storage adapter 保存 PDF；本機 adapter 保存至 `output/pdf`，本機案件 metadata 保存至 `output/local-data`。
-- 規則與來源 checksum 由版本控制內 catalog 提供，不再依賴 seed database。
-- client rules 對 Firestore 與 Storage 預設 deny all；存取只經 server Admin SDK。
+## Gate 結果
 
-## 可重跑證據
+| Gate                            | 結果 | 證據                                    |
+| ------------------------------- | ---- | --------------------------------------- |
+| format check                    | PASS | Prettier matched files                  |
+| lint                            | PASS | ESLint 0 error / 0 warning              |
+| typecheck                       | PASS | `tsc --noEmit`                          |
+| unit                            | PASS | 9 files / 35 tests                      |
+| Rules／repository integration   | PASS | 1 file / 5 tests                        |
+| static build                    | PASS | Vite 8.1.5；155 modules；static `dist/` |
+| E2E                             | PASS | 1440、1024、390 共 3 tests              |
+| A4 列印輸出                    | PASS | Chromium PDF；5 頁 A4；逐頁視覺檢查     |
+| `dist`／source forbidden search | PASS | 無 server bundle 或禁用 runtime         |
+| production dependency audit     | PASS | 0 vulnerabilities                       |
+| `git diff --check`              | PASS | 最終重跑                                |
 
-| 門檻 | 指令 | 結果 |
-| --- | --- | --- |
-| 格式 | `npm run format:check` | 通過 |
-| 程式品質 | `npm run lint`、`npm run typecheck` | 通過，0 warning／error |
-| 單元測試 | `npm run test` | 10 files，33 tests passed |
-| Application／memory／local-file 整合 | `npm run test:integration` | 2 files，10 tests passed |
-| 正式建置 | `npm run build` | Next.js production build 通過 |
-| 瀏覽器流程 | `npm run test:e2e` | 1440、1024、390；12 tests passed |
-| Production artifact | standalone server／Playwright smoke | `/cases`、auth status、CSS、JS 皆 200；1440／390 無 overflow 或 console error |
-| 依賴稽核 | `npm audit`／`npm audit --omit=dev` | 9／6 moderate；皆為 Firebase／Google Cloud transitive dependency，0 high／critical |
-| Firebase Emulator | `npm run test:firebase` | 未執行：本機缺少 Java |
-| 正式 Firebase | DEV-012 release gate | 未建立 project、未部署、未 smoke |
+E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report preview、snapshot export、print stub、第二匿名 session、case/report route reload 及 revision +1。每個 viewport 均驗證 root overflow 與 critical console/page error；mobile 截圖另由人工抽查確認輸入矩陣、結果與 report cover 無裁切或重疊。
 
-`npm audit fix --force` 會把 `firebase-admin` 降為不相容舊版，未採用。現有 advisory 位於 Google Cloud Storage 的 `uuid` 相依鏈；本系統未直接呼叫受影響的 UUID buffer API，但正式部署前仍須重跑 audit 並優先採用上游相容修正版。
+列印品質驗證使用 E2E 報告草稿實際輸出：PDF 為 5 頁、每頁 `594.96 x 841.92 pt` A4，逐頁轉圖檢查無裁切、重疊、缺字、孤立標題或頁尾錯號，跨頁表格會重複欄位標題。PDF 字型資源為 Chromium 生成的 Type3 glyph，開啟端不需另行安裝中文字型。
 
-## 計算與資料事實驗證
+## 已知風險
 
-- 兩份計算依據的來源案例、內插、反推、嚴格比較、單位與捨入由獨立 expected values 的 unit tests 驗證。
-- 雙軌任一有效軌可形成 `COMPLETE_WITH_REMINDER`；未完成軌不建立假 run 或 result。
-- 規則 catalog checksum 與計算 core 共用於 local-file／memory／Firestore adapter，不因儲存技術改變公式。
-- 計算請求具 idempotency；相同 key 與不同 payload 衝突、stale optimistic version 均回傳 409。
-- 已核發狀態禁止重新計算；新修改以 revision 進行。Legacy 送審／覆核狀態資料相容為可重算或可核發，不再暴露覆核流程。
-- PDF 由同一 snapshot 產生，整合測試驗證核發、讀回與重試不建立第二份報告。
-- 不同 anonymous session 可讀取共享案件；刪除案件會刪除 report metadata 並最佳努力清除 PDF object。
-
-## E2E 與負向路徑
-
-- 三種 viewport 均完成「建案 → 雙軌計算 → 報告預覽 → 核發 → 下載」。
-- 每個輸入欄位的說明入口、未登入 API 的安全 problem details、未登入 UI 的可恢復狀態均通過。
-- 最終完整 E2E 共 12/12；無未預期 4xx／5xx、runtime error 或關鍵流程阻斷。前一輪行動版核發曾有一次 PDF 產製 500，同案重試、行動版 4/4 與完整 12/12 均通過；正式 smoke 仍需觀察核發穩定性。
-
-## Gate 判定
-
-| Gate | 判定 | 說明 |
-| --- | --- | --- |
-| 計算核心 | Pass | 33 unit tests 與來源 checksum 通過 |
-| 工作流與 PDF | Pass | 10 integration、12 E2E、build 與 production artifact smoke 通過 |
-| DEV-018 本地架構 | Pass | local-file default、memory test adapter 與 Firebase adapters 已完成 |
-| Firebase Emulator | Not Run | 本機缺 Java；部署前需補驗證 |
-| 真實案件平行試算 | Pending Human | 尚未收到 3～5 個去識別案例 |
-| 正式 release | Not Run | 未建立 Firebase project 或部署 |
+- 匿名登入不驗證公司身分，網址外流者可讀寫共享案件。
+- Rules 只驗證 JSON envelope；複雜工程內容由 client schema 驗證，無可信任後端。
+- 報告草稿沒有正式簽核、不可變留存或 actor 真實身分保證。
+- 內建字型、字型／圖片 ready gate 與 A4 print CSS 已降低不同電腦的排版差異；但 browser print 仍不保證不同瀏覽器列印引擎、頁邊設定或縮放選項下像素完全一致。
+- production JS chunk 約 1,037 kB（gzip 約 314 kB）；Vite 發出 chunk size warning，後續可評估 route/vendor splitting。
+- 完整 `npm audit` 有 5 個 moderate，全部來自 dev-only `firebase-tools` 的 OpenTelemetry／uuid 相依鏈；`npm audit --omit=dev` 為 0。`npm audit fix --force` 會降級 firebase-tools，未採用。
+- integration／E2E 使用暫存目錄內官方 Temurin JRE 21.0.11；它不是專案 dependency，也未修改系統 Java 安裝。
 
 ## Human Re-entry
 
-1. 提供 3～5 個去識別實際案件、人工結果與可接受差異，完成計算正確性平行簽核。
-2. 由 release owner 確認建立獨立 Firebase project 與可能的 Blaze billing，啟用 Anonymous Auth 後執行 staging／production smoke；不得沿用既有 PDM／ProJED project。
-3. 若未來報告改列重要資產或需稽核，再新增保存期限、備份、復原與 immutable audit 契約。
+本輪不部署。production 前由 release owner 建立本系統專用 Firebase Spark project、啟用 Anonymous Auth、建立 Firestore 與 Web App、設定 `.env.local`，再依 release gate 部署 Rules 與 Hosting。既有 PDM／ProJED project 不可使用。

@@ -1,11 +1,10 @@
-"use client";
-
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { deleteCaseGroup, listCases } from "@/application/cases/repository";
+import { toProblem } from "@/application/problem";
 import { calculationModeDisplay } from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { StatusBadge } from "@/ui/components/status-badge";
-import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
 
 interface CaseSummary {
   caseId: string;
@@ -47,18 +46,25 @@ export function CasesList() {
   const load = useCallback(async () => {
     setLoading(true);
     setProblem(null);
-    const params = new URLSearchParams({ search, mode, status });
     try {
-      const response = await fetchJson<{ items: CaseSummary[] }>(
-        `/api/cases?${params}`,
+      const records = await listCases({ search, mode, status });
+      setItems(
+        records.map((record) => ({
+          caseId: record.case_group_id,
+          caseNo: record.case_no,
+          revisionNo: record.revision_no,
+          customer: record.customer,
+          location: record.location,
+          title: record.title,
+          taskCode: record.task_code,
+          mode: record.mode,
+          lifecycleStatus: record.lifecycle_status,
+          calculationStatus: record.calculation_status,
+          updatedAt: record.updated_at,
+        })),
       );
-      setItems(response.items);
     } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "案件載入未完成，請重試。" },
-      );
+      setProblem(toProblem(error, "案件載入未完成，請重試。"));
     } finally {
       setLoading(false);
     }
@@ -81,14 +87,10 @@ export function CasesList() {
     setDeletingCaseId(item.caseId);
     setProblem(null);
     try {
-      await fetchJson(`/api/cases/${item.caseId}`, { method: "DELETE" });
+      await deleteCaseGroup(item.caseId);
       await load();
     } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "案件刪除未完成，請重試。" },
-      );
+      setProblem(toProblem(error, "案件刪除未完成，請重試。"));
     } finally {
       setDeletingCaseId(null);
     }
@@ -102,7 +104,7 @@ export function CasesList() {
           <p className="lede">找到目前案件、確認狀態，直接前往下一步。</p>
         </div>
         <div className="actions">
-          <Link className="button primary" href="/cases/new">
+          <Link className="button primary" to="/cases/new">
             建立案件
           </Link>
         </div>
@@ -148,7 +150,8 @@ export function CasesList() {
               <option value="">全部狀態</option>
               <option value="DRAFT">草稿</option>
               <option value="CALCULATED">已計算</option>
-              <option value="ISSUED">已核發</option>
+              <option value="REPORT_DRAFT">報告草稿</option>
+              <option value="ISSUED">舊系統歷史</option>
               <option value="BLOCKED">待補資料</option>
             </select>
           </div>
@@ -175,7 +178,7 @@ export function CasesList() {
             <p className="muted">
               建立第一筆案件後，即可依人數、面積或設備能力開始計算。
             </p>
-            <Link className="button primary" href="/cases/new">
+            <Link className="button primary" to="/cases/new">
               建立案件
             </Link>
           </div>
@@ -228,19 +231,28 @@ export function CasesList() {
                       })}
                     </td>
                     <td data-label="下一步">
-                      <Link href={`/cases/${item.caseId}`}>開啟案件</Link>
+                      <Link to={`/cases/${item.caseId}`}>開啟案件</Link>
                     </td>
                     <td data-label="操作">
-                      <button
-                        className="button danger"
-                        type="button"
-                        disabled={deletingCaseId === item.caseId}
-                        onClick={() => void deleteCase(item)}
-                      >
-                        {deletingCaseId === item.caseId
-                          ? "正在刪除…"
-                          : "刪除案件"}
-                      </button>
+                      {[
+                        "ISSUED",
+                        "SUPERSEDED",
+                        "IN_REVIEW",
+                        "REVIEWED",
+                      ].includes(item.lifecycleStatus) ? (
+                        <span className="muted">歷史資料唯讀</span>
+                      ) : (
+                        <button
+                          className="button danger"
+                          type="button"
+                          disabled={deletingCaseId === item.caseId}
+                          onClick={() => void deleteCase(item)}
+                        >
+                          {deletingCaseId === item.caseId
+                            ? "正在刪除…"
+                            : "刪除案件"}
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

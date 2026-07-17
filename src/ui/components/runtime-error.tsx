@@ -1,10 +1,11 @@
-import Link from "next/link";
+import { Link } from "react-router-dom";
 
 export interface UiProblem {
   code?: string;
   title?: string;
   userMessage?: string;
   correlationId?: string;
+  retryable?: boolean;
   fieldErrors?: Record<string, string[]>;
 }
 
@@ -21,17 +22,12 @@ export function RuntimeError({
         {problem.userMessage ?? "目前未完成這次操作，請重試或返回安全頁面。"}
       </strong>
       <div className="button-row" style={{ marginTop: 12 }}>
-        {problem.code === "AUTH_REQUIRED" ? (
-          <Link className="button primary" href="/login">
-            前往登入
-          </Link>
-        ) : null}
         {onRetry ? (
           <button className="button secondary" type="button" onClick={onRetry}>
             重試
           </button>
         ) : null}
-        <Link className="button secondary" href="/cases">
+        <Link className="button secondary" to="/cases">
           返回案件清單
         </Link>
       </div>

@@ -2,6 +2,150 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function exactCaseFields(data) {
+      return data.keys().hasOnly([
+        'schemaVersion',
+        'id',
+        'caseGroupId',
+        'caseNo',
+        'revisionNo',
+        'customer',
+        'location',
+        'title',
+        'purpose',
+        'diningType',
+        'taskCode',
+        'mode',
+        'lifecycleStatus',
+        'calculationStatus',
+        'version',
+        'createdBy',
+        'createdByName',
+        'preparedBy',
+        'preparedByName',
+        'createdAt',
+        'updatedAt',
+        'inputPayloadJson',
+        'calculationsJson',
+        'assessmentsJson',
+        'overridesJson',
+        'reportDraftJson'
+      ]);
+    }
+
+    function nullableString(value, maxLength) {
+      return value == null || (value is string && value.size() <= maxLength);
+    }
+
+    function activeLifecycle(status) {
+      return status in ['DRAFT', 'INPUT_READY', 'CALCULATED', 'REPORT_DRAFT'];
+    }
+
+    function validCase(data, caseId) {
+      return exactCaseFields(data)
+        && data.schemaVersion == '3.0'
+        && data.id is string
+        && data.id.matches('^[0-9a-fA-F-]{36}$')
+        && data.caseGroupId == caseId
+        && data.caseGroupId.matches('^[0-9a-fA-F-]{36}$')
+        && data.caseNo is string
+        && data.caseNo.size() > 0
+        && data.caseNo.size() <= 40
+        && data.revisionNo is int
+        && data.revisionNo >= 1
+        && data.revisionNo <= 10000
+        && data.customer is string
+        && data.customer.size() <= 160
+        && data.location is string
+        && data.location.size() <= 240
+        && data.title is string
+        && data.title.size() <= 160
+        && data.purpose is string
+        && data.purpose.size() <= 500
+        && nullableString(data.diningType, 160)
+        && data.taskCode in [
+          'T01_DINERS_TO_FLOW',
+          'T02_DINERS_TO_DESIGN',
+          'T03_AREA_TO_FLOW',
+          'T04_AREA_TO_DESIGN',
+          'T05_DESIGN_TO_DINERS_AND_AREA'
+        ]
+        && data.mode in ['CURRENT_QG', 'LEGACY_QV', 'DUAL_COMPARISON']
+        && data.lifecycleStatus in [
+          'DRAFT',
+          'INPUT_READY',
+          'CALCULATED',
+          'REPORT_DRAFT',
+          'IN_REVIEW',
+          'REVIEWED',
+          'ISSUED',
+          'SUPERSEDED'
+        ]
+        && (
+          data.calculationStatus == null
+          || data.calculationStatus in [
+            'BLOCKED',
+            'COMPLETE',
+            'COMPLETE_WITH_REMINDER'
+          ]
+        )
+        && data.version is int
+        && data.version >= 1
+        && data.version <= 1000000
+        && data.createdBy is string
+        && data.createdBy.size() > 0
+        && data.createdBy.size() <= 128
+        && data.createdByName is string
+        && data.createdByName.size() > 0
+        && data.createdByName.size() <= 160
+        && nullableString(data.preparedBy, 128)
+        && nullableString(data.preparedByName, 160)
+        && data.createdAt is string
+        && data.createdAt.size() <= 40
+        && data.updatedAt is string
+        && data.updatedAt.size() <= 40
+        && data.inputPayloadJson is string
+        && data.inputPayloadJson.size() <= 60000
+        && data.calculationsJson is string
+        && data.calculationsJson.size() <= 320000
+        && data.assessmentsJson is string
+        && data.assessmentsJson.size() <= 60000
+        && data.overridesJson is string
+        && data.overridesJson.size() <= 60000
+        && data.reportDraftJson is string
+        && data.reportDraftJson.size() <= 360000;
+    }
+
+    match /cases/{caseId} {
+      allow read: if signedIn();
+
+      allow create: if signedIn()
+        && validCase(request.resource.data, caseId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.version == 1
+        && request.resource.data.revisionNo == 1
+        && request.resource.data.lifecycleStatus == 'DRAFT'
+        && request.resource.data.calculationStatus == null;
+
+      allow update: if signedIn()
+        && validCase(request.resource.data, caseId)
+        && activeLifecycle(resource.data.lifecycleStatus)
+        && activeLifecycle(request.resource.data.lifecycleStatus)
+        && request.resource.data.caseGroupId == resource.data.caseGroupId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.version == resource.data.version + 1
+        && request.resource.data.revisionNo >= resource.data.revisionNo
+        && request.resource.data.revisionNo <= resource.data.revisionNo + 1;
+
+      allow delete: if signedIn()
+        && activeLifecycle(resource.data.lifecycleStatus);
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

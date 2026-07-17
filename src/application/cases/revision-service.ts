@@ -1,53 +1,48 @@
-import { randomUUID } from "node:crypto";
-import { AppProblem } from "@/application/http/problem";
-import type { AuthenticatedUser } from "@/infrastructure/auth/auth-port";
+import { AppProblem } from "@/application/problem";
 import { mutateCase } from "./repository";
 
 export async function createRevision(
   caseGroupId: string,
-  user: AuthenticatedUser,
+  expectedVersion: number,
 ) {
-  return mutateCase(caseGroupId, user, (row) => {
-    if (row.lifecycle_status !== "ISSUED") {
+  return mutateCase(caseGroupId, (row) => {
+    if (row.version !== expectedVersion) {
       throw new AppProblem({
-        code: "REVISION_REQUIRES_ISSUED_CASE",
-        title: "目前不需建立修訂",
-        userMessage: "只有已核發版本需要建立新修訂；目前版本可直接編輯。",
-        status: 409,
+        code: "STALE_CASE_VERSION",
+        title: "共享案件已有新版本",
+        userMessage: "請重新載入後再建立修訂版。",
+        retryable: true,
       });
     }
-    const revisionNo = row.revision_no + 1;
+    if (!row.report_draft || row.lifecycle_status !== "REPORT_DRAFT") {
+      throw new AppProblem({
+        code: "REVISION_REQUIRES_REPORT_DRAFT",
+        title: "目前不需建立修訂",
+        userMessage:
+          "只有已匯出報告草稿可建立新修訂；舊系統歷史資料僅供唯讀查看。",
+        retryable: false,
+      });
+    }
     const now = new Date().toISOString();
+    const revisionNo = row.revision_no + 1;
     return {
       next: {
         ...row,
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         revision_no: revisionNo,
         lifecycle_status: "DRAFT",
         calculation_status: null,
         input_payload: {},
-        version: 1,
-        created_by: user.id,
-        created_by_name: user.displayName,
+        version: row.version + 1,
         prepared_by: null,
         prepared_by_name: null,
-        issued_by: null,
-        issued_by_name: null,
-        created_at: now,
         updated_at: now,
         calculations: [],
         assessments: [],
         overrides: [],
-        reports: [],
-        latestReportId: null,
-        calculationRequests: {},
+        report_draft: null,
       },
-      result: {
-        caseId: caseGroupId,
-        revisionNo,
-        lifecycleStatus: "DRAFT",
-        caseVersion: 1,
-      },
+      result: { caseId: caseGroupId, revisionNo, caseVersion: row.version + 1 },
     };
   });
 }

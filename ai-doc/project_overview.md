@@ -1,112 +1,96 @@
-# 專案總覽｜油脂截留器雙軌計算與設計報告系統
+# 專案總覽｜油脂截留器雙軌計算與報告草稿系統
 
-文件狀態：`Public Firebase Pilot Release In Progress`
-版本：`3.1`
+文件狀態：`Static Spark Local Acceptance Passed`
+
+版本：`4.1`
+
 日期：`2026-07-17`
 
 ## 1. 產品目的
 
-核心目標是讓每次設計需求計算可重算、可解釋且結果正確。案件與報告是多人作業的便利資料，不承擔法規稽核或長期資產保存要求。
+讓同事以公開網址建立共享案件，依兩份計算依據完成正向／反向計算、比較結果、預覽與匯出報告草稿。
 
 ```text
-選擇客戶任務 → 選擇計算模式 → 補必要資料 → server-side 計算
-→ 預覽報告 → 核發並產生 snapshot 與 PDF
+匿名登入 → 建案 → 選模式與任務 → 填資料 → 瀏覽器計算
+→ Firestore transaction 保存 → 預覽報告草稿 → 瀏覽器列印／另存 PDF
 ```
 
-第一階段提供鉦富同事以公開連結試用；取得網址的人不需帳號即可操作，客戶不直接接收系統網址。
+本產品不提供公司身分驗證、角色、正式簽核、正式核發、不可變報告保存或 PDF 雲端留存。
 
 ## 2. End-State Architecture
 
 ```mermaid
 flowchart LR
     U["取得網址的使用者"] --> AUTH["Firebase Anonymous Auth"]
-    AUTH --> APP["Next.js on App Hosting"]
-    APP --> API["Server API／Application Services"]
-    API --> CALC["Decimal 計算核心"]
-    API --> RULE["版本控制規則 Catalog"]
-    API --> FS[("Cloud Firestore")]
-    API --> STORE[("Cloud Storage")]
-    CALC --> SNAP["計算結果與報告 Snapshot"]
+    AUTH --> SPA["Vite + React SPA on Firebase Hosting"]
+    SPA --> CALC["TypeScript / Decimal.js calculation core"]
+    SPA --> RULE["Versioned rules catalog"]
+    SPA --> FS[("Cloud Firestore cases")]
+    CALC --> SNAP["Calculation and report-draft snapshot"]
     SNAP --> FS
-    SNAP --> PDF["Server-side PDF"]
-    PDF --> STORE
+    SNAP --> PRINT["Browser print / Save as PDF"]
 ```
 
-信任邊界：
+production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.html`，因此任意 case ID 路由可直接開啟與重新整理。
 
-- 公式只存在於純 TypeScript／Decimal domain calculator。
-- UI、API controller 與 PDF template 不複製公式。
-- 所有正式寫入由 Next.js server 驗證 Firebase session 後執行；第一版不要求角色 claim。
-- Firestore transaction 保護案件 aggregate 的 optimistic version 與狀態轉換。
-- 本機 local-file／memory adapter 與 Firestore adapter 共用同一 `CaseStore` 契約。
+## 3. 信任與資料邊界
 
-## 3. 不可妥協規則
+- 計算公式只在 domain calculator；UI 與 report template 不另抄公式。
+- 計算、報告 HTML 與規則會下載到瀏覽器，不能視為可信任後端執行。
+- Firestore 只有 `cases` collection。Rules 驗證登入、欄位白名單、型別、長度、狀態列舉與 version 遞增。
+- 複雜 case payload 以有大小上限的 JSON string 保存；client Zod schema 驗證內容，Rules 不保證 JSON 內的工程語意。
+- create、calculate、revision、report draft 以 Firestore transaction 保護 optimistic version。
+- 匿名使用者共用資料；沒有 per-user isolation。
 
-1. 新舊兩軌使用不同 calculator、參數命名空間、單位與結論語意。
-2. 任一有效軌可讓雙軌案件預覽並核發報告；不足軌只能提醒。
-3. 資料不足軌不建立假 `CalculationRun`，只保存 `TrackAssessment`。
-4. 正式比較與反推限制使用高精度 raw 值；來源顯示值只作回歸證據。
-5. 核發 PDF 只從當下 snapshot 產生，不在輸出階段重算。
-6. 系統不執行產品型號、能力真偽或證書符合性判定。
-7. 系統採一人作業模式；同一位使用者可完成建案、計算、預覽、核發與修訂。
-8. production 不得使用 local-file／memory adapter；瀏覽器以 Firebase Anonymous Auth 自動建立 session，未帶有效 token／session 的直接 API 請求仍拒絕。
+## 4. 模組責任
 
-## 4. 參考技術架構
+| 模組                 | 責任                                        | 禁止事項                      |
+| -------------------- | ------------------------------------------- | ----------------------------- |
+| Domain calculators   | 雙軌公式、單位、raw/adopted 結果            | 不讀 React 或 Firebase        |
+| Rules catalog        | 來源、參數、版本與 checksum                 | 不在 runtime 修改 active 規則 |
+| Application services | 完整性、version、revision、report snapshot  | 不依賴 server runtime         |
+| Firestore repository | client transaction、encode/decode、共享案件 | 不繞過 Rules                  |
+| React UI             | 建案、工作台、錯誤恢復、報告與列印入口      | 不宣稱正式核發                |
+| Firebase Auth        | 自動匿名登入                                | 不代表公司人員身分            |
 
-- 語言：TypeScript；套件版本由 lockfile 固定。
-- Web：Next.js 模組化單體，UI 與 application 共用型別，不共用 side effect。
-- 計算：Decimal.js；禁止 JavaScript `number` 作正式精度判定。
-- 規則：版本控制內的唯讀 TypeScript catalog 與 checksum。
-- 資料：本機 local-file；測試 memory；正式 Cloud Firestore aggregate documents。
-- 身分：本機開發 identity；正式 Firebase Anonymous Auth 與 session cookie，不設定 custom role claims。
-- 報告：snapshot → deterministic HTML → server-side Chromium → PDF。
-- 檔案：本機 `output/pdf`；正式 Cloud Storage。
-- 託管：Firebase App Hosting；正式設定與部署進入 DEV-012 release gate。
+## 5. 產品規則
 
-架構決策以 [ADR-007](decisions/ADR-007-firebase-managed-architecture.md) 為準，公開存取政策以 [ADR-008](decisions/ADR-008-public-link-anonymous-access.md) 為準；ADR-003 的 PostgreSQL 與 provider-neutral persistence、ADR-006 的內部帳號限制已被取代。
+1. `CURRENT_QG` 與 `LEGACY_QV` 隔離計算；`DUAL_COMPARISON` 不建立第三套混合公式。
+2. 雙軌任一軌有效即可產生報告草稿；不足軌必須揭露。
+3. 資料不足軌只保存 assessment，不建立假 calculation run。
+4. 精度判定使用 Decimal raw 值；顯示捨入不得回流計算。
+5. 系統不判定產品、證書、現場施工或法規核准。
+6. 舊 `ISSUED`／`SUPERSEDED` 只作唯讀歷史相容。
 
-## 5. 模組責任
+## 6. 技術基線
 
-| 模組 | 責任 | 禁止事項 |
-| --- | --- | --- |
-| Case | 內部團隊共享案件、revision、輸入、狀態與 optimistic version | 不做公式運算 |
-| Rule | 來源 metadata、規則版本與 checksum | 不在 runtime 修改 ACTIVE 規則 |
-| Calculators | 兩份依據的正向與反向計算 | 不讀 UI、Firestore 或 PDF |
-| Orchestrator | 軌別完整性、隔離執行與案件級狀態 | 不建立第三套混合公式 |
-| Report | 預覽、snapshot、HTML、PDF、雜湊、儲存與核發狀態 | 不在輸出時重新計算 |
-| Auth | local／Firebase 身分與 session 驗證 | 不信任 client 自稱的身份或角色 |
-| Data | local-file／memory／Firestore `CaseStore` adapter | 不把儲存格式帶入 domain calculator |
+- TypeScript 6、React 19、Vite 8、React Router 7。
+- Decimal.js 計算、Zod client schema。
+- Firebase Web SDK Authentication + Firestore。
+- Firebase Hosting Spark target，`dist/` static output。
+- Vitest、Firebase Rules Unit Testing、Playwright。
 
-## 6. 第一版存取政策
+不使用 server bundle、API Routes、Firebase Admin SDK、Cloud Storage、Cloud Functions、Cloud Run、App Hosting 或 server-side PDF renderer。
 
-- 開啟 App Hosting 網址後自動取得 Firebase anonymous identity 與 server session。
-- 不顯示登入表單，不建立同事帳號，不設定 custom role claims。
-- 有效 session 可使用目前全部產品功能；既有 role 型別只保留為程式相容層，不是首版管理介面。
-- 所有案件為共享資料；網址外流即代表第三方也能讀寫、刪除與核發。
+## 7. Phase 狀態
 
-## 7. Phase Coverage
+| Phase                      | 狀態             | 說明                                                          |
+| -------------------------- | ---------------- | ------------------------------------------------------------- |
+| 雙軌計算與 UI              | Complete         | 既有核心與 responsive UI 保留                                 |
+| DEV-021 Spark 靜態重構     | Complete locally | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
+| 真實案件平行試算           | Pending Human    | 需 3～5 個去識別案件及人工預期                                |
+| Firebase production deploy | Not executed     | 需新 project、Anonymous Auth、Firestore 與人工 release gate   |
 
-| Phase | 狀態 | 證據／下一步 |
-| --- | --- | --- |
-| 計算與工作流 | Complete | unit、integration、E2E、PDF |
-| Firebase 本地重構 DEV-018 | Complete | local-file／memory adapters、Firebase adapters、production build、三 viewport E2E |
-| 真實案件平行試算 DEV-011 | Pending Human | 需 3～5 個去識別案件與人工預期值 |
-| 公開連結部署 DEV-012 | In Progress / Target Blocked | 建立獨立 Firebase project、啟用 Anonymous Auth、部署與 smoke |
+## 8. 主要風險
 
-## 8. 主要風險與控制
-
-- 計算回歸：公式、來源 checksum、邊界與 golden cases 由 unit tests 固定。
-- 單位或捨入混用：raw、source display、adopted 分欄；正式判定只用 raw。
-- Firestore 競爭寫入：transaction 加 optimistic version，衝突回傳 409。
-- 公開連結風險：知道網址的人共享全部案件；首版不放敏感資料，未來需要限制時另立 Auth／角色決策。
-- client 越權：Firestore／Storage rules deny all，client 只呼叫 server API。
-- local-file／memory 誤用於 production：環境解析在 production 強制 Firebase backend。
-- 雲端設定錯誤：DEV-012 執行 staging／production release gate 與 smoke test。
-- 報告不屬重要資產：不重建 SQL audit event stream；需要正式保存政策時另立 ADR。
+- 網址外流：第三方可操作共享案件；首版不放敏感資料。
+- client 可修改：沒有可信任後端，無法提供正式核發或稽核保證。
+- 配額：Spark 免費額度或 Firestore quota 到達時，UI 只能提示與重試。
+- 同時編輯：version transaction 可避免靜默覆蓋，但使用者需重新載入後重做操作。
+- PDF：報告使用隨站 Noto Sans TC，列印前等待字型與圖片完成載入，並固定 A4、表頭及斷頁規則；紙張、縮放與不同瀏覽器列印引擎仍可能造成細微差異，不承諾像素一致。
 
 ## 9. Re-entry Trigger
 
-- 獨立 Firebase project、Anonymous Auth、App Hosting 成本與 rollback：DEV-012 已進入 release gate；不得沿用既有 PDM／ProJED project。
-- 真實案件計算差異：收到去識別資料後進入 DEV-011。
-- 報告保存或稽核要求改變：重新評估資料模型、留存、備份與不可變性。
-- 法規來源更新：建立新規則版本與 regression evidence，不覆寫既有 catalog。
+- 恢復正式核發、PDF 留存、公司帳號、角色或敏感資料時，重新引入可信任後端及新 ADR。
+- 部署只能使用本系統專用 Firebase project，不得沿用 PDM／ProJED。
+- 法規來源更新時建立新規則版本與 regression evidence，不覆寫現有 catalog。

@@ -1,158 +1,133 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { AppProblem } from "@/application/problem";
 import {
-  commitIssuedReport,
+  currentActor,
   getLatestCase,
-  getReport,
+  mutateCase,
 } from "@/application/cases/repository";
-import { AppProblem } from "@/application/http/problem";
 import { renderReportHtml } from "@/domain/report/html";
 import type { ReportSnapshotData, SnapshotRun } from "@/domain/report/types";
 import { sha256 } from "@/domain/shared/canonical";
-import type { AuthenticatedUser } from "@/infrastructure/auth/auth-port";
-import type {
-  CaseRecord,
-  ReportRecord,
-} from "@/infrastructure/data/case-store";
-import { renderPdfBufferFromHtml } from "@/infrastructure/pdf/playwright-pdf";
-import { reportStorage } from "@/infrastructure/storage/report-storage";
+import type { CaseRecord } from "@/infrastructure/data/case-store";
 
-const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const previewableLifecycleStatuses = new Set([
   "CALCULATED",
+  "REPORT_DRAFT",
   "IN_REVIEW",
   "REVIEWED",
   "ISSUED",
 ]);
-const issueableLifecycleStatuses = new Set([
-  "CALCULATED",
-  "IN_REVIEW",
-  "REVIEWED",
-]);
-const issueableCalculationStatuses = new Set([
+const reportableCalculationStatuses = new Set([
   "COMPLETE",
   "COMPLETE_WITH_REMINDER",
 ]);
 
-function makeUlid() {
-  let timestamp = Date.now();
-  let value = "";
-  for (let index = 0; index < 10; index += 1) {
-    value = crockford[timestamp % 32] + value;
-    timestamp = Math.floor(timestamp / 32);
-  }
-  const random = randomBytes(10);
-  for (let index = 0; index < 16; index += 1) {
-    value += crockford[random[index % random.length] % 32];
-  }
-  return value;
+function draftNumber(item: CaseRecord) {
+  return `DRAFT-${item.case_no}-R${item.revision_no}`;
 }
 
-function makeReportNumber() {
-  return `RDR-${makeUlid()}`;
-}
-
-export async function previewReport(
-  caseGroupId: string,
-  user: AuthenticatedUser,
-) {
-  const item = await getLatestCase(caseGroupId, user);
-  if (!previewableLifecycleStatuses.has(item.lifecycle_status)) {
-    throw new AppProblem({
-      code: "REPORT_REQUIRES_CALCULATION",
-      title: "報告尚未可預覽",
-      userMessage: "請先完成有效計算，再建立報告預覽。",
-      status: 409,
-    });
-  }
-
-  const existing = item.latestReportId
-    ? await getReport(item.latestReportId, user)
-    : null;
-  const snapshot =
-    existing?.snapshot ?? buildSnapshot(item, makeReportNumber(), user);
-  const snapshotHash = existing?.snapshotHash ?? sha256(snapshot);
-  return { snapshot, snapshotHash, html: renderReportHtml(snapshot) };
-}
-
-export async function issueReport(
-  caseGroupId: string,
-  user: AuthenticatedUser,
-) {
-  const item = await getLatestCase(caseGroupId, user);
-  if (item.lifecycle_status === "ISSUED" && item.latestReportId) {
-    return presentReport(await getReport(item.latestReportId, user));
-  }
+export async function previewReport(caseGroupId: string) {
+  const item = await getLatestCase(caseGroupId);
   if (
-    !issueableLifecycleStatuses.has(item.lifecycle_status) ||
-    !issueableCalculationStatuses.has(item.calculation_status ?? "")
+    !previewableLifecycleStatuses.has(item.lifecycle_status) ||
+    !reportableCalculationStatuses.has(item.calculation_status ?? "")
   ) {
     throw new AppProblem({
-      code: "ISSUE_REQUIRES_CALCULATION",
-      title: "目前不能核發",
-      userMessage: "請先完成有效計算，再核發此版本。",
-      status: 409,
+      code: "REPORT_REQUIRES_CALCULATION",
+      title: "報告草稿尚未可預覽",
+      userMessage: "請先完成至少一軌有效計算，再建立報告草稿。",
+      retryable: false,
     });
   }
-
-  const id = randomUUID();
-  const reportNumber = makeReportNumber();
-  const snapshot = buildSnapshot(item, reportNumber, user, true);
-  const snapshotHash = sha256(snapshot);
-  const issuedAt = new Date().toISOString();
-  const pdf = await renderPdfBufferFromHtml(renderReportHtml(snapshot));
-  const storagePath = await reportStorage.save(id, reportNumber, pdf);
-  const report: ReportRecord = {
-    id,
-    caseGroupId,
-    revisionNo: item.revision_no,
-    snapshot,
-    snapshotHash,
-    reportNumber,
-    status: "ISSUED",
-    storagePath,
-    createdBy: user.id,
-    issuedBy: user.id,
-    issuedAt,
+  const snapshot =
+    item.report_draft?.snapshot ??
+    buildSnapshot(item, draftNumber(item), "尚未匯出");
+  return {
+    version: item.version,
+    reportNumber: snapshot.reportNumber,
+    snapshotHash: sha256(snapshot),
+    case: snapshot.case,
+    assessments: snapshot.assessments,
+    html: renderReportHtml(snapshot),
+    exported: Boolean(item.report_draft),
+    legacyIssued: item.lifecycle_status === "ISSUED",
   };
-
-  try {
-    const committed = await commitIssuedReport(
-      caseGroupId,
-      item.version,
-      report,
-      user,
-    );
-    if (committed.id !== report.id) await reportStorage.delete(storagePath);
-    return presentReport(committed);
-  } catch (error) {
-    await reportStorage.delete(storagePath);
-    throw error;
-  }
 }
 
-function presentReport(report: ReportRecord) {
-  return {
-    id: report.id,
-    reportNumber: report.reportNumber,
-    snapshotHash: report.snapshotHash,
-    status: report.status,
-    issuedAt: report.issuedAt,
-    downloadUrl: `/api/reports/${report.id}/download`,
-  };
+export async function exportReportDraft(
+  caseGroupId: string,
+  expectedVersion: number,
+) {
+  const actor = currentActor();
+  return mutateCase(caseGroupId, (item) => {
+    if (item.lifecycle_status === "ISSUED") {
+      throw new AppProblem({
+        code: "LEGACY_ISSUED_READ_ONLY",
+        title: "舊系統歷史資料僅供查閱",
+        userMessage: "靜態版不會重新建立或覆寫舊系統歷史紀錄。",
+        retryable: false,
+      });
+    }
+    if (item.version !== expectedVersion) {
+      throw new AppProblem({
+        code: "STALE_CASE_VERSION",
+        title: "共享案件已有新版本",
+        userMessage: "案件已被更新，請重新載入報告草稿後再匯出。",
+        retryable: true,
+      });
+    }
+    if (
+      !previewableLifecycleStatuses.has(item.lifecycle_status) ||
+      !reportableCalculationStatuses.has(item.calculation_status ?? "")
+    ) {
+      throw new AppProblem({
+        code: "REPORT_REQUIRES_CALCULATION",
+        title: "目前不能匯出報告草稿",
+        userMessage: "請先完成至少一軌有效計算。",
+        retryable: false,
+      });
+    }
+
+    const exportedAt = new Date().toISOString();
+    const id = item.report_draft?.id ?? crypto.randomUUID();
+    const reportNumber = item.report_draft?.reportNumber ?? draftNumber(item);
+    const snapshot = buildSnapshot(item, reportNumber, actor.displayName);
+    const reportDraft = {
+      id,
+      reportNumber,
+      snapshotHash: sha256(snapshot),
+      status: "DRAFT_EXPORTED" as const,
+      snapshot,
+      createdBy: actor.id,
+      exportedAt,
+    };
+    return {
+      next: {
+        ...item,
+        lifecycle_status: "REPORT_DRAFT",
+        report_draft: reportDraft,
+        version: item.version + 1,
+        updated_at: exportedAt,
+      },
+      result: {
+        ...reportDraft,
+        html: renderReportHtml(snapshot),
+        caseVersion: item.version + 1,
+      },
+    };
+  });
 }
 
 function buildSnapshot(
   item: CaseRecord,
   reportNumber: string,
-  user: AuthenticatedUser,
-  forIssue = false,
+  exportedBy: string,
 ): ReportSnapshotData {
   if (!item.calculations.length) {
     throw new AppProblem({
       code: "REPORT_MISSING_CALCULATION",
       title: "缺少計算紀錄",
       userMessage: "找不到可重現的計算紀錄，請重新計算。",
-      status: 409,
+      retryable: false,
     });
   }
   const runs: SnapshotRun[] = item.calculations.map((run) => ({
@@ -168,7 +143,7 @@ function buildSnapshot(
     warnings: run.warnings,
   }));
   return {
-    schemaVersion: "1.0",
+    schemaVersion: "2.0",
     reportNumber,
     case: {
       id: item.id,
@@ -181,7 +156,8 @@ function buildSnapshot(
       purpose: item.purpose,
       taskCode: item.task_code,
       mode: item.mode,
-      lifecycleStatus: forIssue ? "ISSUED" : item.lifecycle_status,
+      lifecycleStatus:
+        item.lifecycle_status === "ISSUED" ? "ISSUED" : "REPORT_DRAFT",
       calculationStatus: item.calculation_status ?? "BLOCKED",
     },
     inputs: item.input_payload,
@@ -204,8 +180,9 @@ function buildSnapshot(
     })),
     actors: {
       preparedBy: item.prepared_by_name ?? item.created_by_name,
-      issuedBy: forIssue ? user.displayName : "尚未核發",
+      exportedBy,
     },
-    limitation: "本報告未執行特定產品或證書符合性判定。",
+    limitation:
+      "本文件為瀏覽器產生的報告草稿，不代表公司身分驗證或公司簽核效力。",
   };
 }
