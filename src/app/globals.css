@@ -1005,10 +1005,52 @@ button.button {
   background: var(--success-soft);
 }
 
+.field-source-pill.source {
+  border-color: rgba(73, 93, 121, 0.24);
+  color: #33475b;
+  background: #eef3f8;
+}
+
 .field-source-pill.override {
   border-color: rgba(189, 118, 33, 0.28);
   color: #744b13;
   background: var(--warning-soft);
+}
+
+.current-t-reference {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border-left: 3px solid transparent;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.current-t-reference.pending {
+  border-left-color: #9eabb6;
+  background: #f6f8fa;
+}
+
+.current-t-reference.active {
+  border-left-color: #bd7621;
+  background: var(--warning-soft);
+}
+
+.current-t-reference strong {
+  font-size: 0.84rem;
+}
+
+.current-t-reference span {
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.current-t-reference small {
+  color: var(--muted);
+  font-size: 0.74rem;
 }
 
 .field-reference {
@@ -1061,6 +1103,33 @@ button.button {
 .reference-table tbody th {
   color: #284c45;
   font-weight: 750;
+}
+
+.reference-table tbody tr.reference-selected > * {
+  background: var(--warning-soft);
+}
+
+.current-t-table {
+  min-width: 100%;
+  table-layout: fixed;
+}
+
+.current-t-table th,
+.current-t-table td {
+  overflow-wrap: anywhere;
+}
+
+.current-table-badge {
+  display: inline-flex;
+  margin-left: 7px;
+  padding: 1px 5px;
+  border: 1px solid rgba(189, 118, 33, 0.3);
+  border-radius: 999px;
+  color: #744b13;
+  background: white;
+  font-size: 0.68rem;
+  font-weight: 750;
+  white-space: nowrap;
 }
 
 details {
@@ -1307,6 +1376,55 @@ dialog::backdrop {
 
   .input-matrix-details {
     margin-top: 12px;
+  }
+
+  .input-matrix-details > .current-t-source-table {
+    width: calc(100vw - 72px);
+    max-width: 100%;
+  }
+
+  .current-t-source-table .reference-table-wrap {
+    overflow-x: visible;
+  }
+
+  .current-t-table,
+  .current-t-table tbody,
+  .current-t-table tr,
+  .current-t-table th,
+  .current-t-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .current-t-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .current-t-table tr {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .current-t-table th,
+  .current-t-table td {
+    padding: 3px 0;
+    border-bottom: 0;
+  }
+
+  .current-t-table td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 0.72rem;
+    font-weight: 750;
+  }
+
+  .current-table-badge {
+    margin-left: 5px;
   }
 
   .panel {

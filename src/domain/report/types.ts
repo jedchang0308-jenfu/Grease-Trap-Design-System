@@ -68,14 +68,6 @@ export interface ReportSnapshotData {
     requestedBy: string;
     approvedBy: string;
   }>;
-  review: {
-    preparedBy: string;
-    reviewedBy: string;
-    checklist: unknown;
-    decision: string;
-    note: string;
-    reviewedAt: string;
-  };
-  actors: { preparedBy: string; reviewedBy: string; issuedBy: string };
+  actors: { preparedBy: string; issuedBy: string };
   limitation: "本報告未執行特定產品或證書符合性判定。";
 }

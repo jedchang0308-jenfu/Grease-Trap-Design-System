@@ -139,7 +139,7 @@ function sample(
   }
   return {
     schemaVersion: "1.0",
-    reportNumber: `DRAFT-01JTEST${name.toUpperCase().replaceAll("-", "").padEnd(18, "0")}`,
+    reportNumber: `RDR-01JTEST${name.toUpperCase().replaceAll("-", "").padEnd(18, "0")}`,
     case: {
       id: `sample-${name}`,
       caseGroupId: `sample-group-${name}`,
@@ -151,7 +151,7 @@ function sample(
       purpose: "本文件用於版型與內容回歸驗證。",
       taskCode: "T02_DINERS_TO_DESIGN",
       mode,
-      lifecycleStatus: "REVIEWED",
+      lifecycleStatus: "ISSUED",
       calculationStatus:
         mode === "DUAL_COMPARISON" && runs.length === 1
           ? "COMPLETE_WITH_REMINDER"
@@ -161,23 +161,8 @@ function sample(
     assessments,
     runs,
     overrides: [],
-    review: {
-      preparedBy: "本機工程使用者",
-      reviewedBy: "本機工程使用者",
-      checklist: {
-        method: true,
-        units: true,
-        sources: true,
-        limitations: true,
-        incompleteTracks: true,
-      },
-      decision: "APPROVED",
-      note: "範例覆核完成。",
-      reviewedAt: "2026-07-13T12:00:00.000Z",
-    },
     actors: {
       preparedBy: "本機工程使用者",
-      reviewedBy: "本機工程使用者",
       issuedBy: "本機工程使用者",
     },
     limitation: "本報告未執行特定產品或證書符合性判定。",

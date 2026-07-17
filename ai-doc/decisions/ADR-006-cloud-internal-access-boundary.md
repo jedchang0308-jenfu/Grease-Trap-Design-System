@@ -1,6 +1,6 @@
 # ADR-006｜第一版採雲端內部存取邊界
 
-狀態：Accepted  
+狀態：Superseded by ADR-008
 日期：2026-07-13  
 決策來源：HCS-3B
 
@@ -35,3 +35,5 @@
 ## Compatibility impact
 
 本 ADR 補充 ADR-003 的 End-State，取代 project_overview v1.0 對第一版運行環境未定的敘述，但不改變 provider-neutral 模組化單體決策。
+
+2026-07-17 使用者改採公開連結匿名存取；第一版存取邊界與 Auth onboarding 改以 ADR-008 為準。本文件保留原始決策歷程，不再作為 active access contract。

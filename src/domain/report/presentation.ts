@@ -129,7 +129,8 @@ const currentInputFields: InputFieldDefinition[] = [
     label: "每日實際使用時間",
     unit: "min/日",
     role: "覆寫值",
-    note: () => "取代來源表 t 值；需保留案件依據。",
+    note: () =>
+      "取代內政部附錄 5 流量 Q 公式中的 t（每日使用時間）；需保留案件依據。",
   },
   {
     key: "greaseCleaningDays",

@@ -5,5 +5,6 @@ runConfig:
   cpu: 1
   memoryMiB: 1024
 
-# Configure NEXT_PUBLIC_FIREBASE_* values on the App Hosting backend.
-# Runtime uses Application Default Credentials for Firebase Admin SDK.
+# Associate the backend with a Firebase Web App so App Hosting injects
+# FIREBASE_WEBAPP_CONFIG at build time. Runtime uses Application Default
+# Credentials for Firebase Admin SDK. Enable Anonymous Auth in Firebase Console.

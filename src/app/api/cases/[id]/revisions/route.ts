@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/application/auth/require-user";
 import { toProblemResponse } from "@/application/http/problem";
-import { createRevision } from "@/application/cases/review-service";
+import { createRevision } from "@/application/cases/revision-service";
 
 export async function POST(
   request: Request,

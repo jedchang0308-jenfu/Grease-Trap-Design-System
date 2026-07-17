@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import Decimal from "decimal.js";
 import { basisForTrack, modeDisplayFor } from "../rules/source-display";
 import {
@@ -18,6 +20,30 @@ function escapeHtml(value: unknown): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function cssString(value: unknown): string {
+  return JSON.stringify(String(value ?? "").replace(/<\/style/gi, "<\\/style"));
+}
+
+let jenfuLogoDataUriCache: string | null | undefined;
+
+function jenfuLogoDataUri(): string {
+  if (jenfuLogoDataUriCache !== undefined) return jenfuLogoDataUriCache ?? "";
+  try {
+    const logoPath = path.join(process.cwd(), "public", "jenfu-logo-small.png");
+    const logo = readFileSync(logoPath);
+    jenfuLogoDataUriCache = `data:image/png;base64,${logo.toString("base64")}`;
+  } catch {
+    jenfuLogoDataUriCache = null;
+  }
+  return jenfuLogoDataUriCache ?? "";
+}
+
+function logoMarkup(className: string): string {
+  const logo = jenfuLogoDataUri();
+  if (!logo) return `<span class="${className} logo-fallback">JF</span>`;
+  return `<img class="${className}" alt="鉦富機械有限公司" src="${logo}">`;
 }
 
 const taskLabels: Record<string, string> = {
@@ -226,6 +252,13 @@ function missingWorkflowBanner(snapshot: ReportSnapshotData): string {
 export function renderReportHtml(snapshot: ReportSnapshotData): string {
   const mode = modeDisplayFor(snapshot.case.mode);
   const task = taskLabels[snapshot.case.taskCode] ?? "設計需求計算";
+  const reportTitle = "油脂截留器設計計算報告";
+  const versionLabel = `修訂 ${snapshot.case.revisionNo}`;
+  const preparedBy = snapshot.actors.preparedBy;
+  const footerLogo = jenfuLogoDataUri();
+  const footerLogoRule = footerLogo
+    ? `background-image: url("${footerLogo}"); background-repeat: no-repeat; background-position: right 28mm center; background-size: 3.2mm auto;`
+    : "";
   const inputGroups = buildInputGroups(
     snapshot.inputs,
     snapshot.runs.map((run) => run.track),
@@ -244,26 +277,107 @@ export function renderReportHtml(snapshot: ReportSnapshotData): string {
   const detailsClass = overviewInputCount <= 8 ? "page-break" : "";
 
   return `<!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(snapshot.reportNumber)} - ${escapeHtml(snapshot.case.title)}</title>
+<html lang="zh-Hant"><head><meta charset="utf-8"><title>${escapeHtml(snapshot.reportNumber)} - ${escapeHtml(reportTitle)}</title>
 <style>
-@page { size: A4; margin: 13mm 13mm 16mm; @bottom-center { content: "第 " counter(page) " 頁 / 共 " counter(pages) " 頁"; font-size: 9px; color: #66737c; } }
-* { box-sizing: border-box; } body { margin: 0; color: #1f2d35; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9.5pt; line-height: 1.5; } p { margin: 0 0 3mm; }
-h1 { font-size: 24pt; line-height: 1.18; margin: 0 0 3mm; color: #123d37; letter-spacing: .01em; } h2 { font-size: 17pt; line-height: 1.3; color: #123d37; border-bottom: 2px solid #a9c9c0; padding-bottom: 2mm; margin: 6mm 0 3mm; } h3 { font-size: 12pt; color: #1d4f47; margin: 2mm 0 2mm; } h4 { color: #1d4f47; margin: 3mm 0 2mm; font-size: 10pt; }
-.eyebrow { color: #5d756e; letter-spacing: .08em; font-size: 8.5pt; font-weight: 800; } .document-number { color: #53646b; font: 9pt Consolas, monospace; margin-bottom: 3mm; }
-.summary { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #b9c8cc; margin: 4mm 0; } .summary div { padding: 2mm 3mm; border-bottom: 1px solid #dce3e5; } .summary div:nth-last-child(-n+2) { border-bottom: 0; } .summary dt { font-size: 8pt; color: #66737c; } .summary dd { margin: .5mm 0 0; font-weight: 700; } .summary dd small { display: block; color: #65756f; font-weight: 400; font-size: 8pt; }
-.flow-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 4mm 0 5mm; border: 1px solid #b8cec8; background: #f6faf8; } .flow-step { position: relative; padding: 3mm 4mm; min-height: 17mm; } .flow-step + .flow-step { border-left: 1px solid #b8cec8; } .flow-step + .flow-step::before { content: "→"; position: absolute; left: -3.2mm; top: 5.3mm; width: 6mm; text-align: center; color: #287365; background: #f6faf8; font-weight: 800; } .flow-step span { display: block; color: #61736e; font-size: 7.5pt; } .flow-step strong { display: block; color: #174b43; margin-top: .5mm; }
-.banner { border-left: 4px solid #167064; background: #edf7f3; padding: 3mm 4mm; margin: 4mm 0; break-inside: avoid; } .banner.warning { border-color: #bd7621; background: #fff5e4; }
-.condition-badges { display: flex; flex-wrap: wrap; gap: 2mm; margin: 0 0 3mm; } .condition-badge { display: inline-flex; flex-direction: column; gap: .4mm; border-radius: 3mm; padding: 1.4mm 2.3mm; font-size: 8pt; font-weight: 800; background: #eef4f2; color: #244d47; } .condition-badge small { font-size: 7pt; color: #516763; font-weight: 500; } .condition-badge.warning { background: #fff1d7; color: #7a4c12; } .condition-badge.info { background: #eaf0f8; color: #365373; }
-.input-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3mm; } .input-group { border: 1px solid #c8d6d4; padding: 3mm; break-inside: avoid; } .input-groups > .input-group:only-child { grid-column: 1 / -1; } .group-source { color: #66737c; font-size: 7.5pt; font-weight: 800; margin: 0; }
-table { width: 100%; border-collapse: collapse; } th, td { border-bottom: 1px solid #d9e3e1; padding: 1.6mm 2mm; text-align: left; vertical-align: top; } thead th { color: #526862; font-size: 7.5pt; background: #f1f6f4; } tbody tr:last-child > * { border-bottom: 0; } .input-table { font-size: 8.2pt; } .input-table th:nth-child(1) { width: 38%; } .input-table th:nth-child(2) { width: 32%; } .number-cell { white-space: nowrap; } .unit { color: #596e68; font-size: .9em; white-space: nowrap; }
-.role-badge { display: inline-block; border-radius: 99px; padding: .4mm 1.5mm; font-size: 7pt; font-weight: 800; white-space: nowrap; } .role-case { color: #1d5a50; background: #e5f3ef; } .role-source { color: #70511d; background: #fff1d4; } .role-derived { color: #495d79; background: #eaf0f8; }
-.result-section { break-inside: avoid; } .result-guide { color: #465d59; font-size: 8.5pt; margin: 0 0 2mm; } .result-guide strong { color: #174b43; margin-right: 1mm; } .table-scroll { border: 1px solid #b7c9c5; break-inside: avoid; } .output-table th, .output-table td { padding: 1.6mm 2.5mm; } .output-table thead th { font-size: 8pt; } .output-table tbody th { color: #435c56; width: 34%; background: #f8faf9; } .output-value { color: #123d37; font-size: 11pt; } .cell-state { font-size: 8pt; font-weight: 800; } .not-completed { color: #8a4b08; } .not-applicable { color: #6d777b; }
-.empty-note { color: #6b7478; background: #f6f8f8; border-left: 3px solid #a8b4b8; padding: 2mm 3mm; margin: 2mm 0; } .empty-note.compact { font-size: 8pt; }
-.page-break { break-before: page; } .comparison-guide { color: #465d59; background: #f3f8f5; border-left: 4px solid #348678; padding: 2.5mm 3mm; margin: 0 0 4mm; font-size: 8.5pt; } .muted { color: #65747b; font-size: 8.5pt; }
-.method-badge { display: inline-block; padding: 1mm 2.5mm; border-radius: 99px; background: #e7f0ed; color: #2d6258; font-size: 8pt; font-weight: 800; } .algorithm-method { margin: 4mm 0 6mm; } .algorithm-method + .algorithm-method { border-top: 2px solid #a9c9c0; padding-top: 5mm; } .method-inputs { break-inside: avoid; margin-bottom: 4mm; } .method-inputs .input-table { border: 1px solid #d5e0de; }
-.algorithm-steps { list-style: none; margin: 2mm 0 0; padding: 0; } .algorithm-step { display: grid; grid-template-columns: 17mm 1fr; gap: 2mm; border-top: 1px solid #d8e2e1; padding: 2mm 0; break-inside: avoid; } .step-number { color: #2d6258; font-size: 8pt; font-weight: 800; padding-top: 1mm; } .step-content { min-width: 0; } .step-purpose { color: #1d4f47; font-weight: 800; margin: 0 0 1mm; } .step-line { display: grid; grid-template-columns: 19mm 1fr; gap: 2mm; margin: 0 0 .6mm; font-size: 8.5pt; } .step-label { color: #66737c; font-weight: 700; } .step-expression { color: #32464d; overflow-wrap: anywhere; } .formula-block { margin: 1mm 0; } .formula-block > .step-label { display: block; margin-bottom: .6mm; } .formula-values { border: 1px solid #d9e3e1; font-size: 7.7pt; } .formula-values th, .formula-values td { padding: 1mm 1.5mm; } .formula-values .symbol { color: #1d4f47; font-family: Consolas, monospace; font-weight: 800; } .step-result { color: #123d37; font-weight: 800; margin-top: .6mm; } .step-comparison { color: #1d5a50; background: #edf7f3; padding: .8mm 1.5mm; margin-top: .6mm; }
+@page cover { size: A4; margin: 12.7mm; @top-center { content: none; } @bottom-center { content: none; } @bottom-right { content: none; } }
+@page report { size: A4; margin: 12.7mm 12.7mm 18mm; @top-left { content: ${cssString(reportTitle)}; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; text-align: left; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @top-center { content: "報告編號：" ${cssString(snapshot.reportNumber)}; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; text-align: center; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @top-right { content: "版次：" ${cssString(versionLabel)}; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; text-align: left; vertical-align: bottom; border-bottom: 1.5pt solid #4472C4; padding-bottom: 1mm; } @bottom-left-corner { content: ""; width: 7mm; height: 7mm; border-top: .7pt solid #9A9A9A; border-left: .7pt solid #9A9A9A; } @bottom-center { content: "頁次 " counter(page) " / " counter(pages); font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 9pt; color: #777; } @bottom-right { content: "鉦富機械有限公司"; ${footerLogoRule} font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 10pt; font-weight: 700; color: #777; text-align: right; white-space: nowrap; } @bottom-right-corner { content: ""; width: 7mm; height: 7mm; border-top: .7pt solid #9A9A9A; border-right: .7pt solid #9A9A9A; } }
+* { box-sizing: border-box; }
+body { margin: 0; color: #111; background: #fff; font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif; font-size: 12pt; line-height: 1.45; }
+p { margin: 0 0 3mm; }
+.cover-page { page: cover; min-height: calc(297mm - 25.4mm); display: flex; flex-direction: column; page-break-after: always; }
+.cover-brand { margin-top: 37mm; text-align: center; }
+.jenfu-logo { display: block; object-fit: contain; }
+.cover-logo { width: 18mm; height: auto; margin: 0 auto 5mm; }
+.logo-fallback { display: inline-flex; align-items: center; justify-content: center; width: 18mm; height: 22mm; border: 1.5pt solid #4472C4; color: #4472C4; font-weight: 700; }
+.cover-company-cn { font-size: 28pt; font-weight: 700; line-height: 1.1; }
+.cover-company-en { margin-top: 2mm; font-size: 14pt; font-weight: 700; line-height: 1.2; }
+.cover-title { margin: 35mm 0 0; color: #111; text-align: center; font-size: 28pt; font-weight: 700; line-height: 1.2; letter-spacing: 0; }
+.cover-spacer { flex: 1; }
+.cover-meta { margin: 0 4mm 12mm; }
+.cover-meta-strip { height: 7mm; background: #DAE3F3; }
+.cover-meta-body { background: #4472C4; color: #fff; padding: 7mm 12mm; font-size: 18pt; line-height: 1.7; }
+.cover-meta-body p { margin: 0; }
+.report-body { page: report; }
+.screen-report-header, .screen-report-footer { display: none; }
+h2 { margin: 6mm 0 3mm; padding: 0 0 1.4mm 2.4mm; border-left: 2.4mm solid #4472C4; border-bottom: .6pt solid #B8C0CC; color: #111; font-size: 14pt; line-height: 1.3; }
+h3 { margin: 3mm 0 2mm; color: #111; font-size: 12pt; line-height: 1.35; }
+h4 { margin: 3mm 0 2mm; color: #111; font-size: 10.5pt; line-height: 1.35; }
+.eyebrow { margin-bottom: 2mm; color: #4472C4; font-size: 9pt; font-weight: 700; letter-spacing: 0; }
+.document-number { color: #333; font: 9pt Consolas, monospace; margin-bottom: 3mm; }
+.summary-table { margin: 3mm 0 5mm; }
+.summary-table th { width: 24mm; background: #F2F2F2; color: #111; text-align: center; white-space: nowrap; }
+.summary-table td { width: 40%; font-weight: 700; }
+.summary-table small { display: block; margin-top: .5mm; color: #555; font-weight: 400; font-size: 8pt; }
+.flow-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 4mm 0 5mm; border: 1px solid #7f7f7f; background: #fff; break-inside: avoid; }
+.flow-step { position: relative; min-height: 16mm; padding: 3mm 4mm; }
+.flow-step + .flow-step { border-left: 1px solid #7f7f7f; }
+.flow-step + .flow-step::before { content: "→"; position: absolute; left: -3.2mm; top: 5.2mm; width: 6mm; background: #fff; color: #4472C4; text-align: center; font-weight: 700; }
+.flow-step span { display: block; color: #555; font-size: 8pt; }
+.flow-step strong { display: block; margin-top: .5mm; color: #111; font-size: 10pt; }
+.banner { margin: 4mm 0; padding: 3mm 4mm; border: 1px solid #4472C4; border-left-width: 4px; background: #F8FAFF; break-inside: avoid; }
+.banner.warning { border-color: #BD7621; background: #FFF8ED; }
+.condition-badges { display: flex; flex-wrap: wrap; gap: 2mm; margin: 0 0 3mm; }
+.condition-badge { display: inline-flex; flex-direction: column; gap: .4mm; border: 1px solid #9fb3d8; border-radius: 2mm; padding: 1.2mm 2.2mm; background: #F8FAFF; color: #1f1f1f; font-size: 8pt; font-weight: 700; }
+.condition-badge small { color: #555; font-size: 7pt; font-weight: 400; }
+.condition-badge.warning { border-color: #D6A45D; background: #FFF8ED; color: #623B08; }
+.condition-badge.info { border-color: #9FB3D8; background: #F8FAFF; color: #26496F; }
+.input-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3mm; }
+.input-group { padding: 0; break-inside: avoid; }
+.input-groups > .input-group:only-child { grid-column: 1 / -1; }
+.group-source { margin: 0 0 1mm; color: #555; font-size: 8pt; font-weight: 700; }
+table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+th, td { border: 1px solid #7f7f7f; padding: 1.6mm 2mm; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; text-align: center; }
+.input-table { font-size: 8.2pt; }
+.input-table th:nth-child(1) { width: 34%; }
+.input-table th:nth-child(2) { width: 28%; }
+.input-table th:nth-child(3) { width: 18%; }
+.number-cell { white-space: nowrap; }
+.unit { color: #444; font-size: .9em; white-space: nowrap; }
+.role-badge { display: inline-block; border: 1px solid #9FB3D8; border-radius: 2mm; padding: .3mm 1.3mm; background: #F8FAFF; color: #1f1f1f; font-size: 7pt; font-weight: 700; white-space: nowrap; }
+.role-case { border-color: #9FB3D8; }
+.role-source { border-color: #D6A45D; background: #FFF8ED; }
+.role-derived { border-color: #9FB3D8; }
+.result-section { break-inside: avoid; }
+.result-guide { margin: 0 0 2mm; color: #333; font-size: 8.5pt; }
+.result-guide strong { color: #111; margin-right: 1mm; }
+.table-scroll { border: 0; break-inside: avoid; }
+.output-table th, .output-table td { padding: 1.8mm 2.5mm; }
+.output-table thead th { font-size: 8.5pt; }
+.output-table tbody th { width: 34%; background: #F2F2F2; color: #111; }
+.output-value { color: #111; font-size: 11pt; }
+.cell-state { font-size: 8pt; font-weight: 700; }
+.not-completed { color: #8a4b08; }
+.not-applicable { color: #555; }
+.empty-note { margin: 2mm 0; padding: 2mm 3mm; border: 1px solid #BFBFBF; border-left: 4px solid #A6A6A6; background: #F7F7F7; color: #555; }
+.empty-note.compact { font-size: 8pt; }
+.page-break { break-before: page; }
+.comparison-guide { margin: 0 0 4mm; padding: 2.5mm 3mm; border: 1px solid #9FB3D8; border-left: 4px solid #4472C4; background: #F8FAFF; color: #333; font-size: 8.5pt; }
+.muted { color: #555; font-size: 8.5pt; }
+.method-badge { display: inline-block; padding: 1mm 2.5mm; border: 1px solid #9FB3D8; border-radius: 2mm; background: #F8FAFF; color: #111; font-size: 8pt; font-weight: 700; }
+.algorithm-method { margin: 4mm 0 6mm; }
+.algorithm-method + .algorithm-method { padding-top: 5mm; border-top: 1.5pt solid #4472C4; }
+.method-inputs { margin-bottom: 4mm; break-inside: avoid; }
+.algorithm-steps { list-style: none; margin: 2mm 0 0; padding: 0; }
+.algorithm-step { display: grid; grid-template-columns: 17mm 1fr; gap: 2mm; padding: 2mm 0; border-top: 1px solid #BFBFBF; break-inside: avoid; }
+.step-number { padding-top: 1mm; color: #4472C4; font-size: 8pt; font-weight: 700; }
+.step-content { min-width: 0; }
+.step-purpose { margin: 0 0 1mm; color: #111; font-weight: 700; }
+.step-line { display: grid; grid-template-columns: 19mm 1fr; gap: 2mm; margin: 0 0 .6mm; font-size: 8.5pt; }
+.step-label { color: #555; font-weight: 700; }
+.step-expression { color: #111; overflow-wrap: anywhere; }
+.formula-block { margin: 1mm 0; }
+.formula-block > .step-label { display: block; margin-bottom: .6mm; }
+.formula-values { font-size: 7.7pt; }
+.formula-values th, .formula-values td { padding: 1mm 1.5mm; }
+.formula-values .symbol { color: #111; font-family: Consolas, monospace; font-weight: 700; }
+.step-result { color: #111; font-weight: 700; margin-top: .6mm; }
+.step-comparison { margin-top: .6mm; padding: .8mm 1.5mm; border: 1px solid #9FB3D8; background: #F8FAFF; color: #111; }
+@media screen { body { background: #E9EDF3; padding: 8mm 0; } .cover-page, .report-body { width: 210mm; margin: 0 auto 8mm; background: #fff; box-shadow: 0 0 0 1px #d9dfe8; } .cover-page { padding: 12.7mm; } .report-body { padding: 8mm 12.7mm 14mm; } .screen-report-header { display: grid; grid-template-columns: 1fr 1.3fr .7fr; column-gap: 6mm; align-items: end; margin: 0 0 7mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #4472C4; color: #777; font-size: 9pt; } .screen-report-header span:nth-child(2) { text-align: center; } .screen-report-footer { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; min-height: 10mm; margin-top: 12mm; color: #777; font-size: 9pt; } .screen-report-footer::before, .screen-report-footer::after { content: ""; position: absolute; bottom: 0; width: 8mm; height: 8mm; border-top: .7pt solid #9A9A9A; } .screen-report-footer::before { left: -6mm; border-left: .7pt solid #9A9A9A; } .screen-report-footer::after { right: -6mm; border-right: .7pt solid #9A9A9A; } .screen-footer-page { text-align: center; } .screen-footer-brand { display: inline-flex; grid-column: 3; align-items: center; justify-content: flex-end; gap: 1.3mm; font-size: 10pt; font-weight: 700; } .screen-footer-logo { width: 3.2mm; height: auto; } }
+@media print { .screen-report-header, .screen-report-footer { display: none; } }
 </style></head><body>
-<section class="overview"><p class="eyebrow">鉦富機械有限公司 / 客戶設計計算報告</p><h1>油脂截留器設計計算報告</h1><p class="document-number">文件編號：${escapeHtml(snapshot.reportNumber)}</p><dl class="summary"><div><dt>案件</dt><dd>${escapeHtml(snapshot.case.caseNo)} / 修訂 ${escapeHtml(snapshot.case.revisionNo)}</dd></div><div><dt>客戶</dt><dd>${escapeHtml(snapshot.case.customer)}</dd></div><div><dt>設置地點</dt><dd>${escapeHtml(snapshot.case.location)}</dd></div><div><dt>需求目的</dt><dd>${escapeHtml(task)}</dd></div><div><dt>計算依據</dt><dd>${escapeHtml(mode.label)}<small>${escapeHtml(mode.description)}</small></dd></div></dl><div class="flow-strip"><div class="flow-step"><span>01 輸入</span><strong>本次輸入條件</strong></div><div class="flow-step"><span>02 計算</span><strong>${escapeHtml(mode.label)}</strong></div><div class="flow-step"><span>03 輸出</span><strong>本次設計結果</strong></div></div>${missingWorkflowBanner(snapshot)}<h2>本次輸入條件</h2>${conditionBadgeStrip(conditionBadges)}${inputOverview(inputGroups)}<div class="result-section"><h2>本次設計結果</h2>${outputOverview(snapshot)}</div></section>
-<section class="${detailsClass}"><h2>完整計算過程</h2><p class="comparison-guide">本區保留未取整原始值；設計處理水量另列「原始值換算（未取整）」的 L/min 數值方便比對。正式採用值依規則取整，請以「本次設計結果」為準。清除週期油脂量使用 kg，有效容積使用 L，兩者用途不同，不互相比較。</p>${snapshot.runs.map((run) => algorithmProcess(run, groupForTrack(run.track))).join("")}</section>
+<section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div><div class="cover-company-en">Jenfu Machinery Co., LTD</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body"><p>編號：${escapeHtml(snapshot.reportNumber)}</p><p>版次：${escapeHtml(versionLabel)}</p><p>制定者：${escapeHtml(preparedBy)}</p><p>修訂日：</p></div></div></section>
+<main class="report-body"><div class="screen-report-header"><span>${escapeHtml(reportTitle)}</span><span>報告編號：${escapeHtml(snapshot.reportNumber)}</span><span>版次：${escapeHtml(versionLabel)}</span></div><section class="overview"><h2>案件資料</h2><p class="document-number">文件編號：${escapeHtml(snapshot.reportNumber)}</p><table class="summary-table"><tbody><tr><th>案件</th><td>${escapeHtml(snapshot.case.caseNo)} / ${escapeHtml(versionLabel)}</td><th>客戶</th><td>${escapeHtml(snapshot.case.customer)}</td></tr><tr><th>設置地點</th><td>${escapeHtml(snapshot.case.location)}</td><th>需求目的</th><td>${escapeHtml(task)}</td></tr><tr><th>計算依據</th><td colspan="3">${escapeHtml(mode.label)}<small>${escapeHtml(mode.description)}</small></td></tr></tbody></table><div class="flow-strip"><div class="flow-step"><span>01 輸入</span><strong>本次輸入條件</strong></div><div class="flow-step"><span>02 計算</span><strong>${escapeHtml(mode.label)}</strong></div><div class="flow-step"><span>03 輸出</span><strong>本次設計結果</strong></div></div>${missingWorkflowBanner(snapshot)}<h2>本次輸入條件</h2>${conditionBadgeStrip(conditionBadges)}${inputOverview(inputGroups)}<div class="result-section"><h2>本次設計結果</h2>${outputOverview(snapshot)}</div></section>
+<section class="${detailsClass}"><h2>完整計算過程</h2><p class="comparison-guide">本區保留未取整原始值；設計處理水量另列「原始值換算（未取整）」的 L/min 數值方便比對。正式採用值依規則取整，請以「本次設計結果」為準。清除週期油脂量使用 kg，有效容積使用 L，兩者用途不同，不互相比較。</p>${snapshot.runs.map((run) => algorithmProcess(run, groupForTrack(run.track))).join("")}</section><div class="screen-report-footer"><span></span><span class="screen-footer-page">頁次 -- / --</span><span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
 </body></html>`;
 }

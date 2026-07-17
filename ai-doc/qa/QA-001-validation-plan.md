@@ -1,9 +1,9 @@
 # QA-001｜第一階段驗證計畫
 
 文件狀態：`QA Ready`  
-版本：`1.3`
-日期：`2026-07-15`
-對應：SPEC-001、SPEC-002、ADR-001～006、DEV-001～014
+版本：`1.5`
+日期：`2026-07-17`
+對應：SPEC-001、SPEC-002、ADR-001～008、DEV-001～018
 
 ## 1. 驗證目標
 
@@ -13,9 +13,9 @@
 
 - 兩軌五任務覆蓋完整。
 - 官方案例與來源錯字已正確處理。
-- 一軌成功可覆核／核發，零軌成功才阻擋。
+- 一軌成功可預覽／核發，零軌成功才阻擋。
 - 未完成軌不產生假結果。
-- 同一位已登入使用者可完成編製、覆核與核發，三個責任事件分別可追溯。
+- 使用者開啟網址後可自動建立匿名 session，無需帳號、角色、送審或覆核即可完成主流程。
 - 系統不包含產品型號或證書匹配資料、API、UI 或報告結論。
 - UI 在主要 viewport 下能操作且沒有可見 runtime error。
 - PDF 由快照產生，規則更新不改變舊報告。
@@ -33,7 +33,7 @@
 | raw 值被提前截斷                                       | High     | decimal＋raw/adopted 分層                   | precision tests               |
 | n0 越界或跨空白內插                                    | Critical | segment resolver＋exception                 | boundary tests                |
 | 報告受 live data 污染                                  | Critical | immutable snapshot                          | snapshot regression           |
-| 權限繞過                                               | Critical | server-side authorization                   | API negative tests            |
+| 公開入口無法建立 session，或未驗證 API 被誤放行        | Critical | Anonymous Auth＋server session               | Auth／API negative tests      |
 | UI 提醒被理解為阻擋                                    | High     | Now What 文案＋可用 CTA                     | E2E＋manual UX                |
 | 選填基本資料仍阻擋建案，或餐飲類型在錯誤步驟被預先代選 | High     | 建案 schema default＋工作台 required select | contract unit＋E2E＋manual UX |
 
@@ -44,7 +44,7 @@
 | Unit                  | pure calculators、units、interpolation、rounding、solver | 每次 domain 變更   |
 | Integration           | repository、transaction、orchestrator、API、permissions  | 每個 DEV slice     |
 | Contract              | request／response schema、error code、snapshot schema    | API／報告變更      |
-| E2E                   | 建案、計算、提醒、覆核、核發、修訂                       | Phase 3 後         |
+| E2E                   | 建案、計算、提醒、預覽、核發、修訂                       | Phase 3 後         |
 | PDF                   | 內容、分頁、字型、hash、來源與限制                       | DEV-009 後         |
 | UI QC                 | viewport、互動、visible errors、accessibility            | DEV-007 後持續執行 |
 | Manual engineering QC | 官方案例逐步重算、來源頁核對                             | Phase 4            |
@@ -142,21 +142,20 @@ CUR-AREA-001 必須同時驗證 `SOURCE_EXCEPTION` 警示；610 以外的中餐�
 - parent commit failure：assessment 與 run 全部 rollback。
 - active RuleSet immutable；啟用失敗不留半啟用狀態。
 - issued snapshot update 被 DB／service 阻擋；案件刪除 API 可在交易中清除其關聯 snapshot。
-- API 未授權、角色不足、跨案件 access 均有 negative test。
+- Firebase anonymous token 無 role claims 可建立 session；未帶身份、偽造 token、過期 session 均有 negative test。
 
 ## 12. 案件生命週期與修訂
 
-必測合法轉換、非法跳轉、退回、重送、重算、核發與 supersede：
+必測合法轉換、非法跳轉、重算、核發與 supersede：
 
-- BLOCKED 不得提交覆核。
-- COMPLETE／COMPLETE_WITH_REMINDER 可提交。
-- CALCULATED 可預覽完整報告草稿，但未 REVIEWED 不得 issue。
-- IN_REVIEW 的報告與人工採用為只讀；退回後回到 CALCULATED 才能修正並重新送審。
+- BLOCKED 不得預覽或核發。
+- COMPLETE／COMPLETE_WITH_REMINDER 可預覽並核發。
+- CALCULATED 可預覽完整報告並直接 issue。
+- Legacy IN_REVIEW／REVIEWED 資料可相容進入預覽／核發，不重新暴露覆核工作台。
 - ISSUED 不可編輯；修改必須建立 revision+1。
 - 新 revision 核發後前版 SUPERSEDED，但舊 PDF 可下載且內容不變。
-- override 必須在送出最終覆核前完成並核准；未核准不得進入正式 snapshot。
-- preparedBy、reviewedBy、issuedBy 可以是同一 actor；API 不得以相同 actor 為由阻擋。
-- 同一 actor 的提交、覆核與核發必須形成三筆可區分的 audit event。
+- override 必須在核發前完成記錄；核發後內容固定。
+- preparedBy、issuedBy 可以是同一 actor；API 不得以相同 actor 為由阻擋。
 
 ## 13. PDF 驗證
 
@@ -175,7 +174,7 @@ CUR-AREA-001 必須同時驗證 `SOURCE_EXCEPTION` 警示；610 以外的中餐�
 
 ## 14. UI／UX QC
 
-critical routes：`/cases`、`/cases/new`、案件工作台、review、report、rules。
+critical routes：`/cases`、`/cases/new`、案件工作台、report、rules。
 
 必測 viewport：`1440×900`、`1024×768`、`390×844`。
 
@@ -185,15 +184,15 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 ### Now What 驗證
 
-逐項驗證 SPEC-002 的 loading、empty、validation error、BLOCKED、COMPLETE、COMPLETE_WITH_REMINDER、IN_REVIEW、returned、REVIEWED、ISSUED、SUPERSEDED、no permission、runtime error。
+逐項驗證 SPEC-002 的 loading、empty、validation error、BLOCKED、COMPLETE、COMPLETE_WITH_REMINDER、legacy review state、ISSUED、SUPERSEDED、no permission、runtime error。
 
 ### Manual UX review
 
 - `/cases/new` 的基本資料可全部留白建案，餐飲類型不出現在該頁；案件工作台的內政部給排水規範（附錄 5）計算資料才顯示餐飲類型，且未選時不可送出計算。
 - 空白案件名稱以案件編號識別，空白客戶與地點有「未填」替代文字。
 - 5 秒內知道頁面用途、狀態與下一步。
-- COMPLETE_WITH_REMINDER 第一行先說「可完成報告草稿」，送審後再進入最終覆核。
-- CALCULATED 明示先完成報告草稿；IN_REVIEW 明示審核者正在看完整送審報告，不要求切換帳號或等待他人。
+- COMPLETE_WITH_REMINDER 第一行先說「單軌完成，可核發」且 primary CTA 可用。
+- CALCULATED 明示下一步為預覽並核發報告，不要求切換帳號或等待他人。
 - primary CTA 唯一且可用。
 - blocked／disabled 提供替代下一步。
 - 首屏沒有長篇公式／制度教學。
@@ -204,9 +203,9 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 | Gate           | 對應 DEV | 通過條件                                                                                      |
 | -------------- | -------- | --------------------------------------------------------------------------------------------- |
-| G1 Foundation  | 001～002、018 | 固定啟動入口、規則 catalog checksum、memory／Firestore adapter 契約與 source fixtures 通過 |
+| G1 Foundation  | 001～002、018 | 固定啟動入口、規則 catalog checksum、local-file／memory／Firestore adapter 契約與 source fixtures 通過 |
 | G2 Calculation | 003～005 | 兩份來源案例、reverse、precision、對照 matrix 全通過                                          |
-| G3 Workflow    | 007～009 | case、single-user review／issue、snapshot、PDF integration／E2E 通過；DEV-006 依 ADR-004 跳過 |
+| G3 Workflow    | 007～009 | case、single-user issue、snapshot、PDF integration／E2E 通過；DEV-006 依 ADR-004 跳過 |
 | G4 Acceptance  | 010～011 | 完整 regression、UI QC、manual engineering QC 通過                                            |
 
 上一 gate 未通過不得把下一 phase 宣告完成；可在不掩蓋 blocker 的前提下平行開發獨立工作。
@@ -217,7 +216,7 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 - 自動測試 report、coverage 摘要、fixture 與 input/output snapshot。
 - RuleSet／source hash 與版本控制 catalog checksum。
 - API contract、application invariant、optimistic transaction 與 idempotency 測試結果。
-- 身份、session、匿名、角色不足、跨案件與單一 actor 全流程測試結果。
+- 匿名身份、session 建立／過期、未帶身份 API 與單一 actor 全流程測試結果。
 - 每個 critical UI route／viewport 截圖與 visible error sweep。
 - 兩份來源、對照與單份完成 PDF 樣本與 render PNG。
 - QC 人工逐步重算紀錄及 Pass／Fail／未充分驗證判定。
@@ -230,7 +229,7 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 - UI 顯示 runtime error、API route 或不可復原狀態。
 - PDF 直接讀 live tables 或輸出時重算。
 - snapshot、run、source checksum 無法重現。
-- 相同 actor 被阻擋而無法完成覆核／核發，或三個責任事件被合併成一筆 audit。
+- 相同 actor 被阻擋而無法完成預覽／核發。
 - 任何產品型號或證書匹配功能在未重新決策下出現在 schema、API、UI 或 PDF。
 - 關鍵 viewport 缺實際瀏覽器證據。
 
@@ -242,16 +241,16 @@ critical routes：`/cases`、`/cases/new`、案件工作台、review、report、
 
 ### 本機必過
 
-- `npm run dev:local` 在沒有 PostgreSQL、Docker、Java 與 Firebase credential 時可啟動，`/api/health` 回傳 `dataBackend: memory`。
-- unit、memory integration、production build 與三 viewport E2E 全部通過。
-- memory 與 Firestore 共用 `CaseStore` 契約；calculator 不 import 任一 persistence adapter。
-- production 設定 memory／local auth 時必須 fail fast。
+- `npm run dev:local` 在沒有 PostgreSQL、Docker、Java 與 Firebase credential 時可啟動，`/api/health` 回傳 `dataBackend: local-file`。
+- unit、memory／local-file integration、production build 與三 viewport E2E 全部通過。
+- local-file／memory 與 Firestore 共用 `CaseStore` 契約；calculator 不 import 任一 persistence adapter。
+- production 設定 local-file／memory／local auth 時必須 fail fast。
 - Firestore／Storage rules 預設拒絕 client 直接讀寫。
 
 ### Emulator／release 前必過
 
-- Auth Emulator：登入、session cookie、登出、無角色與過期 token。
-- Firestore Emulator：建案、calculate transaction、idempotency、stale version、review、issue、revision、delete。
+- Auth Emulator：anonymous sign-in、session cookie、無 role claims、偽造與過期 token。
+- Firestore Emulator：建案、calculate transaction、idempotency、stale version、issue、revision、delete。
 - Storage Emulator：核發 PDF 寫入、授權下載與刪除案件後的物件處理政策。
 - App Hosting staging：環境變數、Admin SDK credential、cookie secure policy、Firestore index、健康檢查與完整 smoke。
 

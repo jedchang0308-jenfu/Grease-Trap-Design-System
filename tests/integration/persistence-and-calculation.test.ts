@@ -7,20 +7,16 @@ import {
   getReport,
   listCases,
 } from "@/application/cases/repository";
-import {
-  completeReview,
-  createRevision,
-  submitForReview,
-} from "@/application/cases/review-service";
+import { createRevision } from "@/application/cases/revision-service";
 import {
   issueReport,
   previewReport,
 } from "@/application/reports/report-service";
-import { ruleCatalog } from "@/domain/rules/catalog";
 import {
   currentRuleChecksum,
   legacyRuleChecksum,
-} from "@/domain/rules/seed-data";
+  ruleCatalog,
+} from "@/domain/rules/catalog";
 import type { AuthenticatedUser } from "@/infrastructure/auth/auth-port";
 import { resetMemoryCaseStore } from "@/infrastructure/data/memory-case-store";
 import { reportStorage } from "@/infrastructure/storage/report-storage";
@@ -148,32 +144,16 @@ describe.sequential(
       });
     });
 
-    it("previews, reviews, issues, and downloads the same snapshot", async () => {
+    it("previews, issues, and downloads the same snapshot", async () => {
       const draft = await previewReport(caseGroupId, actor);
       expect(draft.snapshot.case.lifecycleStatus).toBe("CALCULATED");
-      expect(draft.snapshot.review.decision).toBe("PENDING");
-
-      await submitForReview(caseGroupId, actor);
-      await completeReview(
-        caseGroupId,
-        {
-          decision: "APPROVED",
-          checklist: {
-            method: true,
-            units: true,
-            sources: true,
-            limitations: true,
-            incompleteTracks: true,
-          },
-        },
-        actor,
-      );
 
       const issued = await issueReport(caseGroupId, actor);
       const persisted = await getReport(issued.id, actor);
       issuedStoragePath = persisted.storagePath;
       expect(issued.status).toBe("ISSUED");
-      expect(issued.reportNumber).toMatch(/^DRAFT-[0-9A-HJKMNP-TV-Z]{26}$/);
+      expect(persisted.snapshot.case.lifecycleStatus).toBe("ISSUED");
+      expect(issued.reportNumber).toMatch(/^RDR-[0-9A-HJKMNP-TV-Z]{26}$/);
       expect(persisted.snapshotHash).toBe(issued.snapshotHash);
       expect(
         (await reportStorage.read(persisted.storagePath)).length,

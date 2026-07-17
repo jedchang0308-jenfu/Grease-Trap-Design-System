@@ -21,12 +21,12 @@
 ## Chosen rule
 
 - 保留 Next.js 模組化單體與既有純 TypeScript／Decimal 計算核心。
-- Firebase Auth 負責內部帳號；server 以 Firebase Admin SDK 驗證 session cookie 與角色 claim。
+- Firebase Anonymous Auth 為第一版公開連結建立暫時身份；server 以 Firebase Admin SDK 驗證 session cookie，不要求角色 claim。
 - Cloud Firestore 保存案件、最新計算結果、覆核狀態與報告 metadata；不保存 SQL schema、migration 或 audit event stream。
 - Cloud Storage 保存核發 PDF；PDF 仍只由 server-side snapshot 產生，不在瀏覽器重算。
-- 所有 create、calculate、review、issue 與 download API 仍由 server 驗證身分及執行業務規則。
-- 本機預設 `memory` adapter，讓 `npm run dev:local` 不依賴 Docker、PostgreSQL、Java 或雲端 credential；`dev:firebase` 才使用 Firebase Emulator Suite。
-- production 必須使用 Firebase backend；不得以 memory adapter 啟動正式環境。
+- 所有 create、calculate、issue 與 download API 仍由 server 驗證身分及執行業務規則。
+- 本機預設 `local-file` adapter，讓 `npm run dev:local` 不依賴 Docker、PostgreSQL、Java 或雲端 credential，且重啟後仍保留案件；`test` 使用 `memory` adapter 維持測試隔離；`dev:firebase` 才使用 Firebase Emulator Suite。
+- production 必須使用 Firebase backend；不得以 local-file 或 memory adapter 啟動正式環境。
 - 本輪不部署、不建立正式 Firebase project，也不搬移既有 PostgreSQL 資料；使用者已表明舊資料可捨棄。
 
 ## Consequences
@@ -34,12 +34,12 @@
 - 本機啟動與自動化測試不再受 PostgreSQL／Docker 阻塞。
 - Firestore transaction 只保護單一案件 aggregate 的版本與狀態轉換；不重建既有 SQL trigger 與完整 audit schema。
 - 規則與來源 metadata 改由版本控制內的唯讀 TypeScript catalog 管理；計算 golden tests 是主要正確性 gate。
-- 正式多人使用前仍需建立 Firebase project、設定 Auth provider／角色 claim、Firestore、Storage、App Hosting 環境變數及執行 release gate。
-- Firebase Emulator 的 Firestore 元件需要本機 Java；沒有 Java 時仍可使用預設 memory 開發模式。
+- 正式多人使用前仍需建立獨立 Firebase project、啟用 Anonymous Auth provider、建立 Firestore／Storage／App Hosting backend 並執行 release gate。
+- Firebase Emulator 的 Firestore 元件需要本機 Java；沒有 Java 時仍可使用預設 local-file 開發模式。
 
 ## Compatibility / migration impact
 
 - 本 ADR 有意取代 ADR-003 的 PostgreSQL、provider-neutral persistence 與 seed identity 決策。
-- 本 ADR 落實 ADR-006 的雲端內部存取目標，將 provider 固定為 Firebase；正式部署仍保留在 DEV-012 release gate。
+- 本 ADR 將 provider 固定為 Firebase；第一版存取政策已由 ADR-008 取代 ADR-006，正式部署仍保留在 DEV-012 release gate。
 - API URL、主要 UI 流程、公式、單位、raw／adopted 結果與 PDF 內容契約維持不變。
 - 既有 `db/`、Docker Compose 與 PostgreSQL scripts 於 DEV-018 移除；基線 commit `bb1c675` 保留完整舊版。

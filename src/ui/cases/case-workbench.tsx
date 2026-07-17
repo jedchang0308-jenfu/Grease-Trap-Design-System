@@ -86,6 +86,42 @@ const diningOptions = [
   ["SCHOOL_LUNCH", "學校午餐"],
 ] as const;
 
+type CurrentDiningType = (typeof diningOptions)[number][0];
+
+const diningLabels = Object.fromEntries(diningOptions) as Record<
+  CurrentDiningType,
+  string
+>;
+
+// Keep this small client-side mirror in sync with seed-data.ts without pulling
+// the full rule payload into the workbench bundle.
+const currentDinerUseMinutes: Record<CurrentDiningType, string> = {
+  CHINESE: "720",
+  WESTERN: "720",
+  JAPANESE: "720",
+  RAMEN: "720",
+  UDON_SOBA: "720",
+  LIGHT_MEAL: "720",
+  FOOD_COURT: "720",
+  FAST_FOOD: "720",
+  FACTORY_CAFETERIA: "600",
+  STUDENT_CAFETERIA: "600",
+  SCHOOL_LUNCH: "480",
+};
+
+const currentAreaUseMinutes: Partial<Record<CurrentDiningType, string>> = {
+  CHINESE: "720",
+  WESTERN: "720",
+  JAPANESE: "720",
+  RAMEN: "720",
+  UDON_SOBA: "720",
+  LIGHT_MEAL: "720",
+  FOOD_COURT: "720",
+  FAST_FOOD: "720",
+  FACTORY_CAFETERIA: "600",
+  STUDENT_CAFETERIA: "600",
+};
+
 const taskLabels: Record<string, string> = {
   T01_DINERS_TO_FLOW: "人數換算流量",
   T02_DINERS_TO_DESIGN: "人數規劃設計需求",
@@ -99,6 +135,7 @@ type VisibleInputSourceType =
   | "工程選值"
   | "設備資料"
   | "實測資料"
+  | "來源表值"
   | "覆寫值";
 
 const inputSourceDescriptions: Record<VisibleInputSourceType, string> = {
@@ -106,6 +143,7 @@ const inputSourceDescriptions: Record<VisibleInputSourceType, string> = {
   工程選值: "需依來源範圍、餐飲型態或工程理由選定。",
   設備資料: "來自設備能力、有效容積或證據文件。",
   實測資料: "來自現場量測或營運紀錄。",
+  來源表值: "由所選餐飲類型帶出的規範表預設參數。",
   覆寫值: "有案件證據時取代來源表預設值。",
 };
 
@@ -114,6 +152,7 @@ const inputSourceTones: Record<VisibleInputSourceType, string> = {
   工程選值: "engineering",
   設備資料: "equipment",
   實測資料: "measured",
+  來源表值: "source",
   覆寫值: "override",
 };
 
@@ -165,8 +204,8 @@ const fieldHelp = {
   },
   actualUseMinutes: {
     description:
-      "只有在已知本案每日實際使用時間，且要取代內政部來源表 t 值時填寫。",
-    note: "此欄屬於覆寫值；請確認資料來源，報告會標示為特殊條件。",
+      "覆寫現行內政部給排水規範（附錄 5）流量 Q 公式中的 t（每日使用時間，min/day）。留空時使用下方顯示的來源表預設值。",
+    note: "填入後會影響 Q 計算與設備能力反推，不會改變油脂／殘渣清除週期。請只在有本案營運時間證據時填寫。",
   },
   greaseDays: {
     description: "填寫兩次完整清除油脂之間的天數；本計算依據允許 7～14 day。",
@@ -218,13 +257,12 @@ const fieldHelp = {
     note: "B、C 類不可只靠類別自動猜值，請確認 exact k 並留下選擇理由。",
   },
   legacyReason: {
-    description:
-      "說明 q、餐飲類別與 exact k 的選用依據，供後續工程覆核與追溯。",
+    description: "說明 q、餐飲類別與 exact k 的選用依據，讓報告數字可追溯。",
     note: "例如：餐飲型態、來源表格、實測紀錄或工程判斷。",
   },
   selectionSourceType: {
     description: "選擇 q、餐飲分類或 exact k 的主要依據來源類型。",
-    note: "這會進入報告條件摘要，協助覆核者判斷數字憑什麼來。",
+    note: "這會進入報告條件摘要，讓日後能判斷數字憑什麼來。",
   },
   selectionBasis: {
     description: "用一句話說明為什麼採用這組 q、分類與 exact k。",
@@ -391,9 +429,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     );
   if (!item) return null;
 
-  const readonly = ["IN_REVIEW", "REVIEWED", "ISSUED", "SUPERSEDED"].includes(
-    item.lifecycle_status,
-  );
+  const readonly = ["ISSUED", "SUPERSEDED"].includes(item.lifecycle_status);
   const currentEnabled = item.mode !== "LEGACY_QV";
   const legacyEnabled = item.mode !== "CURRENT_QG";
   const displayTitle = item.title.trim() || item.case_no;
@@ -546,8 +582,8 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                 className="state-banner warning"
                 style={{ marginBottom: 16 }}
               >
-                <strong>可完成報告草稿：已有一軌完成。</strong>
-                <p>另一軌未計算，不影響本次放行；你仍可補齊後重新計算。</p>
+                <strong>可產生報告：已有一軌完成。</strong>
+                <p>另一軌未計算，不影響本次核發；你仍可補齊後重新計算。</p>
               </div>
             ) : null}
             {item.calculation_status === "BLOCKED" ? (
@@ -557,7 +593,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
               </div>
             ) : null}
             <DesignResultsTable mode={item.mode} runs={designResultRuns} />
-            {item.lifecycle_status === "CALCULATED" ? (
+            {isReportReady(item) ? (
               <NextAction item={item} placement="result" />
             ) : null}
           </section>
@@ -574,12 +610,7 @@ function NextAction({
   item: CaseDetail;
   placement?: "summary" | "result";
 }) {
-  if (
-    item.lifecycle_status === "CALCULATED" &&
-    ["COMPLETE", "COMPLETE_WITH_REMINDER"].includes(
-      item.calculation_status ?? "",
-    )
-  ) {
+  if (isReportReady(item)) {
     if (placement !== "result") return null;
     return (
       <div
@@ -591,52 +622,25 @@ function NextAction({
       >
         <strong>
           {item.calculation_status === "COMPLETE_WITH_REMINDER"
-            ? "已有一軌完成；先完成報告草稿，另一軌未計算不影響放行。"
-            : "計算已完成；下一步先完成報告草稿。"}
+            ? "已有一軌完成；可預覽並核發報告，另一軌未計算不影響核發。"
+            : "計算已完成；下一步預覽並核發報告。"}
         </strong>
         <div className="button-row" style={{ marginTop: 12 }}>
           <Link
             className="button primary"
             href={`/cases/${item.caseId}/report`}
           >
-            完成報告草稿
+            預覽並核發報告
           </Link>
         </div>
       </div>
     );
   }
-  if (item.lifecycle_status === "CALCULATED" && placement !== "result") {
+  if (
+    ["CALCULATED", "IN_REVIEW", "REVIEWED"].includes(item.lifecycle_status) &&
+    placement !== "result"
+  ) {
     return null;
-  }
-  if (item.lifecycle_status === "IN_REVIEW") {
-    return (
-      <div className="state-banner">
-        <strong>送審報告已完成；現在進行最後一次工程審核。</strong>
-        <div className="button-row" style={{ marginTop: 12 }}>
-          <Link
-            className="button primary"
-            href={`/cases/${item.caseId}/review`}
-          >
-            開始最終審核
-          </Link>
-        </div>
-      </div>
-    );
-  }
-  if (item.lifecycle_status === "REVIEWED") {
-    return (
-      <div className="state-banner">
-        <strong>最終覆核已完成，可以預覽並核發此版本。</strong>
-        <div className="button-row" style={{ marginTop: 12 }}>
-          <Link
-            className="button primary"
-            href={`/cases/${item.caseId}/report`}
-          >
-            預覽報告
-          </Link>
-        </div>
-      </div>
-    );
   }
   if (item.lifecycle_status === "ISSUED") {
     const report = item.reports.find((value) => value.status === "ISSUED");
@@ -668,6 +672,15 @@ function NextAction({
     <div className="state-banner">
       <strong>先填完任一可用軌的必要資料，即可開始計算。</strong>
     </div>
+  );
+}
+
+function isReportReady(item: CaseDetail) {
+  return (
+    ["CALCULATED", "IN_REVIEW", "REVIEWED"].includes(item.lifecycle_status) &&
+    ["COMPLETE", "COMPLETE_WITH_REMINDER"].includes(
+      item.calculation_status ?? "",
+    )
   );
 }
 
@@ -786,6 +799,10 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
       <details className="input-matrix-details">
         <summary>特殊條件 / 有資料再填</summary>
         <InputMatrix nested>
+          <CurrentUseTimeReference
+            diningType={values.diningType}
+            taskCode={taskCode}
+          />
           <OptionalNumberField
             id="actual-use-minutes"
             label="每日實際使用時間"
@@ -795,10 +812,183 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
             value={values.actualUseMinutes}
             onChange={(value) => set("actualUseMinutes", value)}
           />
+          <CurrentUseTimeOverrideEffect
+            diningType={values.diningType}
+            taskCode={taskCode}
+            actualUseMinutes={values.actualUseMinutes}
+          />
         </InputMatrix>
+        <CurrentUseTimeSourceTable diningType={values.diningType} />
       </details>
     </InputMatrix>
   );
+}
+
+function CurrentUseTimeSourceTable({ diningType }: { diningType: string }) {
+  const selectedDiningType = isDiningType(diningType) ? diningType : null;
+  return (
+    <details className="field-reference current-t-source-table" open>
+      <summary>內政部每日使用時間 t 來源表</summary>
+      <div className="reference-table-wrap">
+        <table className="reference-table current-t-table">
+          <thead>
+            <tr>
+              <th>餐飲類型</th>
+              <th>人數法 A-37 t</th>
+              <th>面積法 A-34～A-36 t</th>
+            </tr>
+          </thead>
+          <tbody>
+            {diningOptions.map(([value, label]) => {
+              const selected = value === selectedDiningType;
+              return (
+                <tr
+                  aria-current={selected ? "true" : undefined}
+                  className={selected ? "reference-selected" : undefined}
+                  key={value}
+                >
+                  <th scope="row">
+                    {label}
+                    {selected ? (
+                      <span className="current-table-badge">目前選用</span>
+                    ) : null}
+                  </th>
+                  <td data-label="人數法 A-37 t">
+                    {currentDinerUseMinutes[value]} min/day
+                  </td>
+                  <td data-label="面積法 A-34～A-36 t">
+                    {currentAreaUseMinutes[value]
+                      ? `${currentAreaUseMinutes[value]} min/day`
+                      : "不適用"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p>填寫每日實際使用時間後，系統才會用本案值取代目前選用列的 t。</p>
+    </details>
+  );
+}
+
+function isDiningType(value: string): value is CurrentDiningType {
+  return diningOptions.some(([option]) => option === value);
+}
+
+function CurrentUseTimeReference({
+  diningType,
+  taskCode,
+}: {
+  diningType: string;
+  taskCode: string;
+}) {
+  const reference = buildCurrentUseTimeReference(taskCode, diningType);
+  return (
+    <InputMatrixDetail label="被覆寫的 t" sourceType="來源表值">
+      <div className="current-t-reference">
+        {reference ? (
+          <>
+            <strong>{reference.heading}</strong>
+            <span>{reference.lines.join("；")}</span>
+            <small>留空時，計算使用以上來源表 t；填入本案值後才會覆寫。</small>
+          </>
+        ) : (
+          <span>先選餐飲類型後，這裡會顯示被覆寫的來源表 t 預設值。</span>
+        )}
+      </div>
+    </InputMatrixDetail>
+  );
+}
+
+function buildCurrentUseTimeReference(taskCode: string, diningType: string) {
+  if (!isDiningType(diningType)) return null;
+  const reverse = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
+  const area =
+    taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
+  const lines: string[] = [];
+
+  if (!area || reverse) {
+    lines.push(`人數法 A-37：t=${currentDinerUseMinutes[diningType]} min/day`);
+  }
+
+  if (area || reverse) {
+    const areaUseMinutes = currentAreaUseMinutes[diningType];
+    lines.push(
+      areaUseMinutes
+        ? `面積法 A-34～A-36：t=${areaUseMinutes} min/day`
+        : "面積法 A-34～A-36：此餐飲類型無來源表 t 值",
+    );
+  }
+
+  return {
+    heading: diningLabels[diningType],
+    lines,
+  };
+}
+
+function CurrentUseTimeOverrideEffect({
+  diningType,
+  taskCode,
+  actualUseMinutes,
+}: {
+  diningType: string;
+  taskCode: string;
+  actualUseMinutes: string;
+}) {
+  const effect = buildCurrentUseTimeOverrideEffect(
+    taskCode,
+    diningType,
+    actualUseMinutes,
+  );
+  return (
+    <InputMatrixDetail label="覆寫後代入" sourceType="覆寫值">
+      <div className={`current-t-reference ${effect.tone}`} aria-live="polite">
+        <strong>{effect.heading}</strong>
+        {effect.lines.map((line) => (
+          <span key={line}>{line}</span>
+        ))}
+        <small>{effect.note}</small>
+      </div>
+    </InputMatrixDetail>
+  );
+}
+
+function buildCurrentUseTimeOverrideEffect(
+  taskCode: string,
+  diningType: string,
+  actualUseMinutes: string,
+) {
+  const reference = buildCurrentUseTimeReference(taskCode, diningType);
+  if (!reference) {
+    return {
+      heading: "尚未判定",
+      lines: ["先選餐飲類型，系統才知道要覆寫哪一個來源表 t。"],
+      note: "這個欄位不會影響臺北市舊法的操作時間 t。",
+      tone: "pending",
+    };
+  }
+
+  const overrideValue = actualUseMinutes.trim();
+  const targetText = reference.lines
+    .map((line) => line.replace(/^(.+?)：t=(.+)$/, "$1 來源表 t=$2"))
+    .join("；");
+
+  if (!overrideValue) {
+    return {
+      heading: "目前未覆寫",
+      lines: [`計算仍使用：${targetText}`],
+      note: "要改用本案每日實際使用時間時，請在上一列輸入 min/day。",
+      tone: "pending",
+    };
+  }
+
+  return {
+    heading: "將覆寫來源表 t",
+    lines: [`${targetText} → 本案 t=${overrideValue} min/day`],
+    note: "此值會代入現行內政部附錄 5 的流量 Q 公式與設備能力反推。",
+    tone: "active",
+  };
 }
 
 function LegacyFields({ taskCode, values, setValues }: FieldProps) {
@@ -1226,6 +1416,7 @@ function InputSourceLegend() {
     "工程選值",
     "設備資料",
     "實測資料",
+    "來源表值",
     "覆寫值",
   ];
   return (

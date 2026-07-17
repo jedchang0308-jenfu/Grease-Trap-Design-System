@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { env } from "@/config/env";
+import { PublicSessionGate } from "@/ui/auth/public-session-gate";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: { default: "油脂截留器計算系統", template: "%s｜油脂截留器計算系統" },
-  description: "鉦富機械內部使用的油脂截留器雙軌計算與工程覆核系統",
+  description: "鉦富機械使用的油脂截留器雙軌計算與報告核發系統",
   icons: { icon: "/icon.svg" },
 };
 
@@ -26,7 +28,11 @@ export default function RootLayout({
             <Link href="/rules">規則</Link>
           </nav>
         </header>
-        <main id="main-content">{children}</main>
+        <main id="main-content">
+          <PublicSessionGate enabled={env.AUTH_BACKEND === "firebase"}>
+            {children}
+          </PublicSessionGate>
+        </main>
       </body>
     </html>
   );

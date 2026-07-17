@@ -72,7 +72,7 @@ export function CasesList() {
     const displayTitle = item.title.trim() || item.caseNo;
     if (
       !window.confirm(
-        `確定刪除案件「${displayTitle}」（${item.caseNo}）？\n\n這會刪除案件的全部修訂、計算結果、覆核與報告紀錄，且無法復原。`,
+        `確定刪除案件「${displayTitle}」（${item.caseNo}）？\n\n這會刪除案件的全部修訂、計算結果與報告紀錄，且無法復原。`,
       )
     ) {
       return;
@@ -148,8 +148,6 @@ export function CasesList() {
               <option value="">全部狀態</option>
               <option value="DRAFT">草稿</option>
               <option value="CALCULATED">已計算</option>
-              <option value="IN_REVIEW">覆核中</option>
-              <option value="REVIEWED">已覆核</option>
               <option value="ISSUED">已核發</option>
               <option value="BLOCKED">待補資料</option>
             </select>

@@ -30,15 +30,6 @@ export interface PersistedOverride {
   createdAt: string;
 }
 
-export interface PersistedReview {
-  preparedBy: string;
-  reviewedBy: string;
-  checklist: Record<string, boolean>;
-  decision: "APPROVED" | "RETURNED";
-  note: string;
-  reviewedAt: string;
-}
-
 export interface ReportSummary {
   id: string;
   snapshotHash: string;
@@ -77,8 +68,6 @@ export interface CaseRecord {
   created_by_name: string;
   prepared_by: string | null;
   prepared_by_name: string | null;
-  reviewed_by: string | null;
-  reviewed_by_name: string | null;
   issued_by: string | null;
   issued_by_name: string | null;
   created_at: string;
@@ -86,7 +75,6 @@ export interface CaseRecord {
   calculations: PersistedCalculation[];
   assessments: PersistedAssessment[];
   overrides: PersistedOverride[];
-  review: PersistedReview | null;
   reports: ReportSummary[];
   latestReportId: string | null;
   calculationRequests: Record<string, CalculationRequestCache>;

@@ -48,8 +48,6 @@ export async function createCase(
     created_by_name: user.displayName,
     prepared_by: null,
     prepared_by_name: null,
-    reviewed_by: null,
-    reviewed_by_name: null,
     issued_by: null,
     issued_by_name: null,
     created_at: now,
@@ -57,7 +55,6 @@ export async function createCase(
     calculations: [],
     assessments: [],
     overrides: [],
-    review: null,
     reports: [],
     latestReportId: null,
     calculationRequests: {},
@@ -141,5 +138,7 @@ export function presentCase(record: CaseRecord) {
   const item = structuredClone(record) as unknown as Record<string, unknown>;
   delete item.calculationRequests;
   delete item.review;
+  delete item.reviewed_by;
+  delete item.reviewed_by_name;
   return { ...item, caseId: record.case_group_id };
 }

@@ -100,7 +100,8 @@ describe("report presentation model", () => {
       groups[0].rows.find((row) => row.label === "每日實際使用時間"),
     ).toMatchObject({
       role: "覆寫值",
-      sourceNote: "取代來源表 t 值；需保留案件依據。",
+      sourceNote:
+        "取代內政部附錄 5 流量 Q 公式中的 t（每日使用時間）；需保留案件依據。",
     });
     expect(
       groups[1].rows.find((row) => row.label === "選值原因"),

@@ -24,6 +24,12 @@ const state =
 
 globalThis.__gtcMemoryState = state;
 
+const issueableLifecycleStatuses = new Set([
+  "CALCULATED",
+  "IN_REVIEW",
+  "REVIEWED",
+]);
+
 function copy<T>(value: T): T {
   return structuredClone(value);
 }
@@ -108,7 +114,7 @@ export class MemoryCaseStore implements CaseStore {
     }
     if (
       record.version !== expectedVersion ||
-      record.lifecycle_status !== "REVIEWED"
+      !issueableLifecycleStatuses.has(record.lifecycle_status)
     ) {
       throw new AppProblem({
         code: "ISSUE_STATE_CHANGED",

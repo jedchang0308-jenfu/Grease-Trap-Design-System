@@ -1,5 +1,3 @@
-import { sha256 } from "@/domain/shared/canonical";
-
 export const diningTypes = [
   "CHINESE",
   "WESTERN",
@@ -436,6 +434,3 @@ export const legacyRulePayload = {
     code.startsWith("DISC-LEG"),
   ),
 };
-
-export const currentRuleChecksum = sha256(currentRulePayload);
-export const legacyRuleChecksum = sha256(legacyRulePayload);

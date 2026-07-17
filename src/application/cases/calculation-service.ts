@@ -53,15 +53,11 @@ export async function calculateCase(payload: unknown, user: AuthenticatedUser) {
       return { next: caseRow, result: existing.response };
     }
 
-    if (
-      ["IN_REVIEW", "REVIEWED", "ISSUED", "SUPERSEDED"].includes(
-        caseRow.lifecycle_status,
-      )
-    ) {
+    if (["ISSUED", "SUPERSEDED"].includes(caseRow.lifecycle_status)) {
       throw new AppProblem({
         code: "CASE_READ_ONLY",
         title: "目前版本不可重新計算",
-        userMessage: "請先退回草稿，或為已核發案件建立新修訂版。",
+        userMessage: "已核發版本不可重新計算；若內容需變更，請建立新修訂版。",
         status: 409,
       });
     }
@@ -194,13 +190,10 @@ export async function calculateCase(payload: unknown, user: AuthenticatedUser) {
         version: newVersion,
         prepared_by: user.id,
         prepared_by_name: user.displayName,
-        reviewed_by: null,
-        reviewed_by_name: null,
         issued_by: null,
         issued_by_name: null,
         calculations,
         assessments,
-        review: null,
         reports: [],
         latestReportId: null,
         calculationRequests: trimmedRequestCache,

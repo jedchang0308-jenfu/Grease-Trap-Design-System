@@ -1,13 +1,13 @@
 # SPEC-001｜油脂截留器雙軌計算系統：功能與工程契約
 
 文件狀態：`RD Implementation Ready`
-版本：`1.3`
-日期：`2026-07-15`
+版本：`1.5`
+日期：`2026-07-17`
 權威範圍：功能語意、公式、參數、資料模型、API、狀態機、交易、報告與驗收
 
 ## 1. 目標與成功定義
 
-本系統讓鉦富已授權的內部使用者依客戶不同的已知資料與目標，使用不同計算依據完成計算、覆核與設計計算書核發；同一位使用者可以完成整個責任流程。
+本系統讓取得試用網址的鉦富同事依客戶不同的已知資料與目標，使用不同計算依據完成計算、預覽與設計計算書核發；第一版不要求帳號或角色，同一位使用者可以完成整個一人作業流程。
 
 ### 對外計算依據命名契約
 
@@ -23,11 +23,11 @@
 
 1. 五個客戶任務在兩軌都可獨立執行。
 2. 每個結果可追到輸入、單位、公式、參數、來源頁與規則版本。
-3. 雙軌只要一軌有效即可覆核與核發；不足軌只提醒。
+3. 雙軌只要一軌有效即可預覽與核發；不足軌只提醒。
 4. 正向與反向計算共用相同 domain 規則，不建立平行公式。
 5. 已核發報告可由不可變快照重現。
 6. 系統只處理設計計算，不建立產品型號或證書匹配功能。
-7. 編製者可在送出最終覆核前產生完整報告草稿；人工覆核以該報告及其依據為單一主要對象。
+7. 使用者可在核發前預覽完整報告；核發後以不可變快照保存。
 
 ## 2. Scope
 
@@ -39,7 +39,7 @@
 - 臺北市工務局衛工處設計說明的 Q/V：人數法、面積法、有效容積反推。
 - 不同計算依據隔離執行與任一份有效資料放行。
 - 版本化法規來源、參數表、來源差異與規則快照。
-- 工程覆核、退回、override、報告快照與 PDF。
+- 工程 override、報告預覽、報告快照與 PDF。
 - 雲端內部存取所需的 provider-neutral 身份與授權契約。
 - audit 與第一階段自動化／人工驗收。
 
@@ -349,7 +349,7 @@ A_by_G = 1000 × Gcapacity × n0 / (n × (gu × iu + gb × ib))
 
 ## 10. 精度與捨入
 
-- domain 使用 Decimal 字串保存與運算；Firestore／memory adapter 不得把正式數值轉為 JavaScript 浮點數後再判定。
+- domain 使用 Decimal 字串保存與運算；local-file／memory／Firestore adapter 不得把正式數值轉為 JavaScript 浮點數後再判定。
 - `rawValue`：完整運算與匹配，不先截斷。
 - `sourceDisplayValue`：重現來源顯示，只作 QA evidence。
 - `adoptedValue`：正式報告採用值。
@@ -357,7 +357,7 @@ A_by_G = 1000 × Gcapacity × n0 / (n × (gu × iu + gb × ib))
 - 反推人數：向下至整數。
 - 反推面積：向下至 0.1 m²，向下後必須重跑限制條件。
 - 正向需求與反推限制比較一律用 raw 值；不得用來源截斷值或畫面格式值。
-- 任何人工採用不同值必須建立 `EngineeringOverride`，保存前值、後值、理由、依據與覆核。
+- 任何人工採用不同值必須建立 `EngineeringOverride`，保存前值、後值、理由與依據。
 
 ## 11. 設計能力輸入與功能邊界
 
@@ -384,7 +384,7 @@ ERROR
 
 ### 12.2 案件級 CalculationStatus
 
-| 模式 | 有效軌數 | 狀態                     | 可建立報告草稿 |
+| 模式 | 有效軌數 | 狀態                     | 可預覽並核發 |
 | ---- | -------: | ------------------------ | -------------- |
 | 單軌 |        1 | `COMPLETE`               | 是             |
 | 單軌 |        0 | `BLOCKED`                | 否             |
@@ -396,7 +396,7 @@ ERROR
 
 - 保留成功軌的完整、不可變 run。
 - 將不足軌顯示為「未計算」，列出原因。
-- `完成報告草稿` 保持可用；送審後再進入最終覆核。
+- `預覽並核發報告` 保持可用。
 - 不宣稱已完成雙軌數值比較。
 
 ## 13. 案件生命週期
@@ -405,8 +405,6 @@ ERROR
 DRAFT
   → INPUT_READY
   → CALCULATED
-  → IN_REVIEW
-  → REVIEWED
   → ISSUED
   → SUPERSEDED
 ```
@@ -415,23 +413,22 @@ DRAFT
 
 - `DRAFT → INPUT_READY`：單軌必要資料完整；雙軌至少一軌完整。
 - `INPUT_READY → CALCULATED`：狀態為 COMPLETE 或 COMPLETE_WITH_REMINDER。
-- `CALCULATED → IN_REVIEW`：工程人員先預覽並完成報告草稿，再提交最終覆核；草稿預覽本身不等於核准。
-- `IN_REVIEW → REVIEWED`：目前使用者完成覆核；或退回 `CALCULATED` 並記錄原因。
-- `REVIEWED → ISSUED`：以 reviewed revision 建立報告快照與 PDF。
-- `CALCULATED` 與 `IN_REVIEW` 均可讀取 deterministic 報告草稿預覽；`IN_REVIEW` 後不得再新增人工採用，退回後回到 `CALCULATED` 修正。
-- 同一 actor 可以依序完成 `CALCULATED → 報告草稿 → IN_REVIEW → REVIEWED → ISSUED`；`preparedBy`、`reviewedBy`、`issuedBy` 與時間必須分開保存，但不要求法規級 audit event stream。
+- `CALCULATED → ISSUED`：工程人員預覽完整報告後直接核發，以當下 revision 建立報告快照與 PDF。
+- `CALCULATED` 可讀取 deterministic 報告預覽；核發前仍可重新計算或記錄人工採用。
+- 同一 actor 可以依序完成 `CALCULATED → 預覽 → ISSUED`；snapshot 保存 `preparedBy` 與 `issuedBy`，不保存 `reviewedBy`。
+- Legacy compatibility：既有資料若仍處於 `IN_REVIEW` 或 `REVIEWED`，service 與 UI 應視為可預覽／可核發狀態，不重新暴露送審、覆核或退回功能。
 - 已核發輸入不可修改；變更時建立新 case revision。新修訂核發後，前版標 `SUPERSEDED`，檔案保留。
 - `BLOCKED` 是計算狀態，不是案件生命週期；阻擋時案件留在 DRAFT／INPUT_READY 並顯示補資料動作。
 
 ## 14. 資料模型
 
-所有 ID 使用 UUID／ULID，時間以 UTC ISO 8601 字串保存，顯示時轉 Asia/Taipei。正式環境使用 Firebase Auth、Cloud Firestore 與 Cloud Storage；本機 memory adapter 必須遵守相同 application contract。
+所有 ID 使用 UUID／ULID，時間以 UTC ISO 8601 字串保存，顯示時轉 Asia/Taipei。正式環境使用 Firebase Auth、Cloud Firestore 與 Cloud Storage；本機 local-file adapter 與測試 memory adapter 必須遵守相同 application contract。
 
 ### 14.1 Firestore collections
 
 | Collection | Document | 必要內容與約束 |
 | --- | --- | --- |
-| `cases` | `{caseGroupId}` | 目前 revision 的案件 aggregate：輸入、狀態、version、計算結果、assessment、override、review、report summary、有限 idempotency cache |
+| `cases` | `{caseGroupId}` | 目前 revision 的案件 aggregate：輸入、狀態、version、計算結果、assessment、override、report summary、有限 idempotency cache |
 | `reports` | `{reportId}` | snapshot、snapshot hash、caseGroupId、revisionNo、report number、storage path、createdBy、issuedBy、issuedAt |
 | `system` | `health` | 僅供 server healthcheck；不存在也不得造成寫入 |
 
@@ -442,9 +439,9 @@ DRAFT
 - 所有正式輸入先經 schema／domain 驗證；清除週期等限制不得只依賴資料庫。
 - `CaseStore.mutate` 必須原子檢查 optimistic version 與 lifecycle，Firestore adapter 使用 transaction。
 - 相同 idempotency key 與相同 payload 回傳原結果；不同 payload 回傳 409。
-- `IN_REVIEW`、`REVIEWED`、`ISSUED`、`SUPERSEDED` 不得重新計算；修改需建立 revision。
+- `ISSUED`、`SUPERSEDED` 不得重新計算；修改需建立 revision。Legacy `IN_REVIEW`、`REVIEWED` 資料可回到一人模式繼續重算或核發。
 - report snapshot 建立後不更新；刪除案件時一併刪除 report metadata，Storage object 由 report storage 流程處理。
-- production 強制 Firebase backend；memory 只允許 development／test。
+- production 強制 Firebase backend；local-file 只允許 development，memory 只允許 test 或明確指定的本機除錯。
 - Firestore／Storage client rules deny all；所有業務存取由 server Admin SDK 驗證身份後執行。
 
 ## 15. API／Service Contract
@@ -456,12 +453,10 @@ DRAFT
 | POST   | `/api/cases`                               | 建立案件與 revision 1                                    |
 | GET    | `/api/cases`                               | 案件清單、篩選、分頁                                     |
 | GET    | `/api/cases/{caseId}`                      | 案件、當前 revision、狀態與摘要                          |
-| DELETE | `/api/cases/{caseId}`                      | 刪除案件及其全部修訂、計算、覆核與報告紀錄               |
+| DELETE | `/api/cases/{caseId}`                      | 刪除案件及其全部修訂、計算與報告紀錄                     |
 | PATCH  | `/api/cases/{caseId}/revisions/{revision}` | 只修改未核發 revision，使用 optimistic version           |
 | POST   | `/api/cases/{caseId}/calculate`            | 建立 track assessments 與成功 runs                       |
-| GET    | `/api/cases/{caseId}/report-preview`       | 產生計算完成後可送審的報告草稿預覽，或讀取覆核／核發版本 |
-| POST   | `/api/cases/{caseId}/submit-review`        | 提交覆核                                                 |
-| POST   | `/api/cases/{caseId}/review`               | 接受或退回                                               |
+| GET    | `/api/cases/{caseId}/report-preview`       | 產生計算完成後可核發的報告預覽，或讀取已核發版本         |
 | POST   | `/api/cases/{caseId}/issue`                | 建立快照與 PDF job/result                                |
 | POST   | `/api/cases/{caseId}/revisions`            | 由已核發案件建立新修訂                                   |
 | GET    | `/api/rule-sets`                           | 查詢規則與來源                                           |
@@ -518,26 +513,17 @@ CreateCalculationResponse
 - `idempotencyKey + caseRevision` 防止重送；相同 key 不同 payload 回 409。
 - case revision 使用 optimistic concurrency；版本不符回 409 並提示重新載入。
 - RuleSet activation 需排他鎖、checksum 與完整回歸證據；失敗保持 DRAFT。
-- issue transaction 鎖定 reviewed revision，驗證未變更後建立 snapshot、audit 與 report record；PDF render 失敗可重試，但只能讀同一 snapshot。
+- issue transaction 鎖定目前可核發 revision，驗證未變更後建立 snapshot 與 report record；PDF render 失敗可重試，但只能讀同一 snapshot。
 - retry 不得建立新計算結果或新報告版本；使用 deterministic snapshot hash 去重。
 
-## 17. 身份與權限
+## 17. 身份與存取
 
-| 動作                     | ENGINEER | RULE_ADMIN | SYSTEM_ADMIN |
-| ------------------------ | -------: | ---------: | -----------: |
-| 建立／編輯草稿案件       |        ✓ |         讀 |           讀 |
-| 刪除案件及其全部關聯資料 |        ✓ |         讀 |           讀 |
-| 計算／重算               |        ✓ |         讀 |           讀 |
-| 提交、覆核／退回         |        ✓ |         讀 |           讀 |
-| 核准 override            |        ✓ |          - |           讀 |
-| 預覽與核發報告           |        ✓ |         讀 |           讀 |
-| 建立／啟用 RuleSet       |       讀 |          ✓ |           讀 |
-| 管理使用者角色           |        - |          - |            ✓ |
-
-- 同一帳號可同時具有多個 capability；第一版不要求編製與覆核帳號分離。
-- 雲端 End-State 的所有業務 route 與 API 都必須 authenticated；匿名、停用帳號、過期 session、角色不足與未授權案件存取一律拒絕。
-- API 必須 server-side 驗證權限；隱藏按鈕不是權限控制。
-- 所有覆核、override、規則啟用與核發動作寫 audit；即使 actor 相同也不得合併事件。
+- 第一版採公開連結模式。瀏覽器載入後自動以 Firebase Anonymous Auth 建立暫時身份，交換 `httpOnly` session cookie 後進入系統，不顯示帳密登入。
+- Firebase token 不需要 `role` 或 `roles` custom claims；任何有效 Firebase identity 取得目前全部應用能力。既有 `ENGINEER`、`RULE_ADMIN`、`SYSTEM_ADMIN` 型別只保留為 server capability 相容層。
+- 沒有有效 token／session 的直接 API 請求、偽造 token 與過期 session 仍拒絕；瀏覽器入口必須可自動建立或重建 session。
+- Firestore／Storage client rules 維持 deny all；API 必須由 server-side 驗證 Firebase identity，隱藏按鈕不構成安全控制。
+- 所有案件為共享資料，不提供使用者隔離。知道網址的人可建立、讀取、修改、刪除、計算、override、預覽與核發。
+- override、規則啟用與核發動作仍保存 anonymous actor uid 與時間，但該 uid 不代表已驗證真實人員身份。
 
 ## 18. ReportSnapshot 與 PDF
 
@@ -548,7 +534,7 @@ CreateCalculationResponse
 - TrackAssessment、CalculationRun、每一步公式與來源。
 - RuleSet、FactorTable、source hash 與 discrepancy resolution。
 - raw、source display、adopted result。
-- warnings、override、編製／覆核／核發紀錄。
+- warnings、override、編製／核發紀錄。
 - 客戶報告第一個資訊區塊必須依序呈現「本次輸入條件 → 計算依據 → 本次設計結果」，讓讀者不需先閱讀公式即可辨識本次算了什麼。
 - 輸入條件只能讀取不可變快照中的 `inputs`，只列本次實際完成計算軌所使用且有值的欄位；不得查詢 live case／live rule，不得以 `0`、空白或推測值補齊。
 - `inputs` 可保存報告溝通與稽核用 metadata，例如 `selectionSourceType`、`selectionBasis`、`selectionEvidence` 與內政部 `actualUseMinutes`；metadata 不得改變計算語意，除非 SPEC 明確允許該欄位取代來源表值。
@@ -556,17 +542,17 @@ CreateCalculationResponse
 - 輸入與代入值必須區分「本案條件」「計算依據參數」「計算中間值」；每個代入數字均需有名稱、符號、數值、單位與資料角色，原始數值算式另以具名欄位保留。
 - 結果以計算依據為欄、輸出項目為列；未完成軌顯示「未完成」，該計算依據本來就不產出的項目顯示「此依據無法計算」，兩者不得混用。
 - 客戶報告的結果對照表只使用可直接比較的統一單位：設計處理水量一律換算為 `L/min`。來源公式的原始單位保留在完整計算過程，並緊接列出 `L/min` 統一比對值；`G` 為清除週期油脂量，使用 `kg`，不得標示為 `kg/day`；`Veff` 統一稱為有效容積，使用 `L`。
-- 尚未覆核的草稿可標示 `PENDING` 與「尚未審核」；正式核發快照必須包含 `APPROVED` 覆核紀錄。
+- 尚未核發的預覽不得標示為正式報告；正式核發快照必須包含 issued actor、issuedAt 與 snapshot hash。
 - 功能範圍聲明：未執行產品型號或證書符合性判定。
 - snapshot schema version 與 hash。
 
-客戶 PDF 章節固定為：`本次設計一覽`（案件資料、輸入條件、計算依據、設計結果）與 `完整計算過程`（各方法使用條件、具名代入、數值算式、結果與統一比對值）。系統審核計畫、audit、checksum、內部狀態與工程責任資料保留在快照及內部介面，不放入客戶 PDF。
+客戶 PDF 章節固定為：`本次設計一覽`（案件資料、輸入條件、計算依據、設計結果）與 `完整計算過程`（各方法使用條件、具名代入、數值算式、結果與統一比對值）。內部檢查資料、audit、checksum、內部狀態與工程責任資料保留在快照及內部介面，不放入客戶 PDF。
 
 客戶 PDF 的 5 秒驗收：第一個資訊區塊可直接回答「輸入什麼條件、依什麼來源、輸出什麼結果」；完整計算頁不得出現無名稱或無單位的裸數字鏈。
 
 `COMPLETE_WITH_REMINDER` 首頁固定標示「雙軌案件—單軌完成」；未完成軌章節顯示「未計算」及原因，不出現空白假數值。
 
-正式 `reportNumber` 透過 `ReportNumberGenerator` port 產生；格式在首次 production release 前由公司確認。local/dev 使用 `DRAFT-{ULID}`，不得冒充正式核發編號。
+正式 `reportNumber` 透過 `ReportNumberGenerator` port 產生；格式在首次 production release 前由公司確認。local/dev 使用 `RDR-{ULID}`，報告編號不得出現 `DRAFT` 字樣。
 
 ## 19. Definition of Done
 
@@ -575,24 +561,24 @@ CreateCalculationResponse
 3. A-34～A-37 與舊版參數由版本化 seed 建立，checksum 可查。
 4. 現行、舊版官方案例及來源錯字回歸全部通過。
 5. 正向、反向、單位、精度、嚴格不等式及 n0 solver 測試通過。
-6. 雙軌一軌成功時可覆核與核發；兩軌皆失敗才阻擋。
+6. 雙軌一軌成功時可預覽與核發；兩軌皆失敗才阻擋。
 7. 未完成軌無假 run、假數值或跨軌借值。
 8. 權限、idempotency、optimistic concurrency 與 snapshot 更新不可變測試通過。
 9. PDF 可由 snapshot 重現，重新 render hash／內容一致。
 10. SPEC-002 與 QA-001 的 UI／QC gate 通過。
-11. 同一位已授權使用者不需切換帳號即可完成編製、覆核與核發，各責任事件可追溯。
+11. 使用者開啟網址後不需帳號或角色設定，即可完成建案、計算、預覽與核發。
 12. schema、API、UI 與 PDF 均不存在產品型號或證書匹配功能。
-13. 所有雲端業務 route／API 的匿名、session 過期、角色不足與未授權案件負向測試通過。
+13. Firebase anonymous identity 無 role claims 可建立 session；未帶身份、偽造 token 與過期 session 的負向測試通過。
 
 ## 20. Stop Conditions
 
 - 任一需求試圖把舊版 V 當成現行 Q/G 能力：停止該需求。
 - A-36 落在無來源區間且無核准例外：阻擋現行軌，雙軌其他有效軌仍可放行。
 - 舊版 exact q、t、k 或聚合方式未確定：阻擋舊版軌，其他有效軌仍可放行。
-- 成功軌的 input hash、rule snapshot 或交易完整性失敗：停止整體覆核／核發。
+- 成功軌的 input hash、rule snapshot 或交易完整性失敗：停止整體預覽／核發。
 - 已核發快照與重新運算不一致：停止核發並進行根因分析。
 - 需求試圖重新加入產品型號或證書匹配：停止並依 ADR-004 重新進入人類決策。
-- 雲端正式環境缺身份、session、TLS、備份或 authorization 驗證證據：停止 release，不阻擋本地 RD。
+- 雲端正式環境缺 Anonymous Auth、session、TLS、rollback 或 server authorization 驗證證據：停止 release，不阻擋本地 RD。
 - 法規來源更新：新建 RuleSet 並重跑回歸，不直接修改 active version。
 
 ## 21. 建議程式邊界
@@ -603,7 +589,6 @@ src/domain/rules
 src/domain/calculation/current
 src/domain/calculation/legacy
 src/domain/calculation/orchestration
-src/domain/review
 src/domain/report
 src/application
 src/infrastructure/db

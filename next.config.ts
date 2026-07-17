@@ -24,6 +24,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "2mb",
     },
   },
+  webpack(config) {
+    config.watchOptions = {
+      ...(config.watchOptions ?? {}),
+      ignored: ["**/output/**", "**/.next/**", "**/.next-dev/**"],
+    };
+    return config;
+  },
 };
 
 export default nextConfig;

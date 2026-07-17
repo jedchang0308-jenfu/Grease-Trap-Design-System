@@ -24,7 +24,7 @@ export async function POST(
       throw new AppProblem({
         code: "INVALID_OVERRIDE",
         title: "人工採用資料不完整",
-        userMessage: "請填寫前值、後值、理由與依據後再核准。",
+        userMessage: "請填寫前值、後值、理由與依據後再保存。",
         status: 400,
       });
     }
@@ -39,11 +39,13 @@ export async function POST(
     const { id } = await context.params;
     const overrideId = randomUUID();
     const result = await mutateCase(id, user, (item) => {
-      if (item.lifecycle_status !== "CALCULATED") {
+      if (
+        !["CALCULATED", "IN_REVIEW", "REVIEWED"].includes(item.lifecycle_status)
+      ) {
         throw new AppProblem({
           code: "OVERRIDE_REQUIRES_DRAFT",
           title: "目前不能修改報告草稿",
-          userMessage: "人工採用必須在送出最終審核前完成。",
+          userMessage: "人工採用必須在核發前完成。",
           status: 409,
         });
       }

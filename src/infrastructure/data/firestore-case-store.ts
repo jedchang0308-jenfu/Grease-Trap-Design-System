@@ -17,6 +17,12 @@ function reportRef(reportId: string) {
   return firestore.collection("reports").doc(reportId);
 }
 
+const issueableLifecycleStatuses = new Set([
+  "CALCULATED",
+  "IN_REVIEW",
+  "REVIEWED",
+]);
+
 function notFound() {
   return new AppProblem({
     code: "CASE_NOT_FOUND",
@@ -113,7 +119,7 @@ export class FirestoreCaseStore implements CaseStore {
       }
       if (
         current.version !== expectedVersion ||
-        current.lifecycle_status !== "REVIEWED"
+        !issueableLifecycleStatuses.has(current.lifecycle_status)
       ) {
         throw new AppProblem({
           code: "ISSUE_STATE_CHANGED",

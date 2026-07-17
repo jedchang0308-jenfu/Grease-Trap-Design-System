@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AppProblem, toProblemResponse } from "@/application/http/problem";
 import { env } from "@/config/env";
-import { roles, type Role } from "@/infrastructure/auth/auth-port";
 import { firebaseAdminApp } from "@/infrastructure/firebase/admin";
 
 const schema = z.object({ idToken: z.string().min(100) });
@@ -23,8 +22,8 @@ export async function POST(request: Request) {
     if (!origin || origin !== new URL(request.url).origin) {
       throw new AppProblem({
         code: "INVALID_AUTH_ORIGIN",
-        title: "登入來源無效",
-        userMessage: "登入要求來源不一致，請重新整理登入頁。",
+        title: "連線來源無效",
+        userMessage: "連線要求來源不一致，請重新整理頁面。",
         status: 403,
       });
     }
@@ -32,8 +31,8 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       throw new AppProblem({
         code: "INVALID_ID_TOKEN",
-        title: "登入資料無效",
-        userMessage: "登入資料已失效，請重新登入。",
+        title: "連線資料無效",
+        userMessage: "連線資料已失效，請重新整理頁面。",
         status: 400,
       });
     }
@@ -42,24 +41,9 @@ export async function POST(request: Request) {
     if (Date.now() / 1000 - decoded.auth_time > 5 * 60) {
       throw new AppProblem({
         code: "RECENT_LOGIN_REQUIRED",
-        title: "請重新登入",
-        userMessage: "登入時間已超過安全交換期限，請重新登入。",
+        title: "請重新連線",
+        userMessage: "連線時間已超過安全交換期限，請重新整理頁面。",
         status: 401,
-      });
-    }
-    const claimedRoles = Array.isArray(decoded.roles)
-      ? decoded.roles
-      : typeof decoded.role === "string"
-        ? [decoded.role]
-        : [];
-    if (
-      !claimedRoles.some((role): role is Role => roles.includes(role as Role))
-    ) {
-      throw new AppProblem({
-        code: "ACCOUNT_NOT_PROVISIONED",
-        title: "帳號尚未授權",
-        userMessage: "此帳號尚未配置系統角色，請聯絡管理者。",
-        status: 403,
       });
     }
     const sessionCookie = await auth.createSessionCookie(parsed.data.idToken, {

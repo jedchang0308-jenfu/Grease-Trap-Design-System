@@ -1,8 +1,12 @@
 import {
-  currentRuleChecksum,
-  legacyRuleChecksum,
+  currentRulePayload,
+  legacyRulePayload,
   sourceDocuments,
 } from "./seed-data";
+import { sha256 } from "@/domain/shared/canonical";
+
+export const currentRuleChecksum = sha256(currentRulePayload);
+export const legacyRuleChecksum = sha256(legacyRulePayload);
 
 const currentSource = sourceDocuments.find(
   (source) => source.code === "SRC-CURRENT-2020",

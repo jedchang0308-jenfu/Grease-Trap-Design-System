@@ -7,7 +7,9 @@ playwright-report/
 test-results/
 output/playwright/
 .playwright-cli/
+output/local-data/
 output/pdf/DRAFT-*.pdf
+output/pdf/RDR-*.pdf
 output/pdf/rendered/
 tmp/
 .env

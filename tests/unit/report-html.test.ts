@@ -5,7 +5,7 @@ import type { ReportSnapshotData } from "@/domain/report/types";
 function snapshot(): ReportSnapshotData {
   return {
     schemaVersion: "1.0",
-    reportNumber: "DRAFT-01TEST",
+    reportNumber: "RDR-01TEST",
     case: {
       id: "1",
       caseGroupId: "2",
@@ -17,7 +17,7 @@ function snapshot(): ReportSnapshotData {
       purpose: "QA",
       taskCode: "T02_DINERS_TO_DESIGN",
       mode: "DUAL_COMPARISON",
-      lifecycleStatus: "REVIEWED",
+      lifecycleStatus: "ISSUED",
       calculationStatus: "COMPLETE_WITH_REMINDER",
     },
     inputs: {
@@ -77,15 +77,7 @@ function snapshot(): ReportSnapshotData {
       },
     ],
     overrides: [],
-    review: {
-      preparedBy: "同一人",
-      reviewedBy: "同一人",
-      checklist: {},
-      decision: "APPROVED",
-      note: "",
-      reviewedAt: "2026-07-13",
-    },
-    actors: { preparedBy: "同一人", reviewedBy: "同一人", issuedBy: "同一人" },
+    actors: { preparedBy: "同一人", issuedBy: "同一人" },
     limitation: "本報告未執行特定產品或證書符合性判定。",
   };
 }
@@ -131,11 +123,11 @@ describe("report snapshot HTML", () => {
     expect(html).not.toContain("讀法");
     expect(html).not.toContain("<dd>DUAL_COMPARISON</dd>");
     expect(html).not.toContain("計算依據與追溯資料");
-    expect(html).not.toContain("人工採用與覆核");
+    expect(html).not.toContain("內部責任流程");
     expect(html).not.toContain("版本與責任");
     expect(html).not.toContain("文件狀態與工程責任");
     expect(html).not.toContain("人工採用與例外");
-    expect(html).not.toContain("覆核決策");
+    expect(html).not.toContain("內部決策紀錄");
     expect(html).not.toContain("本報告未執行特定產品或證書符合性判定");
     expect(html).not.toContain("欄位：qLpm");
     expect(html).not.toContain("checksum");

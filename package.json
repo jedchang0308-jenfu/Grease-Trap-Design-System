@@ -12,7 +12,7 @@
     "dev:local": "next dev --webpack -H 0.0.0.0 -p 3100",
     "dev:firebase": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-firebase-emulators.ps1",
     "firebase:seed": "tsx scripts/firebase/seed-emulator.ts",
-    "build": "next build",
+    "build": "next build --webpack",
     "start": "next start -H 0.0.0.0 -p 3100",
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\" \"scripts/**/*.ts\" \"tests/**/*.{ts,tsx}\" \"*.{ts,mjs,json}\" .prettierrc.json",

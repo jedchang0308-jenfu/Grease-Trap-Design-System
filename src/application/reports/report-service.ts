@@ -17,6 +17,21 @@ import { renderPdfBufferFromHtml } from "@/infrastructure/pdf/playwright-pdf";
 import { reportStorage } from "@/infrastructure/storage/report-storage";
 
 const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const previewableLifecycleStatuses = new Set([
+  "CALCULATED",
+  "IN_REVIEW",
+  "REVIEWED",
+  "ISSUED",
+]);
+const issueableLifecycleStatuses = new Set([
+  "CALCULATED",
+  "IN_REVIEW",
+  "REVIEWED",
+]);
+const issueableCalculationStatuses = new Set([
+  "COMPLETE",
+  "COMPLETE_WITH_REMINDER",
+]);
 
 function makeUlid() {
   let timestamp = Date.now();
@@ -32,20 +47,20 @@ function makeUlid() {
   return value;
 }
 
+function makeReportNumber() {
+  return `RDR-${makeUlid()}`;
+}
+
 export async function previewReport(
   caseGroupId: string,
   user: AuthenticatedUser,
 ) {
   const item = await getLatestCase(caseGroupId, user);
-  if (
-    !["CALCULATED", "IN_REVIEW", "REVIEWED", "ISSUED"].includes(
-      item.lifecycle_status,
-    )
-  ) {
+  if (!previewableLifecycleStatuses.has(item.lifecycle_status)) {
     throw new AppProblem({
       code: "REPORT_REQUIRES_CALCULATION",
       title: "報告尚未可預覽",
-      userMessage: "請先完成有效計算，再建立報告草稿。",
+      userMessage: "請先完成有效計算，再建立報告預覽。",
       status: 409,
     });
   }
@@ -54,7 +69,7 @@ export async function previewReport(
     ? await getReport(item.latestReportId, user)
     : null;
   const snapshot =
-    existing?.snapshot ?? buildSnapshot(item, `DRAFT-${makeUlid()}`, user);
+    existing?.snapshot ?? buildSnapshot(item, makeReportNumber(), user);
   const snapshotHash = existing?.snapshotHash ?? sha256(snapshot);
   return { snapshot, snapshotHash, html: renderReportHtml(snapshot) };
 }
@@ -67,17 +82,20 @@ export async function issueReport(
   if (item.lifecycle_status === "ISSUED" && item.latestReportId) {
     return presentReport(await getReport(item.latestReportId, user));
   }
-  if (item.lifecycle_status !== "REVIEWED") {
+  if (
+    !issueableLifecycleStatuses.has(item.lifecycle_status) ||
+    !issueableCalculationStatuses.has(item.calculation_status ?? "")
+  ) {
     throw new AppProblem({
-      code: "ISSUE_REQUIRES_REVIEW",
+      code: "ISSUE_REQUIRES_CALCULATION",
       title: "目前不能核發",
-      userMessage: "請先完成工程覆核，再核發此版本。",
+      userMessage: "請先完成有效計算，再核發此版本。",
       status: 409,
     });
   }
 
   const id = randomUUID();
-  const reportNumber = `DRAFT-${makeUlid()}`;
+  const reportNumber = makeReportNumber();
   const snapshot = buildSnapshot(item, reportNumber, user, true);
   const snapshotHash = sha256(snapshot);
   const issuedAt = new Date().toISOString();
@@ -133,7 +151,7 @@ function buildSnapshot(
     throw new AppProblem({
       code: "REPORT_MISSING_CALCULATION",
       title: "缺少計算紀錄",
-      userMessage: "找不到可重現的計算紀錄，請重新計算與覆核。",
+      userMessage: "找不到可重現的計算紀錄，請重新計算。",
       status: 409,
     });
   }
@@ -149,17 +167,6 @@ function buildSnapshot(
     steps: run.steps,
     warnings: run.warnings,
   }));
-  const review =
-    item.review?.decision === "APPROVED"
-      ? item.review
-      : {
-          preparedBy: item.prepared_by_name ?? "尚未指定",
-          reviewedBy: "尚未審核",
-          checklist: {},
-          decision: "PENDING",
-          note: "此為送審草稿，尚未完成工程覆核。",
-          reviewedAt: "尚未完成",
-        };
   return {
     schemaVersion: "1.0",
     reportNumber,
@@ -174,7 +181,7 @@ function buildSnapshot(
       purpose: item.purpose,
       taskCode: item.task_code,
       mode: item.mode,
-      lifecycleStatus: item.lifecycle_status,
+      lifecycleStatus: forIssue ? "ISSUED" : item.lifecycle_status,
       calculationStatus: item.calculation_status ?? "BLOCKED",
     },
     inputs: item.input_payload,
@@ -195,10 +202,8 @@ function buildSnapshot(
       requestedBy: override.requestedBy,
       approvedBy: override.approvedBy,
     })),
-    review,
     actors: {
-      preparedBy: item.prepared_by_name ?? "尚未指定",
-      reviewedBy: item.reviewed_by_name ?? "尚未審核",
+      preparedBy: item.prepared_by_name ?? item.created_by_name,
       issuedBy: forIssue ? user.displayName : "尚未核發",
     },
     limitation: "本報告未執行特定產品或證書符合性判定。",

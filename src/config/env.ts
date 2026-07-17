@@ -5,7 +5,11 @@ loadDotenv({ path: ".env.local", quiet: true });
 loadDotenv({ path: ".env", quiet: true });
 
 const defaultDataBackend =
-  process.env.NODE_ENV === "production" ? "firestore" : "memory";
+  process.env.NODE_ENV === "production"
+    ? "firestore"
+    : process.env.NODE_ENV === "test"
+      ? "memory"
+      : "local-file";
 const defaultAuthBackend =
   process.env.NODE_ENV === "production" ? "firebase" : "local";
 const defaultFirebaseProjectId =
@@ -17,12 +21,18 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
-  DATA_BACKEND: z.enum(["memory", "firestore"]).default(defaultDataBackend),
+  DATA_BACKEND: z
+    .enum(["memory", "local-file", "firestore"])
+    .default(defaultDataBackend),
   AUTH_BACKEND: z.enum(["local", "firebase"]).default(defaultAuthBackend),
   APP_URL: z.string().url().default("http://localhost:3100"),
   PORT: z.coerce.number().int().positive().default(3100),
   LOCAL_SEED_USER_ID: z.string().min(1).default("local-engineer"),
   LOCAL_SEED_USER_NAME: z.string().min(1).default("本機工程使用者"),
+  LOCAL_DATA_FILE: z
+    .string()
+    .min(1)
+    .default("output/local-data/case-store.json"),
   REPORT_OUTPUT_DIR: z.string().min(1).default("output/pdf"),
   FIREBASE_PROJECT_ID: z.string().min(1).default(defaultFirebaseProjectId),
   FIREBASE_STORAGE_BUCKET: z

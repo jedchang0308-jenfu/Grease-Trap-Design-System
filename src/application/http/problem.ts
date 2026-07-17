@@ -27,8 +27,23 @@ export function problemResponse(problem: ProblemDetails) {
   );
 }
 
+function isProblemDetails(value: unknown): value is ProblemDetails {
+  if (!value || typeof value !== "object") return false;
+  const problem = value as Partial<ProblemDetails>;
+  return (
+    typeof problem.code === "string" &&
+    typeof problem.title === "string" &&
+    typeof problem.userMessage === "string" &&
+    typeof problem.status === "number"
+  );
+}
+
 export function toProblemResponse(error: unknown) {
   if (error instanceof AppProblem) return problemResponse(error.details);
+  if (error && typeof error === "object" && "details" in error) {
+    const details = (error as { details?: unknown }).details;
+    if (isProblemDetails(details)) return problemResponse(details);
+  }
   console.error(error);
   return problemResponse({
     code: "UNEXPECTED_ERROR",

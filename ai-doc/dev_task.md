@@ -1,19 +1,27 @@
 # Dev Task｜油脂截留器雙軌計算系統
 
-文件狀態：`Firebase Local Engineering Complete — Human Pilot Pending`
-版本：`2.7`
+文件狀態：`Public Firebase Pilot Release In Progress`
+版本：`2.9`
 最後更新：`2026-07-17`
-本輪執行邊界：DEV-018 本地 RD／自動化 QA／QC 已完成；未建立正式 Firebase project、未部署、未搬移舊 PostgreSQL 資料
+本輪執行邊界：DEV-012 公開連結匿名存取、獨立 Firebase project、App Hosting release gate 與 production smoke；不搬移舊 PostgreSQL 資料、不設定帳號角色、不做 custom domain
 產品完成基準：9 個有效交付點，目前完成 9／9（100%）；DEV-006 已由使用者決策跳過，不計入分母
+
+## 目前權威覆寫｜DEV-020 本機持久化
+
+使用者 2026-07-17 已要求一人本機使用仍可保留案件。現行本機開發預設為 `local-file` adapter，案件 metadata 保存於 `output/local-data/case-store.json`；`memory` adapter 只作為自動化測試隔離用途，production 仍強制 Firebase backend。
+
+## 目前權威覆寫｜DEV-019 一人作業輕量化
+
+使用者 2026-07-17 已要求移除送審、覆核、退回與最終審核機制，系統改為一人作業模式：建案 → 計算 → 預覽 → 核發 → 修訂。下方 DEV-008、DEV-014 等舊任務保留為歷史交付紀錄，不再作為現行工作流規格；現行權威以 HD-14、ADR-005 updated、SPEC-001 v1.4 與 SPEC-002 v1.5 為準。
 
 ## 總任務清單
 
 - ✓ DEV-001 [交付點] [完成] [P0] 建立本地可啟動的專案骨架
-  - 摘要：建立固定啟動入口、模組目錄、型別／格式／測試基礎與 persistence boundary，讓後續 DEV 有一致執行環境；DEV-018 已將本機資料層替換為 memory adapter。
+  - 摘要：建立固定啟動入口、模組目錄、型別／格式／測試基礎與 persistence boundary，讓後續 DEV 有一致執行環境；DEV-020 已將本機開發預設替換為 local-file adapter。
   - 來源 ID：`GTC-PH1-FOUNDATION-001`
   - 父任務：無
   - 下一步：無；固定入口為 `npm run dev:local`／`http://localhost:3100`
-  - 證據：Node 24、Next.js 16、memory adapter、lockfile、health、lint、typecheck、build、Git boundary
+  - 證據：Node 24、Next.js 16、local-file／memory adapters、lockfile、health、lint、typecheck、build、Git boundary
   - 計入交付：是
 
 - ✓ DEV-002 [交付點] [完成] [P0] 建立版本化來源、規則與參數庫
@@ -76,7 +84,7 @@
   - 摘要：從 reviewed revision 建立不可變快照，產生兩份計算依據、對照與單份完成的正式報告版型。
   - 來源 ID：`GTC-PH3-REPORT-009`
   - 父任務：無
-  - 下一步：正式報告編號格式於首次 release 前由人類決定
+  - 下一步：無；報告編號已固定為 `RDR-{ULID}`
   - 證據：snapshot／issued update immutability、案件刪除級聯、四份 A4 PDF、22 頁 render PNG、content regression
   - 計入交付：是
 
@@ -97,12 +105,13 @@
   - 證據：QC-001、兩份來源案例重算、四種 PDF、三 viewport E2E；parallel diff 待補
   - 計入交付：否
 
-- ↷ DEV-012 [關卡] [延後] [P2] [Release Gate Required] 正式環境發版
-  - 摘要：雲端內部使用的 End-State 已固定；集中處理未來的 provider、Auth、正式報告編號、部署與 production gate，不預寫 release artifacts。
+- ! DEV-012 [關卡] [阻塞] [P0] [Release Gate] 公開連結 Firebase 試用發版
+  - 摘要：以 Firebase Anonymous Auth 提供取得網址即可使用的同事試用環境；本機實作中，正式 target 尚未建立。
   - 來源 ID：`GTC-RELEASE-012`
-  - 父任務：DEV-011
-  - 下一步：等待使用者明確提出部署、上線或 release
-  - 恢復條件：DEV-011 通過且使用者提出 release 型指令
+  - 父任務：DEV-018
+  - 下一步：本機 gate 已通過；建立獨立 Firebase project，啟用 Anonymous Auth、Firestore、Storage 與 App Hosting，再執行 production smoke
+  - 阻塞／恢復條件：目前帳號下 4 個 project 均屬 PDM／ProJED；release owner 確認建立獨立 project 與可能的 Blaze billing 後恢復
+  - 證據：ADR-008、33 unit、10 integration、production build／artifact smoke、三 viewport 12 E2E；Level 3／4 等待獨立 target
   - 計入交付：否
 
 - ✓ DEV-013 [開發點] [完成] [P1] [本地工程完成] 調整建案基本資料與餐飲類型步驟
@@ -167,7 +176,7 @@ G2 Calculation:      └→ DEV-004 ─┴→ DEV-005
 G3 Workflow: DEV-005 → DEV-007 → DEV-008 → DEV-009 → DEV-014 → DEV-015 → DEV-016
 G4 Acceptance: DEV-003～005、007～009 → DEV-010 → DEV-011
 Architecture: DEV-018（本輪 Firebase 重構）
-Release: DEV-012（需另行指令）
+Release: DEV-012（公開連結實作完成，等待獨立 Firebase target）
 ```
 
 同時只有一個最高優先、依賴已通過、未阻塞的 DEV 可由 `完成 dev_task` 自動選取。
@@ -544,13 +553,41 @@ Release: DEV-012（需另行指令）
 
 ---
 
-## DEV-012：正式環境發版
+## DEV-012：公開連結 Firebase 試用發版
 
-狀態：`Release Gate Required`；本輪未要求  
-節點類型：關卡  
+狀態：`Blocked — Dedicated Firebase Target Required`
+節點類型：關卡
 是否計入產品交付：否
 
-只保存 re-entry trigger：DEV-011 通過，且使用者明確提出部署、上線或 release。Firebase 拓撲已由 ADR-007 固定；屆時交由 deployment release gate 建立 project、Auth、角色、正式報告編號、資料備份、rollback 與 production smoke；目前不得執行。
+使用者已於 2026-07-17 提出部署並決定第一版不設定角色、任何取得網址的人都可以使用。Firebase 拓撲由 ADR-007 固定，公開連結存取由 ADR-008 固定；本 DEV 依 deployment release gate 執行。
+
+### 目前範圍
+
+- 程式以 Firebase Anonymous Auth 自動建立 identity，交換 `httpOnly` session cookie；不顯示帳密登入。
+- 有效 Firebase identity 不需要 custom role claims，取得目前全部應用能力。
+- 建立獨立 Firebase project、Web App、Anonymous Auth、Firestore、Storage 與 App Hosting backend。
+- 部署 Firestore／Storage deny-all client rules，執行 App Hosting rollout 與 production smoke。
+- 報告編號沿用 `RDR-{ULID}`。
+
+### Out of scope
+
+- Email／Password、Google Workspace 登入、帳號名單、角色配置與使用者隔離。
+- custom domain、舊 PostgreSQL 資料搬移、正式稽核保存與自動 CI/CD。
+- DEV-011 的 3～5 筆真實案件平行試算；該項仍限制計算正確性的人工作業宣告，但不阻擋建立同事試用網址。
+
+### Acceptance / release evidence
+
+- Level 0（Pass）：format、lint、typecheck、33 unit、10 integration 與 production build 通過。
+- Level 1／2（Pass）：local browser workflow、三 viewport 12 E2E 與 production artifact entrypoint 通過。
+- Level 3（Pending Target）：實際 Firebase Anonymous Auth、session cookie、Firestore、Storage 與 App Hosting pre-release path 通過。
+- Level 4（Pending Target）：正式 `hosted.app` URL 可從無 cookie 瀏覽器自動進入，案件 create／read／calculate／preview／issue／download 通過，無 critical console／network error。
+- Rollback：App Hosting 回復前一 rollout；若首發失敗則停止流量並保留未公開 backend URL，不匯入舊資料。
+
+### Stop conditions
+
+- 不得部署到既有 PDM／ProJED Firebase project。
+- 未確認獨立 project、billing 或 App Hosting target 時停止外部建立與 deploy。
+- Anonymous provider、production artifact smoke 或 post-deploy smoke 失敗時不得宣告完成。
 
 ---
 

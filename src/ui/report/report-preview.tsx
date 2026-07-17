@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 import { fetchJson, UiRequestError } from "@/ui/lib/fetch-json";
@@ -32,7 +31,6 @@ interface IssuedReport {
 }
 
 export function ReportPreview({ caseId }: { caseId: string }) {
-  const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [issued, setIssued] = useState<IssuedReport | null>(null);
@@ -61,22 +59,6 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     void load();
   }, [load]);
 
-  async function submitForReview() {
-    setSubmitting(true);
-    setProblem(null);
-    try {
-      await fetchJson(`/api/cases/${caseId}/submit-review`, { method: "POST" });
-      router.push(`/cases/${caseId}/review`);
-    } catch (error) {
-      setProblem(
-        error instanceof UiRequestError
-          ? error.problem
-          : { userMessage: "報告草稿尚未送出最終審核，請重試。" },
-      );
-      setSubmitting(false);
-    }
-  }
-
   async function issue() {
     setSubmitting(true);
     setProblem(null);
@@ -91,7 +73,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
       setProblem(
         error instanceof UiRequestError
           ? error.problem
-          : { userMessage: "報告核發未完成；案件仍保留在已覆核狀態，請重試。" },
+          : { userMessage: "報告核發未完成，請重試。" },
       );
       dialog.current?.close();
     } finally {
@@ -103,7 +85,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     return (
       <div className="page">
         <div className="state-banner" aria-live="polite">
-          正在建立報告草稿，完成後會顯示計算依據與報告內容。
+          正在建立報告預覽，完成後會顯示計算依據與報告內容。
         </div>
       </div>
     );
@@ -115,8 +97,6 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     );
   if (!preview) return null;
   const isIssued = issued || preview.case.lifecycleStatus === "ISSUED";
-  const isDraft = preview.case.lifecycleStatus === "CALCULATED";
-  const isInReview = preview.case.lifecycleStatus === "IN_REVIEW";
   return (
     <div className="page">
       <header className="page-header">
@@ -190,23 +170,11 @@ export function ReportPreview({ caseId }: { caseId: string }) {
                 查看已核發紀錄
               </Link>
             )
-          ) : isDraft ? (
-            <button
-              className="button primary"
-              type="button"
-              disabled={submitting}
-              onClick={() => void submitForReview()}
-            >
-              {submitting ? "正在送審…" : "送出最終審核"}
-            </button>
-          ) : isInReview ? (
-            <Link className="button primary" href={`/cases/${caseId}/review`}>
-              開始最終審核
-            </Link>
           ) : (
             <button
               className="button primary"
               type="button"
+              disabled={submitting}
               onClick={() => dialog.current?.showModal()}
             >
               核發此版本

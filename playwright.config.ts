@@ -1,15 +1,26 @@
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+
+const playwrightOutputRoot = path.join(tmpdir(), "grease-trap-playwright");
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  outputDir: "output/playwright/test-results",
+  outputDir: path.join(playwrightOutputRoot, "test-results"),
   timeout: 120_000,
   fullyParallel: false,
+  workers: 1,
   forbidOnly: true,
   retries: 0,
   reporter: [
     ["list"],
-    ["html", { outputFolder: "output/playwright/report", open: "never" }],
+    [
+      "html",
+      {
+        outputFolder: path.join(playwrightOutputRoot, "report"),
+        open: "never",
+      },
+    ],
   ],
   use: {
     baseURL: "http://127.0.0.1:3100",

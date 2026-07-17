@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
@@ -34,7 +34,7 @@ const modes = [
   [
     "DUAL_COMPARISON",
     calculationModeDisplay.DUAL_COMPARISON.label,
-    "兩份資料來源分開計算；任一份有效即可完成報告草稿。",
+    "兩份資料來源分開計算；任一份有效即可預覽並核發。",
   ],
 ] as const;
 
@@ -52,8 +52,11 @@ export function NewCaseWizard() {
     purpose: "",
     evidenceSource: "",
   });
+  const [hydrated, setHydrated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<UiProblem | null>(null);
+
+  useEffect(() => setHydrated(true), []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -88,6 +91,11 @@ export function NewCaseWizard() {
           <p className="lede">先選擇你要解決的問題，再填入已知資料。</p>
         </div>
       </header>
+      <span
+        data-testid="new-case-wizard-ready"
+        data-ready={hydrated ? "true" : "false"}
+        hidden
+      />
       <ol className="stepper" aria-label="建立案件步驟">
         <li className={step === 1 ? "active" : ""}>1. 選擇任務</li>
         <li className={step === 2 ? "active" : ""}>2. 計算模式</li>
