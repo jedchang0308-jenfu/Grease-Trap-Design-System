@@ -30,6 +30,72 @@ interface Preview {
 
 type PdfKind = "DRAFT" | "FORMAL";
 
+function printReportHtml(html: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.position = "fixed";
+    frame.style.left = "-10000px";
+    frame.style.top = "0";
+    frame.style.width = "1px";
+    frame.style.height = "1px";
+    frame.style.border = "0";
+
+    const cleanup = () => {
+      window.setTimeout(() => frame.remove(), 1_000);
+    };
+    const timeout = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("REPORT_PRINT_TIMEOUT"));
+    }, 15_000);
+
+    frame.addEventListener(
+      "load",
+      () => {
+        void (async () => {
+          try {
+            const printWindow = frame.contentWindow;
+            if (!printWindow) throw new Error("REPORT_PRINT_UNAVAILABLE");
+            await printWindow.document.fonts.ready;
+            await Promise.all(
+              Array.from(printWindow.document.images, async (image) => {
+                if (!image.complete) {
+                  await new Promise<void>((resolveImage, rejectImage) => {
+                    image.addEventListener("load", () => resolveImage(), {
+                      once: true,
+                    });
+                    image.addEventListener("error", () => rejectImage(), {
+                      once: true,
+                    });
+                  });
+                }
+                if (image.naturalWidth === 0) {
+                  throw new Error("REPORT_PRINT_IMAGE_UNAVAILABLE");
+                }
+              }),
+            );
+            window.clearTimeout(timeout);
+            printWindow.addEventListener("afterprint", cleanup, {
+              once: true,
+            });
+            printWindow.focus();
+            printWindow.print();
+            cleanup();
+            resolve();
+          } catch (error) {
+            window.clearTimeout(timeout);
+            cleanup();
+            reject(error);
+          }
+        })();
+      },
+      { once: true },
+    );
+    frame.srcdoc = html;
+    document.body.append(frame);
+  });
+}
+
 export function ReportPreview({ caseId }: { caseId: string }) {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +103,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
   const [lastPdfKind, setLastPdfKind] = useState<PdfKind>("DRAFT");
   const [pdfSavedPath, setPdfSavedPath] = useState<string | null>(null);
   const [pdfSavedKind, setPdfSavedKind] = useState<PdfKind | null>(null);
+  const [pdfPrintKind, setPdfPrintKind] = useState<PdfKind | null>(null);
   const [frameReady, setFrameReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<UiProblem | null>(null);
@@ -45,6 +112,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     setLoading(true);
     setFrameReady(false);
     setPdfSavedPath(null);
+    setPdfPrintKind(null);
     setProblem(null);
     try {
       setPreview(await previewReport(caseId));
@@ -70,6 +138,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     setLastPdfKind(kind);
     setPdfSavedPath(null);
     setPdfSavedKind(null);
+    setPdfPrintKind(null);
     setProblem(null);
     try {
       let source = preview;
@@ -100,6 +169,12 @@ export function ReportPreview({ caseId }: { caseId: string }) {
           fileName,
         }),
       });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        await printReportHtml(kind === "FORMAL" ? source.formalHtml : source.html);
+        setPdfPrintKind(kind);
+        return;
+      }
       const result = (await response.json()) as { savedPath?: unknown };
       if (!response.ok || typeof result.savedPath !== "string") {
         throw new Error("REPORT_PDF_FAILED");
@@ -224,7 +299,12 @@ export function ReportPreview({ caseId }: { caseId: string }) {
             </button>
           ) : null}
         </div>
-        {pdfSavedPath ? (
+        {pdfPrintKind ? (
+          <p className="report-pdf-status" role="status">
+            {pdfPrintKind === "FORMAL" ? "正式報告 PDF" : "草稿 PDF"}
+            {" 已開啟瀏覽器列印視窗，請選擇「另存為 PDF」。"}
+          </p>
+        ) : pdfSavedPath ? (
           <p className="report-pdf-status" role="status">
             {pdfSavedKind === "FORMAL" ? "正式報告 PDF" : "草稿 PDF"}
             {" 已儲存至："}
