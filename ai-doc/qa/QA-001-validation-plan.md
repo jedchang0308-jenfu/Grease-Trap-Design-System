@@ -89,8 +89,8 @@ git diff --check
 4. reload `/cases/:id`，資料與結果仍存在。
 5. 開啟 `/cases/:id/report`，預覽 report draft。
 6. 匯出 snapshot，看到共享案件保存狀態。
-7. 產生草稿 PDF，確認原頁成功訊息及本機儲存路徑。
-8. 直接產生正式報告，確認 `GTC-YYMMDD-00-R01.pdf` 與成功訊息；不得出現第二套報告編碼、簽核或核發 gate。
+7. 本機 E2E preview 產生草稿 PDF，確認原頁成功訊息及測試輸出路徑；正式 Hosting smoke 確認瀏覽器列印視窗流程不顯示錯誤。
+8. 直接產生正式報告，確認 `GTC-YYMMDD-00-R01.pdf` 的正式 HTML 內容；本機 helper 顯示檔案路徑，正式 Hosting 顯示另存為 PDF 提示。不得出現第二套報告編碼、簽核或核發 gate。
 9. reload report route，已匯出狀態存在。
 10. 第二匿名 browser context 直接開啟同 case 與 report route。
 11. 建立新修訂，revision +1 且 calculations/report draft 清除。

@@ -37,11 +37,11 @@
 
 ### DEV-023｜有效容積換算設計處理水量
 
-狀態：`Complete Locally`
+狀態：`Complete / Production Verified`
 
 風險等級：`Medium`
 
-執行邊界：本機程式、測試、規格與 UI 驗證；不部署、不修改 production 資料。
+執行邊界：本機程式、測試、規格與 UI 驗證；另完成正式 Firebase Rules/Hosting 發布，不修改既有正式案件，僅使用可刪除 smoke fixture。
 
 驗收標準：
 
@@ -65,11 +65,11 @@
 | report formula trace          | Passed: 500 L → 3000 L/h → 50 L/min |
 | test data／browser cleanup    | Passed                            |
 
-本變更尚未部署；既有 production release 仍為 DEV-012 所記錄版本。
+本變更已部署至 DEV-012 的獨立 Firebase project；正式 Hosting smoke 已驗證 T06、報告內容與列印 fallback。
 
 ### DEV-022｜無核發流程的正式報告輸出
 
-狀態：`Complete Locally`
+狀態：`Complete / Production Verified`
 
 決策：任何使用者都可直接產出正式報告；不建立送審、覆核、核准、角色或核發狀態。草稿與正式報告沿用同一 snapshot，正式版直接使用案件編號 `GTC-YYMMDD-00` 與案件修訂版次。
 
@@ -79,7 +79,7 @@
 - 尚未保存草稿時，正式報告動作會先保存當下 snapshot。
 - 案件與正式報告共用 `GTC-YYMMDD-00`，已刪除 `RDR-` 轉換邏輯；檔名只附加 `RNN` 版次。
 - 正式 PDF 移除草稿標記，封面與頁首顯示報告編號及版次。
-- PDF 直接保存至使用者下載資料夾，成功後留在原頁顯示完整路徑。
+- 本機 Vite preview 的 PDF helper 可保存至測試輸出資料夾；正式 Hosting 使用相同正式 HTML 開啟瀏覽器列印視窗，提示使用者另存為 PDF。
 - 報告「案件資料」改為緊湊的標籤／值排列；客戶、設置地點、需求目的與計算依據資訊完整保留，不再使用逐列大型表格。
 - 報告標題改為實際文字章節編號：`1`～`4` 為主章，計算依據為 `2.1`／`4.1`，公式步驟延伸為 `4.1.1`。
 - 新增 ADR-010，並同步 overview、SPEC、QA、QC、README 與文件地圖。
@@ -97,7 +97,7 @@
 | temporary E2E runtime cleanup      | Passed: port 3210 released  |
 | `git diff --check`                 | Passed                      |
 
-本變更尚未部署；既有 production release 仍為 DEV-012 所記錄版本。
+本變更已部署至 DEV-012 的獨立 Firebase project；正式 Hosting smoke 已驗證 T06、報告內容與列印 fallback。
 
 ### DEV-021｜Firebase Spark 純靜態 SPA 重構
 

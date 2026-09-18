@@ -48,6 +48,7 @@ const env = {
   VITE_FIREBASE_PROJECT_ID: "demo-grease-trap",
   VITE_FIREBASE_APP_ID: "demo-app-id",
   VITE_USE_FIREBASE_EMULATORS: "true",
+  VITE_REPORT_PDF_LOCAL: "true",
   REPORT_PDF_OUTPUT_DIR: reportPdfOutputDirectory,
 };
 

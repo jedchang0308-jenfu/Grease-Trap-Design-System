@@ -8,7 +8,7 @@
 
 ## 結論
 
-Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、報告草稿與無核發流程的正式報告輸出已完成。DEV-023 已在本機新增有效容積換算設計處理水量任務，通過 domain、schema、Rules、build、桌面與窄版真實 UI 驗證；此 delta 尚未部署。既有 production release 仍是獨立 Firebase Spark project `jenfu-grease-trap-calculator` 上的 DEV-012 版本。
+Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、報告草稿與無核發流程的正式報告輸出已完成。DEV-023 已在本機新增有效容積換算設計處理水量任務，並於獨立 Firebase Spark project `jenfu-grease-trap-calculator` 完成 production smoke；正式 Hosting 以瀏覽器列印 fallback 輸出 PDF。
 
 ## DEV-023 驗證結果
 
@@ -43,11 +43,11 @@ Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、�
 - create、calculate、revision 與 report draft 使用 client transaction／version。
 - 報告保存案件內 snapshot；正式報告與草稿使用同一 snapshot，不建立送審、覆核、核准或核發狀態。
 - 案件與正式報告直接共用 `GTC-YYMMDD-00`，沒有第二套前綴、轉換或流水號邏輯；版次沿用案件修訂號。
-- 報告 HTML 使用專案內建的 Noto Sans TC 字型檔；本機 renderer 等待字型與圖片完成後直接將 PDF 寫入下載資料夾。
+- 報告 HTML 使用專案內建的 Noto Sans TC 字型檔；本機 renderer 或正式環境瀏覽器列印流程都等待字型與圖片完成載入。
 - 報告預覽的案件資料採緊湊標籤／值排列；案件、客戶、設置地點、需求目的與計算依據均保留。
 - 報告章節編號以實際文字呈現，主章、方法與公式步驟可讀為 `1`、`2.1`、`4.1.1` 等階層。
 - UI 使用「產生草稿 PDF」「產生正式報告」，正式報告為 primary action；舊 `ISSUED` 仍唯讀。
-- 本機 PDF helper 只掛載 Vite dev／preview middleware；`dist/` 仍不含 server bundle、Admin SDK、session 或 Storage adapter。
+- 本機 PDF helper 只掛載 Vite dev／preview middleware；正式 Hosting 使用瀏覽器列印 fallback，`dist/` 不含 server bundle、Admin SDK、session 或 Storage adapter。
 
 ## Gate 結果
 
@@ -63,14 +63,14 @@ Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、�
 | 正式報告 PDF                    | PASS | `GTC-260914-02-R01.pdf`；4 頁 A4          |
 | `dist`／source forbidden search | PASS | 無 server bundle 或禁用 runtime           |
 | production dependency audit     | PASS | 0 vulnerabilities                         |
-| Hosting deploy                  | PASS | release `1784302105130000`                |
-| production artifact provenance  | PASS | 線上／本地 bundle SHA-256 相同            |
-| production smoke                | PASS | Auth、Firestore、routes、console、network |
+| Hosting deploy                  | PASS | release `1789718525735000`                |
+| production artifact provenance  | PASS | live asset 與本地 production build 對應   |
+| production smoke                | PASS | Auth、Firestore、routes、T06、列印提示、console |
 | `git diff --check`              | PASS | 最終重跑                                  |
 
 E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report preview、snapshot export、草稿 PDF、正式 PDF、第二匿名 session、case/report route reload 及 revision +1。每個 viewport 均驗證 root overflow 與 critical console/page error。
 
-正式 PDF 實際輸出為 4 頁、每頁 `594.96 x 841.92 pt` A4；逐頁轉圖確認封面編號 `GTC-260914-02`、版次「修訂 1」、頁首、頁尾、表格與計算步驟無裁切、重疊、缺字或草稿標記。PDF 字型資源為 Chromium 生成的 Type3 glyph，開啟端不需另行安裝中文字型。
+本機正式 PDF 實際輸出為 4 頁、每頁 `594.96 x 841.92 pt` A4；正式 Hosting smoke 驗證 `500 L → 50 L/min`、`3,000 L/h`、正式報告 HTML 與瀏覽器列印提示，console/page error 為 0。
 
 ## 已知風險
 
@@ -86,8 +86,8 @@ E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report 
 ## Production Release
 
 - URL：`https://jenfu-grease-trap-calculator.web.app`。
-- release commit：`f0ccc1c`；Hosting version：`ca30cb18c51ffbae`。
+- release commits：`69b25ba`、`b27933e`；Hosting version：`928209396b020781`；release：`1789718525735000`。
 - 未登入 Firestore 讀取為 403；兩個不同匿名 session 皆可讀取共享案件。
 - `/cases`、`/cases/new`、任意 case ID 與 report URL 皆由 Hosting SPA rewrite 回應 200。
-- post-deploy browser smoke 的 console error、page error、非預期 request failure 與 root overflow 皆為 0。
-- rollback：Hosting 前一 version `db5ac97927fc618a`；Firestore Rules 本次未變更。
+- post-deploy browser smoke 的 console error、page error 與 T06／正式報告列印 fallback 驗證通過；disposable smoke case 已刪除。
+- rollback：Hosting 前一 version `ca30cb18c51ffbae`；Rules rollback 依 Firebase release history。

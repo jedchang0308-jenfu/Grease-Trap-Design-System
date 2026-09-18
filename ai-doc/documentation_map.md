@@ -73,13 +73,13 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 - 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。
-- DEV-023：有效容積換算設計處理水量情境已完成本機驗證；不含部署。
+- DEV-023：有效容積換算設計處理水量情境已完成本機驗證與 production smoke。
 - DEV-012：已部署至 `https://jenfu-grease-trap-calculator.web.app`，production smoke 已通過。
-- 本輪不建立 Firebase project、不啟用計費、不部署。
+- 本輪未建立 Firebase project、未啟用計費；`69b25ba` 與 `b27933e` 已部署至獨立 Spark project，Hosting smoke 通過。
 - Java 是 Firestore Emulator integration／E2E 的本機前置需求，不影響 production static build。
 
 ## Re-entry
 
-- Firebase production：建立新 project、啟用 Anonymous Auth、建立 Firestore、設定 Web config、部署 Rules 與 Hosting 後執行 smoke。
+- Firebase production：既有獨立 Spark project 已完成 Rules/Hosting 發布；後續變更需重跑受影響 smoke 並保留 rollback 參考。
 - 真實案件：提供 3～5 個去識別案例與人工預期值。
 - 若要加入簽核、核發、不可變留存或敏感資料：新 ADR、可信任後端、身分與留存政策。

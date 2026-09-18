@@ -176,10 +176,10 @@ snapshot schema `2.0` 至少包含 case、input、calculation runs、assessments
 
 - CTA 使用「預覽報告草稿」「匯出報告草稿」「產生草稿 PDF」「產生正式報告」。
 - 匯出只把 snapshot 保存到 case document，不建立 PDF blob 或獨立 report collection。
-- 正式報告輸出不檢查角色；若草稿尚未保存，先保存當下 snapshot，再以同一 snapshot 產出正式 PDF。
+- 正式報告輸出不檢查角色；若草稿尚未保存，先保存當下 snapshot，再以同一 snapshot 產出正式 PDF。正式 Hosting 以瀏覽器列印／另存為 PDF；本機 Vite preview 才可使用 PDF helper。
 - 草稿不配置正式報告編號；正式報告直接使用案件編號 `GTC-YYMMDD-00`，不建立第二套編碼或轉換邏輯，版次使用案件修訂號。
 - HTML 使用 A4 print CSS、重複表頭、孤行與斷頁控制；報告字型使用 build-time 靜態輸出的 Noto Sans TC。
-- PDF renderer 必須等待 `document.fonts.ready`、指定字型檢查與圖片載入／解碼後才可寫檔。
+- PDF／列印流程必須等待 `document.fonts.ready`、指定字型檢查與圖片載入／解碼後才可輸出；production bundle 不含 server-side PDF renderer。
 - 正式報告不代表另有身分驗證、簽核、核發或不可變稽核鏈。
 - 舊 `ISSUED` snapshot 可唯讀預覽與列印，不能重新匯出成新的正式紀錄。
 

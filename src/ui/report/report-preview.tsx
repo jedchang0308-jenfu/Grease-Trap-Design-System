@@ -29,6 +29,7 @@ interface Preview {
 }
 
 type PdfKind = "DRAFT" | "FORMAL";
+const useLocalPdfRenderer = import.meta.env.VITE_REPORT_PDF_LOCAL === "true";
 
 function printReportHtml(html: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -161,6 +162,11 @@ export function ReportPreview({ caseId }: { caseId: string }) {
         kind === "FORMAL"
           ? `${source.case.caseNo}-R${revision}.pdf`
           : `${source.case.caseNo}-DRAFT.pdf`;
+      if (!useLocalPdfRenderer) {
+        await printReportHtml(kind === "FORMAL" ? source.formalHtml : source.html);
+        setPdfPrintKind(kind);
+        return;
+      }
       const response = await fetch("/api/report-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

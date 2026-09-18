@@ -10,7 +10,7 @@
 - 內政部給排水規範（附錄 5）Q/G 計算。
 - 臺北市工務局衛工處設計說明 Q/V 計算。
 - 單軌或雙軌計算、完整性提醒與設計結果。
-- 報告草稿預覽、案件內 snapshot、草稿／正式 PDF 與隨站 Noto Sans TC。
+- 報告草稿預覽、案件內 snapshot、草稿／正式 PDF 與隨站 Noto Sans TC；正式 Hosting 由瀏覽器列印／另存為 PDF。
 - `/cases`、`/cases/new`、`/cases/:id`、`/cases/:id/report` 直接開啟與重新整理。
 
 任何使用者都可直接產出正式報告，不需要送審、覆核或核發權限。正式報告直接沿用案件編號 `GTC-YYMMDD-00`，不建立第二套報告編碼；版次使用案件修訂號。本版本不提供正式簽核、核發流程或不可變稽核鏈；舊 `ISSUED` 資料只作唯讀歷史狀態相容。
@@ -24,7 +24,7 @@ Browser
   -> TypeScript / Decimal.js calculation core
   -> Firestore Web SDK transaction
   -> report snapshot + HTML preview
-  -> local draft or formal PDF
+  -> local PDF renderer or browser print / Save as PDF
 ```
 
 production build 只產生 `dist/` 靜態檔案。專案不使用 server runtime、Firebase Admin SDK、Cloud Functions、Cloud Run、Cloud Storage 或 Firebase App Hosting。
@@ -101,6 +101,8 @@ git diff --check
 7. 部署純靜態 Hosting：`firebase deploy --only hosting`。
 
 `firebase.json` 的 Hosting public 目錄為 `dist`，所有應用路徑 rewrite 至 `/index.html`。2026-07-17 已部署至獨立 Spark project `jenfu-grease-trap-calculator`；未啟用 Blaze、Storage、Functions 或 App Hosting。
+
+正式 Hosting 不提供 server runtime；報告 PDF 由瀏覽器列印視窗另存。`/api/report-pdf` 僅供 E2E 的本機 Vite preview 使用，不進入 production bundle。
 
 ## 文件
 
