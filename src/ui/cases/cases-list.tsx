@@ -26,6 +26,7 @@ const taskLabels: Record<string, string> = {
   T03_AREA_TO_FLOW: "面積換算流量",
   T04_AREA_TO_DESIGN: "面積規劃設計需求",
   T05_DESIGN_TO_DINERS_AND_AREA: "能力反推人數及面積",
+  T06_EFFECTIVE_VOLUME_TO_FLOW: "有效容積換算設計處理水量",
 };
 
 const modeLabels: Record<string, string> = {
@@ -101,7 +102,6 @@ export function CasesList() {
       <header className="page-header">
         <div>
           <h1>案件清單</h1>
-          <p className="lede">找到目前案件、確認狀態，直接前往下一步。</p>
         </div>
         <div className="actions">
           <Link className="button primary" to="/cases/new">
@@ -122,13 +122,13 @@ export function CasesList() {
             />
           </div>
           <div className="field">
-            <label htmlFor="mode-filter">模式</label>
+            <label htmlFor="mode-filter">計算方法</label>
             <select
               id="mode-filter"
               value={mode}
               onChange={(event) => setMode(event.target.value)}
             >
-              <option value="">全部模式</option>
+              <option value="">所有</option>
               <option value="CURRENT_QG">
                 {calculationModeDisplay.CURRENT_QG.label}
               </option>
@@ -155,13 +155,6 @@ export function CasesList() {
               <option value="BLOCKED">待補資料</option>
             </select>
           </div>
-          <button
-            className="button secondary"
-            type="button"
-            onClick={() => void load()}
-          >
-            套用篩選
-          </button>
         </div>
 
         {problem ? (
@@ -169,18 +162,12 @@ export function CasesList() {
         ) : null}
         {loading ? (
           <div className="state-banner" aria-live="polite">
-            正在載入案件，完成後會顯示可執行的下一步。
+            載入案件中…
           </div>
         ) : null}
         {!loading && !problem && items.length === 0 ? (
           <div className="empty-state">
-            <h2>目前還沒有案件</h2>
-            <p className="muted">
-              建立第一筆案件後，即可依人數、面積或設備能力開始計算。
-            </p>
-            <Link className="button primary" to="/cases/new">
-              建立案件
-            </Link>
+            <p>目前還沒有案件。</p>
           </div>
         ) : null}
         {!loading && !problem && items.length > 0 ? (
@@ -193,7 +180,6 @@ export function CasesList() {
                   <th>任務／模式</th>
                   <th>狀態</th>
                   <th>最後更新</th>
-                  <th>下一步</th>
                   <th>操作</th>
                 </tr>
               </thead>
@@ -201,9 +187,9 @@ export function CasesList() {
                 {items.map((item) => (
                   <tr key={`${item.caseId}-${item.revisionNo}`}>
                     <td data-label="案件">
-                      <span className="case-title">
+                      <Link className="case-title" to={`/cases/${item.caseId}`}>
                         {item.title.trim() || item.caseNo}
-                      </span>
+                      </Link>
                       <span className="case-meta">
                         {item.caseNo}｜修訂 {item.revisionNo}
                       </span>
@@ -230,9 +216,6 @@ export function CasesList() {
                         timeZone: "Asia/Taipei",
                       })}
                     </td>
-                    <td data-label="下一步">
-                      <Link to={`/cases/${item.caseId}`}>開啟案件</Link>
-                    </td>
                     <td data-label="操作">
                       {[
                         "ISSUED",
@@ -243,7 +226,7 @@ export function CasesList() {
                         <span className="muted">歷史資料唯讀</span>
                       ) : (
                         <button
-                          className="button danger"
+                          className="button danger compact"
                           type="button"
                           disabled={deletingCaseId === item.caseId}
                           onClick={() => void deleteCase(item)}

@@ -17,6 +17,7 @@ import { encodeCase, type CaseRecord } from "@/infrastructure/data/case-store";
 import { FirestoreCaseStore } from "@/infrastructure/data/firestore-case-store";
 
 const projectId = "demo-grease-trap";
+const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT ?? 8080);
 
 function record(uid = "anonymous-one"): CaseRecord {
   const now = "2026-07-17T00:00:00.000Z";
@@ -58,7 +59,7 @@ describe("Firestore rules and browser repository", () => {
       firestore: {
         rules: await readFile("firestore.rules", "utf8"),
         host: "127.0.0.1",
-        port: 8080,
+        port: firestorePort,
       },
     });
   });
@@ -122,6 +123,38 @@ describe("Firestore rules and browser repository", () => {
     await assertSucceeds(setDoc(reference, valid));
     await assertFails(
       setDoc(reference, { ...valid, version: 3, title: "skip version" }),
+    );
+  });
+
+  it("accepts volume-to-flow only with the legacy calculation mode", async () => {
+    const database = environment
+      .authenticatedContext("anonymous-one", {
+        firebase: { sign_in_provider: "anonymous" },
+      })
+      .firestore();
+    const validRecord: CaseRecord = {
+      ...record(),
+      task_code: "T06_EFFECTIVE_VOLUME_TO_FLOW",
+      mode: "LEGACY_QV",
+    };
+    const invalidRecord: CaseRecord = {
+      ...validRecord,
+      id: "33333333-3333-4333-8333-333333333333",
+      case_group_id: "44444444-4444-4444-8444-444444444444",
+      mode: "CURRENT_QG",
+    };
+
+    await assertSucceeds(
+      setDoc(
+        doc(database, "cases", validRecord.case_group_id),
+        encodeCase(validRecord),
+      ),
+    );
+    await assertFails(
+      setDoc(
+        doc(database, "cases", invalidRecord.case_group_id),
+        encodeCase(invalidRecord),
+      ),
     );
   });
 

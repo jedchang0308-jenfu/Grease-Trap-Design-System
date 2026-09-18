@@ -15,7 +15,7 @@ export const calculationBasisDisplay: Record<
 > = {
   CURRENT_QG: {
     sourceCode: "SRC-CURRENT-2020",
-    shortLabel: "內政部給排水規範（附錄 5）",
+    shortLabel: "算法B-內政部給排水規範（附錄 5）",
     fullLabel: "內政部《建築物給水排水設備設計技術規範》附錄 5",
     pdfHref:
       "/rule-sources/SRC-CURRENT-2020-building-water-drainage-appendix-5.pdf",
@@ -23,7 +23,7 @@ export const calculationBasisDisplay: Record<
   },
   LEGACY_QV: {
     sourceCode: "SRC-LEGACY-FULL",
-    shortLabel: "臺北市工務局衛工處設計說明",
+    shortLabel: "算法A-臺北市工務局衛工處設計說明",
     fullLabel:
       "臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》",
     pdfHref:
@@ -45,7 +45,7 @@ export const calculationModeDisplay: Record<
     description: calculationBasisDisplay.LEGACY_QV.resultLabel,
   },
   DUAL_COMPARISON: {
-    label: "不同計算依據對照",
+    label: "不同計算法一起對照",
     description: "同時呈現兩份資料來源的計算結果。",
   },
 };

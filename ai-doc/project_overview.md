@@ -1,21 +1,21 @@
-# 專案總覽｜油脂截留器雙軌計算與報告草稿系統
+# 專案總覽｜油脂截留器雙軌計算與報告系統
 
 文件狀態：`Static Spark Production Deployed`
 
-版本：`4.2`
+版本：`4.4`
 
-日期：`2026-07-17`
+日期：`2026-09-18`
 
 ## 1. 產品目的
 
-讓同事以公開網址建立共享案件，依兩份計算依據完成正向／反向計算、比較結果、預覽與匯出報告草稿。
+讓同事以公開網址建立共享案件，依兩份計算依據完成正向／反向計算、比較結果，並直接產出草稿或正式報告。
 
 ```text
 匿名登入 → 建案 → 選模式與任務 → 填資料 → 瀏覽器計算
-→ Firestore transaction 保存 → 預覽報告草稿 → 瀏覽器列印／另存 PDF
+→ Firestore transaction 保存 → 預覽報告草稿 → 產生草稿或正式 PDF
 ```
 
-本產品不提供公司身分驗證、角色、正式簽核、正式核發、不可變報告保存或 PDF 雲端留存。
+本產品不提供公司身分驗證、角色、正式簽核、核發流程、不可變報告保存或 PDF 雲端留存；任何使用者都可直接產出具有正式編號與版次的正式報告。
 
 ## 2. End-State Architecture
 
@@ -28,7 +28,7 @@ flowchart LR
     SPA --> FS[("Cloud Firestore cases")]
     CALC --> SNAP["Calculation and report-draft snapshot"]
     SNAP --> FS
-    SNAP --> PRINT["Browser print / Save as PDF"]
+    SNAP --> PRINT["Draft or formal PDF"]
 ```
 
 production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.html`，因此任意 case ID 路由可直接開啟與重新整理。
@@ -50,7 +50,7 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 | Rules catalog        | 來源、參數、版本與 checksum                 | 不在 runtime 修改 active 規則 |
 | Application services | 完整性、version、revision、report snapshot  | 不依賴 server runtime         |
 | Firestore repository | client transaction、encode/decode、共享案件 | 不繞過 Rules                  |
-| React UI             | 建案、工作台、錯誤恢復、報告與列印入口      | 不宣稱正式核發                |
+| React UI             | 建案、工作台、錯誤恢復、草稿與正式報告入口  | 不建立簽核或核發流程          |
 | Firebase Auth        | 自動匿名登入                                | 不代表公司人員身分            |
 
 ## 5. 產品規則
@@ -61,6 +61,8 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 4. 精度判定使用 Decimal raw 值；顯示捨入不得回流計算。
 5. 系統不判定產品、證書、現場施工或法規核准。
 6. 舊 `ISSUED`／`SUPERSEDED` 只作唯讀歷史相容。
+7. 案件與正式報告共用 `GTC-YYMMDD-00` 主編號，不建立第二套編碼；版次沿用案件修訂號。
+8. 原 T01～T05 維持雙軌；T06 依臺北市工務局衛工處公式，由設備有效容積換算設計處理水量，只允許 `LEGACY_QV`。
 
 ## 6. 技術基線
 
@@ -74,23 +76,23 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 
 ## 7. Phase 狀態
 
-| Phase                      | 狀態             | 說明                                                          |
-| -------------------------- | ---------------- | ------------------------------------------------------------- |
-| 雙軌計算與 UI              | Complete         | 既有核心與 responsive UI 保留                                 |
-| DEV-021 Spark 靜態重構     | Complete         | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
-| 真實案件平行試算           | Pending Human    | 需 3～5 個去識別案件及人工預期                                |
-| Firebase production deploy | Complete         | `jenfu-grease-trap-calculator.web.app`；production smoke 通過     |
+| Phase                      | 狀態          | 說明                                                          |
+| -------------------------- | ------------- | ------------------------------------------------------------- |
+| 雙軌計算與 UI              | Complete      | 既有核心與 responsive UI 保留                                 |
+| DEV-021 Spark 靜態重構     | Complete      | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
+| 真實案件平行試算           | Pending Human | 需 3～5 個去識別案件及人工預期                                |
+| Firebase production deploy | Complete      | `jenfu-grease-trap-calculator.web.app`；production smoke 通過 |
 
 ## 8. 主要風險
 
 - 網址外流：第三方可操作共享案件；首版不放敏感資料。
-- client 可修改：沒有可信任後端，無法提供正式核發或稽核保證。
+- client 可修改：沒有可信任後端，不提供簽核、核發流程或稽核保證。
 - 配額：Spark 免費額度或 Firestore quota 到達時，UI 只能提示與重試。
 - 同時編輯：version transaction 可避免靜默覆蓋，但使用者需重新載入後重做操作。
 - PDF：報告使用隨站 Noto Sans TC，列印前等待字型與圖片完成載入，並固定 A4、表頭及斷頁規則；紙張、縮放與不同瀏覽器列印引擎仍可能造成細微差異，不承諾像素一致。
 
 ## 9. Re-entry Trigger
 
-- 恢復正式核發、PDF 留存、公司帳號、角色或敏感資料時，重新引入可信任後端及新 ADR。
+- 加入正式簽核、核發流程、PDF 雲端留存、公司帳號、角色或敏感資料時，重新引入可信任後端及新 ADR。
 - 部署只能使用本系統專用 Firebase project，不得沿用 PDM／ProJED。
 - 法規來源更新時建立新規則版本與 regression evidence，不覆寫現有 catalog。

@@ -82,29 +82,54 @@ export const legacyInputSchema = z.discriminatedUnion("kind", [
     dinerDensity: decimalValue,
     turnover: decimalValue,
   }),
+  z.object({
+    kind: z.literal("VOLUME_TO_FLOW"),
+    effectiveVolumeL: decimalValue,
+    evidenceSource: z.string().trim().min(1),
+  }),
 ]);
 
-export const createCaseSchema = z.object({
-  customer: z.string().trim().max(160).default(""),
-  location: z.string().trim().max(240).default(""),
-  title: z.string().trim().max(160).default(""),
-  purpose: z.string().trim().max(500).default(""),
-  taskCode: z.enum(taskCodes),
-  mode: z.enum(calculationModes),
-  evidenceSource: z.string().trim().max(500).optional(),
-});
+function validateTaskMode(
+  value: { taskCode: string; mode: string },
+  context: z.RefinementCtx,
+) {
+  if (
+    value.taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW" &&
+    value.mode !== "LEGACY_QV"
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["mode"],
+      message: "有效容積換算處理水量僅適用算法 A。",
+    });
+  }
+}
 
-export const calculateRequestSchema = z.object({
-  caseId: z.string().uuid(),
-  revisionNo: z.number().int().positive(),
-  taskCode: z.enum(taskCodes),
-  mode: z.enum(calculationModes),
-  idempotencyKey: z.string().trim().min(8).max(160),
-  expectedCaseVersion: z.number().int().positive(),
-  requestedRuleSetVersion: z.string().optional(),
-  currentInputs: currentInputSchema.optional(),
-  legacyInputs: legacyInputSchema.optional(),
-});
+export const createCaseSchema = z
+  .object({
+    customer: z.string().trim().max(160).default(""),
+    location: z.string().trim().max(240).default(""),
+    title: z.string().trim().max(160).default(""),
+    purpose: z.string().trim().max(500).default(""),
+    taskCode: z.enum(taskCodes),
+    mode: z.enum(calculationModes),
+    evidenceSource: z.string().trim().max(500).optional(),
+  })
+  .superRefine(validateTaskMode);
+
+export const calculateRequestSchema = z
+  .object({
+    caseId: z.string().uuid(),
+    revisionNo: z.number().int().positive(),
+    taskCode: z.enum(taskCodes),
+    mode: z.enum(calculationModes),
+    idempotencyKey: z.string().trim().min(8).max(160),
+    expectedCaseVersion: z.number().int().positive(),
+    requestedRuleSetVersion: z.string().optional(),
+    currentInputs: currentInputSchema.optional(),
+    legacyInputs: legacyInputSchema.optional(),
+  })
+  .superRefine(validateTaskMode);
 
 export const patchCaseSchema = z.object({
   customer: z.string().trim().min(1).max(160).optional(),

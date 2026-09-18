@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   exportReportDraft,
   previewReport,
 } from "@/application/reports/report-service";
 import { toProblem } from "@/application/problem";
-import { basisForTrack, modeDisplayFor } from "@/domain/rules/source-display";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 
 interface Preview {
@@ -26,90 +25,26 @@ interface Preview {
   };
   assessments: Array<{ track: string; status: string }>;
   html: string;
+  formalHtml: string;
 }
 
-const reportAssetTimeoutMs = 15_000;
-const reportFontQuery = '400 12px "Jenfu Report Sans"';
-const reportFontProbe = "鉦富機械油脂截留器報告草稿 0123456789";
-
-async function waitForImage(image: HTMLImageElement): Promise<void> {
-  if (!image.complete) {
-    await new Promise<void>((resolve, reject) => {
-      image.addEventListener("load", () => resolve(), { once: true });
-      image.addEventListener(
-        "error",
-        () => reject(new Error(`Report image failed to load: ${image.src}`)),
-        { once: true },
-      );
-    });
-  }
-  if (image.naturalWidth === 0) {
-    throw new Error(`Report image is unavailable: ${image.src}`);
-  }
-  if (typeof image.decode === "function") {
-    await image.decode();
-  }
-}
-
-async function waitForReportAssets(
-  frame: HTMLIFrameElement | null,
-): Promise<Window> {
-  const printWindow = frame?.contentWindow;
-  const document = frame?.contentDocument;
-  if (!printWindow || !document || document.readyState !== "complete") {
-    throw new Error("Report frame is not ready");
-  }
-
-  const ready = async () => {
-    const loadedFonts = await document.fonts.load(
-      reportFontQuery,
-      reportFontProbe,
-    );
-    await document.fonts.ready;
-    if (
-      loadedFonts.length === 0 ||
-      !document.fonts.check(reportFontQuery, reportFontProbe)
-    ) {
-      throw new Error("Bundled report font is unavailable");
-    }
-    await Promise.all(Array.from(document.images, waitForImage));
-    await new Promise<void>((resolve) => {
-      printWindow.requestAnimationFrame(() =>
-        printWindow.requestAnimationFrame(() => resolve()),
-      );
-    });
-  };
-
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      ready(),
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(
-          () => reject(new Error("Report assets timed out")),
-          reportAssetTimeoutMs,
-        );
-      }),
-    ]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-  }
-  return printWindow;
-}
+type PdfKind = "DRAFT" | "FORMAL";
 
 export function ReportPreview({ caseId }: { caseId: string }) {
-  const reportFrame = useRef<HTMLIFrameElement>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [printing, setPrinting] = useState(false);
+  const [pdfGenerating, setPdfGenerating] = useState<PdfKind | null>(null);
+  const [lastPdfKind, setLastPdfKind] = useState<PdfKind>("DRAFT");
+  const [pdfSavedPath, setPdfSavedPath] = useState<string | null>(null);
+  const [pdfSavedKind, setPdfSavedKind] = useState<PdfKind | null>(null);
   const [frameReady, setFrameReady] = useState(false);
-  const [printRequested, setPrintRequested] = useState(false);
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<UiProblem | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setFrameReady(false);
+    setPdfSavedPath(null);
     setProblem(null);
     try {
       setPreview(await previewReport(caseId));
@@ -121,33 +56,67 @@ export function ReportPreview({ caseId }: { caseId: string }) {
   }, [caseId]);
 
   useEffect(() => {
-    void load();
+    const timeout = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeout);
   }, [load]);
 
-  const printReport = useCallback(async () => {
-    setPrinting(true);
+  function handleFrameLoad() {
+    setFrameReady(true);
+  }
+
+  async function generateReportPdf(kind: PdfKind) {
+    if (!preview) return;
+    setPdfGenerating(kind);
+    setLastPdfKind(kind);
+    setPdfSavedPath(null);
+    setPdfSavedKind(null);
     setProblem(null);
     try {
-      const printWindow = await waitForReportAssets(reportFrame.current);
-      printWindow.focus();
-      printWindow.print();
+      let source = preview;
+      if (kind === "FORMAL" && !source.exported) {
+        const exported = await exportReportDraft(caseId, source.version);
+        source = {
+          ...source,
+          version: exported.caseVersion,
+          reportNumber: exported.reportNumber,
+          snapshotHash: exported.snapshotHash,
+          exported: true,
+          html: exported.html,
+          formalHtml: exported.formalHtml,
+        };
+        setFrameReady(false);
+        setPreview(source);
+      }
+      const revision = String(source.case.revisionNo).padStart(2, "0");
+      const fileName =
+        kind === "FORMAL"
+          ? `${source.case.caseNo}-R${revision}.pdf`
+          : `${source.case.caseNo}-DRAFT.pdf`;
+      const response = await fetch("/api/report-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          html: kind === "FORMAL" ? source.formalHtml : source.html,
+          fileName,
+        }),
+      });
+      const result = (await response.json()) as { savedPath?: unknown };
+      if (!response.ok || typeof result.savedPath !== "string") {
+        throw new Error("REPORT_PDF_FAILED");
+      }
+      setPdfSavedPath(result.savedPath);
+      setPdfSavedKind(kind);
     } catch {
       setProblem({
-        code: "PRINT_ASSETS_NOT_READY",
-        title: "報告資產尚未準備完成",
-        userMessage: "報告字型或圖片載入未完成，請重新載入報告後再試一次。",
+        code: "REPORT_PDF_FAILED",
+        title: "PDF 產生失敗",
+        userMessage: "PDF 未完成儲存，請再試一次。",
         retryable: true,
       });
     } finally {
-      setPrinting(false);
+      setPdfGenerating(null);
     }
-  }, []);
-
-  useEffect(() => {
-    if (!printRequested || !frameReady) return;
-    setPrintRequested(false);
-    void printReport();
-  }, [frameReady, printReport, printRequested]);
+  }
 
   async function exportDraft() {
     if (!preview) return;
@@ -156,7 +125,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     try {
       const exported = await exportReportDraft(caseId, preview.version);
       setFrameReady(false);
-      setPrintRequested(true);
+      setPdfSavedPath(null);
       setPreview((current) =>
         current
           ? {
@@ -166,6 +135,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
               snapshotHash: exported.snapshotHash,
               exported: true,
               html: exported.html,
+              formalHtml: exported.formalHtml,
             }
           : current,
       );
@@ -180,7 +150,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     return (
       <div className="page">
         <div className="state-banner" aria-live="polite">
-          正在建立報告草稿預覽，完成後可使用瀏覽器列印或另存 PDF。
+          建立預覽中…
         </div>
       </div>
     );
@@ -198,13 +168,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     <div className="page report-preview-page">
       <header className="page-header no-print">
         <div>
-          <p className="muted" style={{ marginBottom: 5 }}>
-            {preview.case.caseNo}｜修訂 {preview.case.revisionNo}
-          </p>
           <h1>報告草稿預覽</h1>
-          <p className="lede">
-            本頁產生可列印草稿，不代表公司身分驗證或公司簽核效力。
-          </p>
         </div>
         <div className="actions">
           <Link to={`/cases/${caseId}`}>返回案件</Link>
@@ -213,69 +177,27 @@ export function ReportPreview({ caseId }: { caseId: string }) {
 
       {problem ? (
         <div className="no-print">
-          <RuntimeError problem={problem} onRetry={() => void load()} />
+          <RuntimeError
+            problem={problem}
+            onRetry={
+              problem.code === "REPORT_PDF_FAILED"
+                ? () => void generateReportPdf(lastPdfKind)
+                : () => void load()
+            }
+          />
         </div>
       ) : null}
 
-      {preview.legacyIssued ? (
-        <div className="state-banner warning no-print" role="status">
-          <strong>這是舊系統的歷史資料。</strong>
-          <p>靜態版只提供唯讀預覽與列印，不會建立新的公司簽核紀錄。</p>
-        </div>
-      ) : preview.exported ? (
-        <div className="state-banner no-print" role="status">
-          <strong>報告草稿已保存於共享案件。</strong>
-          <p>
-            系統會等隨附字型與圖片完成載入後再列印；紙張、縮放與瀏覽器列印引擎仍可能造成細微差異。
-          </p>
-        </div>
-      ) : (
-        <div className="state-banner warning no-print" role="status">
-          <strong>目前是尚未保存的預覽。</strong>
-          <p>匯出時會保存案件內的草稿快照，並開啟瀏覽器列印視窗。</p>
-        </div>
-      )}
-
-      <section className="panel no-print">
-        <dl className="summary-grid">
-          <div>
-            <dt>案件／修訂</dt>
-            <dd>
-              {preview.case.caseNo} / {preview.case.revisionNo}
-            </dd>
-          </div>
-          <div>
-            <dt>客戶</dt>
-            <dd>{preview.case.customer}</dd>
-          </div>
-          <div>
-            <dt>設置地點</dt>
-            <dd>{preview.case.location}</dd>
-          </div>
-          <div>
-            <dt>計算依據</dt>
-            <dd>{modeDisplayFor(preview.case.mode).label}</dd>
-          </div>
-          <div>
-            <dt>完成依據</dt>
-            <dd>
-              {preview.assessments
-                .filter((item) => item.status === "CALCULATED")
-                .map((item) => basisForTrack(item.track).shortLabel)
-                .join("、")}
-            </dd>
-          </div>
-          <div>
-            <dt>草稿編號</dt>
-            <dd>{preview.reportNumber}</dd>
-          </div>
-        </dl>
-        <div className="button-row end" style={{ marginTop: 18 }}>
+      <section
+        className="panel report-controls no-print"
+        aria-label="報告操作"
+      >
+        <div className="button-row end">
           {!preview.legacyIssued ? (
             <button
-              className="button primary"
+              className="button secondary"
               type="button"
-              disabled={submitting || printing}
+              disabled={submitting || Boolean(pdfGenerating)}
               onClick={() => void exportDraft()}
             >
               {submitting ? "正在準備草稿…" : "匯出報告草稿"}
@@ -284,22 +206,40 @@ export function ReportPreview({ caseId }: { caseId: string }) {
           <button
             className="button secondary"
             type="button"
-            disabled={submitting || printing || !frameReady}
-            onClick={() => void printReport()}
+            disabled={submitting || Boolean(pdfGenerating) || !frameReady}
+            onClick={() => void generateReportPdf("DRAFT")}
           >
-            {printing ? "正在準備列印…" : "列印／另存 PDF"}
+            {pdfGenerating === "DRAFT" ? "正在產生草稿…" : "產生草稿 PDF"}
           </button>
+          {!preview.legacyIssued ? (
+            <button
+              className="button primary"
+              type="button"
+              disabled={submitting || Boolean(pdfGenerating)}
+              onClick={() => void generateReportPdf("FORMAL")}
+            >
+              {pdfGenerating === "FORMAL"
+                ? "正在產生正式報告…"
+                : "產生正式報告"}
+            </button>
+          ) : null}
         </div>
+        {pdfSavedPath ? (
+          <p className="report-pdf-status" role="status">
+            {pdfSavedKind === "FORMAL" ? "正式報告 PDF" : "草稿 PDF"}
+            {" 已儲存至："}
+            {pdfSavedPath}
+          </p>
+        ) : null}
       </section>
 
-      <section className="panel report-document-panel">
-        <h2 className="no-print">文件預覽</h2>
+      <section className="panel report-document-panel" aria-label="文件預覽">
         <iframe
-          ref={reportFrame}
+          key={`${preview.version}-${preview.reportNumber}`}
           title="客戶設計計算報告草稿預覽"
           srcDoc={preview.html}
           sandbox="allow-modals allow-same-origin"
-          onLoad={() => setFrameReady(true)}
+          onLoad={handleFrameLoad}
         />
       </section>
     </div>

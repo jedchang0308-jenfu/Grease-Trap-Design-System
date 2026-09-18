@@ -69,9 +69,6 @@ export function DesignResultsTable({
         <thead>
           <tr>
             <th scope="col">輸出項目</th>
-            <th className="design-results-help-head" scope="col">
-              說明
-            </th>
             {tracks.map((track) => (
               <th scope="col" key={track}>
                 {basisForTrack(track).shortLabel}
@@ -82,8 +79,8 @@ export function DesignResultsTable({
         <tbody>
           {rows.map((row) => (
             <tr key={row.label}>
-              <th scope="row">{row.label}</th>
-              <td className="design-results-help-cell">
+              <th scope="row">
+                <span>{row.label}</span>
                 {outputItemHelp[row.label] ? (
                   <FieldHelpButton
                     ariaLabel={`${row.label}說明`}
@@ -92,7 +89,7 @@ export function DesignResultsTable({
                     title={row.label}
                   />
                 ) : null}
-              </td>
+              </th>
               {tracks.map((track) => (
                 <td data-label={basisForTrack(track).shortLabel} key={track}>
                   <ResultCell cell={row.cells[track]} />

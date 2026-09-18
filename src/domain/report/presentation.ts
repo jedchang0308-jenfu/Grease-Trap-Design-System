@@ -41,6 +41,7 @@ export interface ReportOutputRow {
 
 export interface ReportOutputRun {
   track: string;
+  methodCode?: string;
   adopted: Record<string, string | null>;
 }
 
@@ -159,6 +160,12 @@ const legacyInputFields: InputFieldDefinition[] = [
     key: "effectiveVolumeL",
     label: "設備有效容積",
     unit: "L",
+    role: "設備資料",
+  },
+  {
+    key: "evidenceSource",
+    label: "有效容積資料來源",
+    unit: "",
     role: "設備資料",
   },
   {
@@ -524,6 +531,9 @@ export function buildOutputRows(
   const tracks = reportTracksForMode(mode);
   const includesCurrent = tracks.includes("CURRENT_QG");
   const includesLegacy = tracks.includes("LEGACY_QV");
+  const volumeToFlowOnly =
+    runs.length > 0 &&
+    runs.every((run) => run.methodCode === "LEGACY_FLOW_BY_EFFECTIVE_VOLUME");
   const rows: ReportOutputRow[] = [];
   const cells = (
     current: ReportOutputCell,
@@ -554,7 +564,7 @@ export function buildOutputRows(
       ),
     });
   }
-  if (includesLegacy) {
+  if (includesLegacy && !volumeToFlowOnly) {
     rows.push({
       label: "設備所需有效容積",
       cells: cells(
@@ -775,6 +785,29 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       role: "計算中間值",
     },
     { symbol: "6", label: "有效容積換算係數", unit: "", role: "計算依據參數" },
+  ],
+  "LEG-VOL-QH": [
+    {
+      symbol: "6",
+      label: "有效容積換算係數",
+      unit: "1/h",
+      role: "計算依據參數",
+    },
+    { symbol: "Veff", label: "設備有效容積", unit: "L", role: "本案條件" },
+  ],
+  "LEG-VOL-QM": [
+    {
+      symbol: "Qhour",
+      label: "每小時設計處理水量",
+      unit: "L/h",
+      role: "計算中間值",
+    },
+    {
+      symbol: "60",
+      label: "每小時分鐘數",
+      unit: "min/h",
+      role: "計算依據參數",
+    },
   ],
   "LEG-REV-N": [
     { symbol: "6", label: "有效容積換算係數", unit: "", role: "計算依據參數" },

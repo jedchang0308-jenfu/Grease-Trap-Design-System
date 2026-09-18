@@ -52,12 +52,18 @@ export interface LegacyReverseInput extends LegacyBase {
   turnover: Decimal.Value;
 }
 
+export interface LegacyVolumeToFlowInput {
+  effectiveVolumeL: Decimal.Value;
+  evidenceSource: string;
+}
+
 export interface LegacyResult {
   track: "LEGACY_QV";
   methodCode:
     | "LEGACY_BY_DINERS"
     | "LEGACY_BY_AREA"
-    | "LEGACY_REVERSE_BY_EFFECTIVE_VOLUME";
+    | "LEGACY_REVERSE_BY_EFFECTIVE_VOLUME"
+    | "LEGACY_FLOW_BY_EFFECTIVE_VOLUME";
   semantics: string;
   raw: Record<string, string | null>;
   sourceDisplay: Record<string, string | null>;
@@ -328,6 +334,68 @@ export function reverseLegacyByEffectiveVolume(
     metadata: {
       ruleSet: "RULE-LEGACY-QV@legacy.1",
       safetyFactor: k.toString(),
+    },
+  };
+}
+
+export function calculateLegacyFlowByEffectiveVolume(
+  input: LegacyVolumeToFlowInput,
+): LegacyResult {
+  if (!input.evidenceSource.trim()) {
+    throw new DomainInputError("換算處理水量必須填寫有效容積資料來源。", [
+      "evidenceSource",
+    ]);
+  }
+  const volume = decimal(input.effectiveVolumeL, "effectiveVolumeL");
+  const qHour = volume.mul(6);
+  const qMinute = qHour.div(60);
+  const steps: CalculationStep[] = [];
+  step(
+    steps,
+    "LEG-VOL-QH",
+    "Qhour=6×Veff",
+    `6×${volume}`,
+    qHour,
+    "L/h",
+    "SRC-LEGACY-FULL",
+  );
+  step(
+    steps,
+    "LEG-VOL-QM",
+    "Qminute=Qhour/60",
+    `${qHour}÷60`,
+    qMinute,
+    "L/min",
+    "unit-conversion",
+  );
+  return {
+    track: "LEGACY_QV",
+    methodCode: "LEGACY_FLOW_BY_EFFECTIVE_VOLUME",
+    semantics: `${calculationBasisDisplay.LEGACY_QV.shortLabel}計算結果：有效容積換算設計處理水量`,
+    raw: {
+      qLph: decimalString(qHour),
+      qLpm: decimalString(qMinute),
+    },
+    sourceDisplay: {
+      qLph: decimalString(sourceDisplayTenth(qHour)),
+      qLpm: decimalString(sourceDisplayTenth(qMinute)),
+    },
+    adopted: {
+      qLph: decimalString(ceilTenth(qHour)),
+    },
+    steps,
+    warnings: [
+      {
+        code: "HISTORICAL_METHOD",
+        severity: "INFO",
+        track: "LEGACY_QV",
+        message: `本結果依${calculationBasisDisplay.LEGACY_QV.shortLabel}計算。`,
+        details: { evidenceSource: input.evidenceSource },
+      },
+    ],
+    metadata: {
+      ruleSet: "RULE-LEGACY-QV@legacy.1",
+      evidenceSource: input.evidenceSource,
     },
   };
 }

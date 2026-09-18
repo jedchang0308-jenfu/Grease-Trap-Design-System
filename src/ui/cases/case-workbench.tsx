@@ -11,7 +11,6 @@ import { calculateCase } from "@/application/cases/calculation-service";
 import { createRevision } from "@/application/cases/revision-service";
 import { getLatestCase, presentCase } from "@/application/cases/repository";
 import { toProblem } from "@/application/problem";
-import { buildInputCompletenessBadges } from "@/domain/report/presentation";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
@@ -123,6 +122,7 @@ const taskLabels: Record<string, string> = {
   T03_AREA_TO_FLOW: "面積換算流量",
   T04_AREA_TO_DESIGN: "面積規劃設計需求",
   T05_DESIGN_TO_DINERS_AND_AREA: "設備能力反推人數及面積",
+  T06_EFFECTIVE_VOLUME_TO_FLOW: "有效容積換算設計處理水量",
 };
 
 type VisibleInputSourceType =
@@ -132,24 +132,6 @@ type VisibleInputSourceType =
   | "實測資料"
   | "來源表值"
   | "覆寫值";
-
-const inputSourceDescriptions: Record<VisibleInputSourceType, string> = {
-  案件資料: "來自本案人數、面積、時間或週期。",
-  工程選值: "需依來源範圍、餐飲型態或工程理由選定。",
-  設備資料: "來自設備能力、有效容積或證據文件。",
-  實測資料: "來自現場量測或營運紀錄。",
-  來源表值: "由所選餐飲類型帶出的規範表預設參數。",
-  覆寫值: "有案件證據時取代來源表預設值。",
-};
-
-const inputSourceTones: Record<VisibleInputSourceType, string> = {
-  案件資料: "case",
-  工程選值: "engineering",
-  設備資料: "equipment",
-  實測資料: "measured",
-  來源表值: "source",
-  覆寫值: "override",
-};
 
 const legacyWaterReferenceRows = [
   { category: "觀光飯店", q: "70～120", turnover: "3", density: "0.5" },
@@ -181,8 +163,9 @@ const fieldHelp = {
     note: "內政部給排水規範（附錄 5）的面積計算會將廚房面積與用餐區面積相加，兩者都要分別填寫。",
   },
   currentDiningArea: {
-    description: "填寫顧客座席與實際用餐區面積，單位為 m²，不包含廚房作業區。",
-    note: "內政部給排水規範（附錄 5）的面積計算必須同時提供廚房面積與用餐區面積。",
+    description:
+      "填寫顧客座席與實際用餐區面積，單位為 m²，不包含廚房作業區。這是兩種算法共用的案件資料。",
+    note: "任一算法的共用面積修改後，另一算法會同步更新；算法 B 會再與廚房面積相加。",
   },
   qCapacity: {
     description:
@@ -199,8 +182,8 @@ const fieldHelp = {
   },
   actualUseMinutes: {
     description:
-      "覆寫現行內政部給排水規範（附錄 5）流量 Q 公式中的 t（每日使用時間，min/day）。留空時使用下方顯示的來源表預設值。",
-    note: "填入後會影響 Q 計算與設備能力反推，不會改變油脂／殘渣清除週期。請只在有本案營運時間證據時填寫。",
+      "算法 B 的 t：整日廚房累計使用時間，單位為 min/day。留空時使用下方顯示的來源表預設值。",
+    note: "它不是算法 A 的每餐／連續操作時間，兩者不會同步。填入後會影響 Q 計算與設備能力反推。",
   },
   greaseDays: {
     description: "填寫兩次完整清除油脂之間的天數；本計算依據允許 7～14 day。",
@@ -217,8 +200,8 @@ const fieldHelp = {
   },
   legacyArea: {
     description:
-      "填寫臺北市工務局衛工處設計說明的面積計算所需用餐營業面積，單位為 m²。",
-    note: "系統會搭配人員密度與翻桌率，換算單一餐期的用餐人數。",
+      "填寫顧客座席與實際用餐營業區面積，單位為 m²，不包含廚房作業區。這是兩種算法共用的案件資料。",
+    note: "任一算法的共用面積修改後，另一算法會同步更新；算法 A 會搭配人員密度與翻桌率換算用餐人數。",
   },
   legacyDensity: {
     description:
@@ -231,16 +214,20 @@ const fieldHelp = {
   },
   legacyVolume: {
     description:
-      "填寫油脂截留器可實際使用的有效容積，單位為 L；系統會用來反推等效人數與面積。",
+      "填寫油脂截留器可實際使用的有效容積，單位為 L；系統會依任務換算設計處理水量，或反推等效人數與面積。",
     note: "請勿填外殼的名目容積。",
+  },
+  legacyVolumeSource: {
+    description: "記錄有效容積數值的來源，讓設計處理水量換算結果可追溯。",
+    note: "例如：設備圖面、規格書、型錄頁次或現場量測紀錄。",
   },
   legacyQ: {
     description: "填寫每人每餐用水量 q，單位為 L/(人·餐)。優先採用實測值。",
     note: "沒有實測時，須從來源提供的範圍選定明確數值，不可直接取範圍平均。",
   },
   legacyHours: {
-    description: "填寫該餐期或連續操作的有效操作時間 t，單位為 h。",
-    note: "系統會以用餐人數、每人每餐用水量與操作時間計算每小時流量。",
+    description: "算法 A 的 t：單一餐期或連續操作期間的有效時間，單位為 h。",
+    note: "它不是算法 B 的每日累計使用時間，兩者不會同步。系統會用此值計算每小時流量。",
   },
   safetyClass: {
     description:
@@ -297,10 +284,11 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     selectionSourceType: "來源表範圍選值",
     selectionBasis: "依餐飲型態與來源分類選用",
     selectionEvidence: "",
-    areaM2: "200",
+    areaM2: "150",
     dinerDensity: "0.5",
     turnover: "5",
     effectiveVolumeL: "500",
+    evidenceSource: "製造商提供設備有效容積資料",
   });
 
   const load = useCallback(async () => {
@@ -311,22 +299,34 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
       setItem(data);
       const storedCurrent = data.input_payload?.currentInputs;
       const storedLegacy = data.input_payload?.legacyInputs;
-      if (storedCurrent)
+      const storedCurrentValues = storedCurrent
+        ? stringValues(storedCurrent)
+        : undefined;
+      const storedLegacyValues = storedLegacy
+        ? stringValues(storedLegacy)
+        : undefined;
+      const sharedDiningArea =
+        storedCurrentValues?.diningArea ?? storedLegacyValues?.areaM2;
+      if (
+        storedCurrentValues ||
+        sharedDiningArea !== undefined ||
+        data.dining_type
+      )
         setCurrent((previous) => ({
           ...previous,
-          ...stringValues(storedCurrent),
+          ...(data.dining_type ? { diningType: data.dining_type } : {}),
+          ...(storedCurrentValues ?? {}),
+          ...(sharedDiningArea !== undefined
+            ? { diningArea: sharedDiningArea }
+            : {}),
         }));
-      else if (data.dining_type) {
-        const diningType = data.dining_type;
-        setCurrent((previous) => ({
-          ...previous,
-          diningType,
-        }));
-      }
-      if (storedLegacy)
+      if (storedLegacyValues || sharedDiningArea !== undefined)
         setLegacy((previous) => ({
           ...previous,
-          ...stringValues(storedLegacy),
+          ...(storedLegacyValues ?? {}),
+          ...(sharedDiningArea !== undefined
+            ? { areaM2: sharedDiningArea }
+            : {}),
         }));
     } catch (error) {
       setProblem(toProblem(error, "案件載入未完成，請重試。"));
@@ -354,18 +354,6 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
       ),
     [latestResults],
   );
-  const conditionBadges = useMemo(
-    () =>
-      item
-        ? buildInputCompletenessBadges(
-            item.input_payload,
-            designResultRuns.map((result) => result.track),
-            item.mode,
-          )
-        : [],
-    [designResultRuns, item],
-  );
-
   async function calculate(event: FormEvent) {
     event.preventDefault();
     if (!item) return;
@@ -423,7 +411,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     return (
       <div className="page">
         <div className="state-banner" aria-live="polite">
-          正在載入案件，完成後會顯示可執行的下一步。
+          載入案件中…
         </div>
       </div>
     );
@@ -450,6 +438,10 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   const submittingCalculationText = hasCalculationAttempt
     ? "正在重新計算…"
     : "正在計算…";
+  const setSharedDiningArea = (value: string) => {
+    setCurrent((previous) => ({ ...previous, diningArea: value }));
+    setLegacy((previous) => ({ ...previous, areaM2: value }));
+  };
 
   return (
     <div className="page">
@@ -459,7 +451,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
             {item.case_no}｜修訂 {item.revision_no}
           </p>
           <h1>{displayTitle}</h1>
-          <p className="lede">
+          <p className="lede case-context">
             {displayCustomer}｜{displayLocation}
           </p>
         </div>
@@ -505,26 +497,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
               <StatusBadge status={item.calculation_status} />
             </dd>
           </div>
-          <div>
-            <dt>案件狀態</dt>
-            <dd>
-              <StatusBadge status={item.lifecycle_status} />
-            </dd>
-          </div>
         </dl>
-        {item.calculation_status || item.assessments.length > 0 ? (
-          <div className="condition-badge-row" aria-label="計算完整性">
-            {conditionBadges.map((badge) => (
-              <span
-                className={`condition-pill ${badge.tone}`}
-                key={`${badge.label}-${badge.detail ?? ""}`}
-              >
-                <strong>{badge.label}</strong>
-                {badge.detail ? <small>{badge.detail}</small> : null}
-              </span>
-            ))}
-          </div>
-        ) : null}
         <NextAction item={item} placement="summary" />
       </section>
 
@@ -533,15 +506,8 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           <div className="page-header" style={{ marginBottom: 16 }}>
             <div>
               <h2>計算資料</h2>
-              <p className="lede">
-                欄位依任務與模式顯示；每個數值旁都保留單位語意。
-              </p>
             </div>
           </div>
-          <details className="input-legend-details">
-            <summary>輸入屬性說明</summary>
-            <InputSourceLegend />
-          </details>
           <div className="track-grid">
             {currentEnabled ? (
               <fieldset
@@ -556,6 +522,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                   taskCode={item.task_code}
                   values={current}
                   setValues={setCurrent}
+                  onSharedDiningAreaChange={setSharedDiningArea}
                 />
               </fieldset>
             ) : null}
@@ -572,13 +539,11 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                   taskCode={item.task_code}
                   values={legacy}
                   setValues={setLegacy}
+                  onSharedDiningAreaChange={setSharedDiningArea}
                 />
               </fieldset>
             ) : null}
           </div>
-          <p className="help" style={{ marginTop: 16, marginBottom: 0 }}>
-            本系統未執行特定產品或證書符合性判定。
-          </p>
           {!readonly ? (
             <div className="button-row end" style={{ marginTop: 16 }}>
               <button
@@ -631,23 +596,10 @@ function NextAction({
   if (isReportReady(item)) {
     if (placement !== "result") return null;
     return (
-      <div
-        className={
-          item.calculation_status === "COMPLETE_WITH_REMINDER"
-            ? "state-banner warning"
-            : "state-banner"
-        }
-      >
-        <strong>
-          {item.calculation_status === "COMPLETE_WITH_REMINDER"
-            ? "已有一軌完成；可預覽並匯出報告草稿，另一軌未計算不影響。"
-            : "計算已完成；下一步預覽並匯出報告草稿。"}
-        </strong>
-        <div className="button-row" style={{ marginTop: 12 }}>
-          <Link className="button primary" to={`/cases/${item.caseId}/report`}>
-            預覽報告草稿
-          </Link>
-        </div>
+      <div className="next-action">
+        <Link className="button primary" to={`/cases/${item.caseId}/report`}>
+          預覽報告草稿
+        </Link>
       </div>
     );
   }
@@ -661,23 +613,21 @@ function NextAction({
   }
   if (item.lifecycle_status === "ISSUED") {
     return (
-      <div className="state-banner">
-        <strong>
-          此版本是舊系統的歷史紀錄；靜態版僅供唯讀查看，不會建立新的公司簽核紀錄。
-        </strong>
-        <div className="button-row" style={{ marginTop: 12 }}>
-          <Link className="button primary" to={`/cases/${item.caseId}/report`}>
-            查看歷史報告資料
-          </Link>
-        </div>
+      <div className="next-action">
+        <Link className="button primary" to={`/cases/${item.caseId}/report`}>
+          查看歷史報告資料
+        </Link>
       </div>
     );
   }
-  return (
-    <div className="state-banner">
-      <strong>先填完任一可用軌的必要資料，即可開始計算。</strong>
-    </div>
-  );
+  if (item.calculation_status === "BLOCKED") {
+    return (
+      <div className="state-banner danger">
+        <strong>資料不足，請補齊必要欄位後重新計算。</strong>
+      </div>
+    );
+  }
+  return null;
 }
 
 function isReportReady(item: CaseDetail) {
@@ -691,7 +641,12 @@ function isReportReady(item: CaseDetail) {
   );
 }
 
-function CurrentFields({ taskCode, values, setValues }: FieldProps) {
+function CurrentFields({
+  taskCode,
+  values,
+  setValues,
+  onSharedDiningAreaChange,
+}: FieldProps) {
   const set = (key: string, value: string) =>
     setValues((previous) => ({ ...previous, [key]: value }));
   const reverse = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
@@ -741,12 +696,12 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
           />
           <NumberField
             id="dining-area"
-            label="用餐區面積"
+            label="用餐區面積（兩算法共用）"
             unit="m²"
             help={fieldHelp.currentDiningArea}
             sourceType="案件資料"
             value={values.diningArea}
-            onChange={(value) => set("diningArea", value)}
+            onChange={onSharedDiningAreaChange}
           />
         </>
       ) : null}
@@ -812,7 +767,7 @@ function CurrentFields({ taskCode, values, setValues }: FieldProps) {
           />
           <OptionalNumberField
             id="actual-use-minutes"
-            label="每日實際使用時間"
+            label="算法 B：每日廚房使用時間 t"
             unit="min/day"
             help={fieldHelp.actualUseMinutes}
             sourceType="覆寫值"
@@ -892,7 +847,7 @@ function CurrentUseTimeReference({
 }) {
   const reference = buildCurrentUseTimeReference(taskCode, diningType);
   return (
-    <InputMatrixDetail label="被覆寫的 t" sourceType="來源表值">
+    <InputMatrixDetail label="算法 B 來源表 t（每日）" sourceType="來源表值">
       <div className="current-t-reference">
         {reference ? (
           <>
@@ -998,12 +953,42 @@ function buildCurrentUseTimeOverrideEffect(
   };
 }
 
-function LegacyFields({ taskCode, values, setValues }: FieldProps) {
+function LegacyFields({
+  taskCode,
+  values,
+  setValues,
+  onSharedDiningAreaChange,
+}: FieldProps) {
   const set = (key: string, value: string) =>
     setValues((previous) => ({ ...previous, [key]: value }));
   const reverse = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
+  const volumeToFlow = taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW";
   const area =
     taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
+  if (volumeToFlow) {
+    return (
+      <InputMatrix>
+        <NumberField
+          id="legacy-volume"
+          label="設備有效容積"
+          unit="L"
+          help={fieldHelp.legacyVolume}
+          sourceType="設備資料"
+          value={values.effectiveVolumeL}
+          onChange={(value) => set("effectiveVolumeL", value)}
+        />
+        <TextField
+          id="legacy-volume-source"
+          label="有效容積資料來源／證據"
+          help={fieldHelp.legacyVolumeSource}
+          sourceType="設備資料"
+          value={values.evidenceSource}
+          onChange={(value) => set("evidenceSource", value)}
+          required
+        />
+      </InputMatrix>
+    );
+  }
   return (
     <InputMatrix>
       {!area && !reverse ? (
@@ -1021,12 +1006,12 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
         <>
           <NumberField
             id="legacy-area"
-            label="用餐區面積"
+            label="用餐區面積（兩算法共用）"
             unit="m²"
             help={fieldHelp.legacyArea}
             sourceType="案件資料"
             value={values.areaM2}
-            onChange={(value) => set("areaM2", value)}
+            onChange={onSharedDiningAreaChange}
           />
           <NumberField
             id="legacy-density"
@@ -1093,7 +1078,7 @@ function LegacyFields({ taskCode, values, setValues }: FieldProps) {
       </NumberField>
       <NumberField
         id="legacy-hours"
-        label="操作時間 t"
+        label="算法 A：每餐／連續操作時間 t"
         unit="h"
         help={fieldHelp.legacyHours}
         sourceType="案件資料"
@@ -1167,6 +1152,7 @@ interface FieldProps {
   taskCode: string;
   values: Record<string, string>;
   setValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onSharedDiningAreaChange: (value: string) => void;
 }
 
 function NumberField({
@@ -1345,7 +1331,6 @@ function InputMatrix({
     <div className={`input-matrix${nested ? " nested" : ""}`}>
       {nested ? null : (
         <div className="input-matrix-header" aria-hidden="true">
-          <span>屬性</span>
           <span>條件</span>
           <span>輸入值</span>
           <span>說明</span>
@@ -1360,7 +1345,6 @@ function InputMatrixRow({
   id,
   label,
   help,
-  sourceType,
   children,
 }: {
   id: string;
@@ -1371,11 +1355,6 @@ function InputMatrixRow({
 }) {
   return (
     <div className="input-matrix-row">
-      <div className="input-matrix-source">
-        <span className={`field-source-pill ${inputSourceTones[sourceType]}`}>
-          {sourceType}
-        </span>
-      </div>
       <div className="input-matrix-condition">
         <label htmlFor={id}>{label}</label>
       </div>
@@ -1394,7 +1373,6 @@ function InputMatrixRow({
 
 function InputMatrixDetail({
   label,
-  sourceType,
   children,
 }: {
   label: string;
@@ -1403,39 +1381,11 @@ function InputMatrixDetail({
 }) {
   return (
     <div className="input-matrix-row input-matrix-detail-row">
-      <div className="input-matrix-source">
-        <span className={`field-source-pill ${inputSourceTones[sourceType]}`}>
-          {sourceType}
-        </span>
-      </div>
       <div className="input-matrix-condition">
         <span>{label}</span>
       </div>
       <div className="input-matrix-detail-content">{children}</div>
       <div className="input-matrix-help" aria-hidden="true" />
-    </div>
-  );
-}
-
-function InputSourceLegend() {
-  const sourceTypes: VisibleInputSourceType[] = [
-    "案件資料",
-    "工程選值",
-    "設備資料",
-    "實測資料",
-    "來源表值",
-    "覆寫值",
-  ];
-  return (
-    <div className="field-source-legend" aria-label="輸入類型說明">
-      {sourceTypes.map((type) => (
-        <span className="field-source-legend-item" key={type}>
-          <span className={`field-source-pill ${inputSourceTones[type]}`}>
-            {type}
-          </span>
-          <small>{inputSourceDescriptions[type]}</small>
-        </span>
-      ))}
     </div>
   );
 }
@@ -1524,6 +1474,12 @@ function buildSelectionReason(values: Record<string, string>) {
 }
 
 function buildLegacyInput(taskCode: string, values: Record<string, string>) {
+  if (taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW")
+    return {
+      kind: "VOLUME_TO_FLOW",
+      effectiveVolumeL: values.effectiveVolumeL,
+      evidenceSource: values.evidenceSource,
+    };
   const base = {
     qLitersPerPersonMeal: values.qLitersPerPersonMeal,
     operationHours: values.operationHours,

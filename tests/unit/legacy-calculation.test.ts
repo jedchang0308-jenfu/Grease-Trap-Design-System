@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateLegacyByArea,
   calculateLegacyByDiners,
+  calculateLegacyFlowByEffectiveVolume,
   calculateLegacyMeasured,
   reverseLegacyByEffectiveVolume,
 } from "@/domain/calculation/legacy";
@@ -88,5 +89,20 @@ describe("legacy Q/V source regression", () => {
     });
     expect(result.adopted.dinersEquivalentMax).toBe("800");
     expect(result.adopted.areaEquivalentMaxM2).toBe("200");
+  });
+
+  it("converts effective volume into design flow with the source coefficient", () => {
+    const result = calculateLegacyFlowByEffectiveVolume({
+      effectiveVolumeL: "500",
+      evidenceSource: "設備圖面 A-01",
+    });
+
+    expect(result.methodCode).toBe("LEGACY_FLOW_BY_EFFECTIVE_VOLUME");
+    expect(result.raw.qLph).toBe("3000");
+    expect(result.raw.qLpm).toBe("50");
+    expect(result.steps.map((item) => item.formulaCode)).toEqual([
+      "LEG-VOL-QH",
+      "LEG-VOL-QM",
+    ]);
   });
 });

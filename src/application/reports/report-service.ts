@@ -5,7 +5,11 @@ import {
   mutateCase,
 } from "@/application/cases/repository";
 import { renderReportHtml } from "@/domain/report/html";
-import type { ReportSnapshotData, SnapshotRun } from "@/domain/report/types";
+import {
+  REPORT_NUMBER_PLACEHOLDER,
+  type ReportSnapshotData,
+  type SnapshotRun,
+} from "@/domain/report/types";
 import { sha256 } from "@/domain/shared/canonical";
 import type { CaseRecord } from "@/infrastructure/data/case-store";
 
@@ -21,10 +25,6 @@ const reportableCalculationStatuses = new Set([
   "COMPLETE_WITH_REMINDER",
 ]);
 
-function draftNumber(item: CaseRecord) {
-  return `DRAFT-${item.case_no}-R${item.revision_no}`;
-}
-
 export async function previewReport(caseGroupId: string) {
   const item = await getLatestCase(caseGroupId);
   if (
@@ -38,19 +38,14 @@ export async function previewReport(caseGroupId: string) {
       retryable: false,
     });
   }
-  const snapshot =
-    item.report_draft?.snapshot ??
-    buildSnapshot(item, draftNumber(item), "尚未匯出");
-  return {
+  const snapshot = item.report_draft?.snapshot
+    ? { ...item.report_draft.snapshot, reportNumber: REPORT_NUMBER_PLACEHOLDER }
+    : buildSnapshot(item, "尚未匯出");
+  return reportPreviewFromSnapshot(snapshot, {
     version: item.version,
-    reportNumber: snapshot.reportNumber,
-    snapshotHash: sha256(snapshot),
-    case: snapshot.case,
-    assessments: snapshot.assessments,
-    html: renderReportHtml(snapshot),
     exported: Boolean(item.report_draft),
     legacyIssued: item.lifecycle_status === "ISSUED",
-  };
+  });
 }
 
 export async function exportReportDraft(
@@ -89,8 +84,8 @@ export async function exportReportDraft(
 
     const exportedAt = new Date().toISOString();
     const id = item.report_draft?.id ?? crypto.randomUUID();
-    const reportNumber = item.report_draft?.reportNumber ?? draftNumber(item);
-    const snapshot = buildSnapshot(item, reportNumber, actor.displayName);
+    const reportNumber = REPORT_NUMBER_PLACEHOLDER;
+    const snapshot = buildSnapshot(item, actor.displayName);
     const reportDraft = {
       id,
       reportNumber,
@@ -108,18 +103,35 @@ export async function exportReportDraft(
         version: item.version + 1,
         updated_at: exportedAt,
       },
-      result: {
+      result: reportPreviewFromSnapshot(snapshot, {
         ...reportDraft,
-        html: renderReportHtml(snapshot),
         caseVersion: item.version + 1,
-      },
+      }),
     };
   });
 }
 
+function reportPreviewFromSnapshot<T extends Record<string, unknown>>(
+  snapshot: ReportSnapshotData,
+  metadata: T,
+) {
+  const formalSnapshot = {
+    ...snapshot,
+    reportNumber: snapshot.case.caseNo,
+  };
+  return {
+    ...metadata,
+    reportNumber: REPORT_NUMBER_PLACEHOLDER,
+    snapshotHash: sha256(snapshot),
+    case: snapshot.case,
+    assessments: snapshot.assessments,
+    html: renderReportHtml(snapshot),
+    formalHtml: renderReportHtml(formalSnapshot, "FORMAL"),
+  };
+}
+
 function buildSnapshot(
   item: CaseRecord,
-  reportNumber: string,
   exportedBy: string,
 ): ReportSnapshotData {
   if (!item.calculations.length) {
@@ -144,7 +156,7 @@ function buildSnapshot(
   }));
   return {
     schemaVersion: "2.0",
-    reportNumber,
+    reportNumber: REPORT_NUMBER_PLACEHOLDER,
     case: {
       id: item.id,
       caseGroupId: item.case_group_id,
@@ -182,7 +194,5 @@ function buildSnapshot(
       preparedBy: item.prepared_by_name ?? item.created_by_name,
       exportedBy,
     },
-    limitation:
-      "本文件為瀏覽器產生的報告草稿，不代表公司身分驗證或公司簽核效力。",
   };
 }

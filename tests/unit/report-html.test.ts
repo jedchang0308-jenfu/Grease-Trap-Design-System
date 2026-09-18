@@ -5,11 +5,11 @@ import type { ReportSnapshotData } from "@/domain/report/types";
 function snapshot(): ReportSnapshotData {
   return {
     schemaVersion: "2.0",
-    reportNumber: "RDR-01TEST",
+    reportNumber: "GTC-260914-02",
     case: {
       id: "1",
       caseGroupId: "2",
-      caseNo: "TEST-1",
+      caseNo: "GTC-260914-02",
       revisionNo: 1,
       customer: "QA",
       location: "TW",
@@ -78,14 +78,77 @@ function snapshot(): ReportSnapshotData {
     ],
     overrides: [],
     actors: { preparedBy: "同一人", exportedBy: "同一人" },
-    limitation:
-      "本文件為瀏覽器產生的報告草稿，不代表公司身分驗證或公司簽核效力。",
   };
 }
 
 describe("report snapshot HTML", () => {
+  it("renders a formal report using the case number and revision", () => {
+    const data = snapshot();
+    const html = renderReportHtml(data, "FORMAL");
+
+    expect(html).toContain("油脂截留器設計計算報告");
+    expect(html).not.toContain("油脂截留器設計計算報告草稿");
+    expect(html).toContain("報告編號：GTC-260914-02");
+    expect(html).toContain("版次：修訂 1");
+    expect(html).toContain("正式報告");
+    expect(html).not.toContain("文件狀態：草稿");
+    expect(html).not.toContain("不代表公司身分驗證或公司簽核效力");
+    expect(html).toContain('<dl class="summary-list">');
+    expect(html).toContain("<dt>需求目的</dt>");
+    expect(html).toContain("<dt>計算依據</dt>");
+    expect(html).not.toContain('class="summary-table"');
+  });
+
+  it("keeps unavailable case metadata in the compact summary", () => {
+    const data = snapshot();
+    data.case.customer = "未提供";
+    data.case.location = "未提供";
+
+    const html = renderReportHtml(data);
+
+    expect(html).toContain("<dt>客戶</dt>");
+    expect(html).toContain("<dt>設置地點</dt>");
+    expect(html).toContain("未提供");
+  });
+
+  it("renders formula symbols with subscripts", () => {
+    const data = snapshot();
+    data.runs[0].steps = [
+      {
+        sequence: 1,
+        formulaCode: "LEG-VOL-QH",
+        expression: "Qhour=6×Veff",
+        substitution: "6×500",
+        result: "3000",
+        unit: "L/h",
+        sourceRef: "SRC-LEGACY-FULL",
+      },
+      {
+        sequence: 2,
+        formulaCode: "LEG-VOL-QM",
+        expression: "Qminute=Qhour/60",
+        substitution: "3000÷60",
+        result: "50",
+        unit: "L/min",
+        sourceRef: "unit-conversion",
+      },
+    ];
+
+    const html = renderReportHtml(data);
+
+    expect(html).toContain("Q<sub>hour</sub>=6×V<sub>eff</sub>");
+    expect(html).toContain("Q<sub>minute</sub>=Q<sub>hour</sub>/60");
+    expect(html).toContain('<td class="symbol">Q<sub>hour</sub>');
+    expect(html).not.toContain("Qminute=Qhour/60");
+  });
+
   it("renders a dual single-track report without fake values", () => {
     const html = renderReportHtml(snapshot());
+    expect(html).toContain("文件狀態：草稿");
+    expect(html).not.toContain("本文件為瀏覽器產生的報告草稿");
+    expect(html).not.toContain('class="screen-footer-page"');
+    expect(html).not.toContain("草稿編號：TBD");
+    expect(html).not.toContain("GTC-260914-02 - 油脂截留器設計計算報告草稿");
     expect(html).toContain(
       '<link rel="stylesheet" href="/report-fonts/report-font.css"',
     );
@@ -95,16 +158,37 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("orphans: 3; widows: 3;");
     expect(html).not.toContain("Microsoft JhengHei");
     expect(html).not.toContain("Consolas");
-    expect(html).not.toContain("counter(pages)");
+    expect(html).toContain(
+      'content: "頁次 " counter(page) "/" counter(pages);',
+    );
     expect(html).toContain("本次只完成一份計算依據");
-    expect(html).toContain("內政部給排水規範（附錄 5）");
-    expect(html).toContain("臺北市工務局衛工處設計說明");
+    expect(html).toContain("<h2>1 案件資料</h2>");
+    expect(html).toContain("<h2>2 本次輸入條件</h2>");
+    expect(html).toContain("<h3>2.1 算法B-內政部給排水規範（附錄 5）</h3>");
+    expect(html).toContain("<h2>3 本次設計結果</h2>");
+    expect(html).toContain("<h2>4 完整計算過程</h2>");
+    expect(html).toContain("<h3>4.1 計算依據：");
+    expect(html).toContain(
+      '<h4 class="step-purpose">4.1.1 計算設計處理水量（尖峰每分鐘）</h4>',
+    );
+    expect(html).toContain("算法B-內政部給排水規範（附錄 5）");
+    expect(html).toContain("算法A-臺北市工務局衛工處設計說明");
     expect(html).toContain("未完成");
     expect(html).toContain("設計處理水量");
     expect(html).toContain("本次輸入條件");
     expect(html).toContain("本次設計結果");
     expect(html).toContain("本案條件");
     expect(html).toContain("計算依據參數");
+    expect(html).not.toContain('<td class="number-cell"><strong>100</strong>');
+    expect(html).not.toContain(
+      '<p class="result-guide"><strong>下表顯示本次採用值。</strong>',
+    );
+    expect(html).not.toContain(
+      'class="step-comparison"><span class="step-label">換算值</span><strong>',
+    );
+    expect(html).toContain(
+      '<p class="step-line step-result"><span class="step-label">計算結果</span><strong>',
+    );
     expect(html).toContain("每日用餐人數");
     expect(html).toContain("100");
     expect(html).toContain("人/日");
@@ -118,7 +202,8 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("數值算式");
     expect(html).toContain("每人用水量");
     expect(html).toContain("29.1667 L/min");
-    expect(html).toContain("原始值換算（未取整）");
+    expect(html).toContain("換算值");
+    expect(html).not.toContain("未取整");
     expect(html).toContain("清除週期油脂量使用 kg");
     expect(html).not.toContain("kg/day");
     expect(html).not.toContain("給客戶的設計需求摘要");
@@ -204,6 +289,11 @@ describe("report snapshot HTML", () => {
     });
 
     const html = renderReportHtml(data);
+    expect(html).toContain("<h3>2.2 算法A-臺北市工務局衛工處設計說明</h3>");
+    expect(html).toContain("<h3>4.2 計算依據：");
+    expect(html).toContain(
+      '<h4 class="step-purpose">4.2.2 計算設備所需有效容積</h4>',
+    );
     expect(html).toContain(
       "計算依據：臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》",
     );
@@ -214,7 +304,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain(
       'output-value">17.8133</strong> <span class="unit">L/min',
     );
-    expect(html).toContain("原始值換算（未取整）");
+    expect(html).toContain("換算值");
     expect(html).toContain("17.8125 L/min");
     expect(html).not.toContain("原始設計處理水量");
     expect(html).toContain("1,068.75");

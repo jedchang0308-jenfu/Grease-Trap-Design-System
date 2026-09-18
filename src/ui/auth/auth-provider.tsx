@@ -64,9 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   if (!state.ready || !state.user) {
     return (
       <div className="auth-gate" aria-live="polite">
-        <div className="state-banner">
-          正在建立匿名連線，完成前不會顯示共享案件。
-        </div>
+        <div className="state-banner">建立連線中…</div>
       </div>
     );
   }

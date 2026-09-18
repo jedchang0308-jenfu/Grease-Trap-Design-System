@@ -113,9 +113,9 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
     "data-ready",
     "true",
   );
-  await page.getByRole("button", { name: "下一步：選擇模式" }).click();
-  await page.getByText("不同計算依據對照", { exact: true }).click();
-  await page.getByRole("button", { name: "下一步：填寫資料" }).click();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await page.getByText("不同計算法一起對照", { exact: true }).click();
+  await page.getByRole("button", { name: "填寫基本資料" }).click();
 
   const title = `E2E 共享雙軌案件 ${testInfo.project.name} ${Date.now()}`;
   await page.getByLabel("客戶名稱（選填）").fill("E2E 測試客戶");
@@ -128,7 +128,7 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
   await assertViewportSafe(page);
   await saveEvidence(page, testInfo.project.name, "02-new-case");
 
-  await page.getByRole("button", { name: "建立案件並填寫計算資料" }).click();
+  await page.getByRole("button", { name: "建立案件" }).last().click();
   await page.waitForURL(/\/cases\/[0-9a-f-]+$/i, { timeout: 30_000 });
   const caseId = page.url().split("/").at(-1);
   expect(caseId).toMatch(/^[0-9a-f-]{36}$/i);
@@ -137,9 +137,9 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
   await page.getByLabel("餐飲類型", { exact: true }).selectOption("CHINESE");
   await page.getByRole("spinbutton", { name: "每日用餐人數" }).fill("120");
   await page.getByRole("button", { name: "開始計算" }).click();
-  await expect(
-    page.getByText(/計算已完成；下一步預覽並匯出報告草稿。/),
-  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("link", { name: "預覽報告草稿" })).toBeVisible({
+    timeout: 30_000,
+  });
   await expect(
     page.getByRole("heading", { name: "本次設計結果" }),
   ).toBeVisible();
@@ -167,59 +167,74 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
       exact: true,
     }),
   ).toBeVisible();
+  await expect(
+    reportFrame.getByText("文件狀態：草稿", { exact: true }),
+  ).toBeVisible();
   await assertViewportSafe(page);
+  await expect(page.getByText(/GTC-\d{6}-\d{2}｜修訂/)).toHaveCount(0);
+  await expect(page.getByText("尚未保存", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("案件／修訂", { exact: true })).toHaveCount(0);
   await saveEvidence(page, testInfo.project.name, "04-report-preview");
 
   await page.getByRole("button", { name: "匯出報告草稿" }).click();
-  await expect(page.getByText("報告草稿已保存於共享案件。")).toBeVisible({
+  await expect(page.getByText("報告草稿已保存", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "產生草稿 PDF" })).toBeEnabled({
     timeout: 30_000,
   });
   await expect(
-    page.getByText(/瀏覽器列印引擎仍可能造成細微差異/),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "列印／另存 PDF" }),
+    page.getByRole("button", { name: "產生正式報告" }),
   ).toBeEnabled();
 
-  await page.evaluate(() => {
-    const parentWindow = window as typeof window & {
-      __reportPrintCalled: boolean;
-    };
-    parentWindow.__reportPrintCalled = false;
-    const frame = document.querySelector<HTMLIFrameElement>("iframe");
-    if (frame?.contentWindow) {
-      frame.contentWindow.print = () => {
-        parentWindow.__reportPrintCalled = true;
-      };
-    }
-  });
-  await page.getByRole("button", { name: "列印／另存 PDF" }).click();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (window as typeof window & { __reportPrintCalled?: boolean })
-            .__reportPrintCalled,
-      ),
-    )
-    .toBe(true);
   await saveReportPdfEvidence(browser, page, testInfo.project.name);
+  const pdfResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/report-pdf") &&
+      response.request().method() === "POST",
+    { timeout: 30_000 },
+  );
+  await page.getByRole("button", { name: "產生草稿 PDF" }).click();
+  const pdfResponse = await pdfResponsePromise;
+  expect(pdfResponse.ok()).toBe(true);
+  const pdfResult = (await pdfResponse.json()) as { savedPath: string };
 
-  await page.goto(`/cases/${caseId}/report`, { waitUntil: "domcontentloaded" });
   await expect(page.getByRole("heading", { name: "報告草稿預覽" })).toBeVisible(
     {
       timeout: 30_000,
     },
   );
   await expect(
-    page.getByRole("button", { name: "列印／另存 PDF" }),
-  ).toBeEnabled();
+    page.getByText(`草稿 PDF 已儲存至：${pdfResult.savedPath}`, {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "產生草稿 PDF" })).toBeEnabled({
+    timeout: 30_000,
+  });
   await expect(
     reportFrame.getByRole("heading", {
       name: "油脂截留器設計計算報告草稿",
       exact: true,
     }),
   ).toBeVisible({ timeout: 30_000 });
+
+  const formalResponsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/report-pdf") &&
+      response.request().method() === "POST",
+    { timeout: 30_000 },
+  );
+  await page.getByRole("button", { name: "產生正式報告" }).click();
+  const formalResponse = await formalResponsePromise;
+  expect(formalResponse.ok()).toBe(true);
+  const formalPdfResult = (await formalResponse.json()) as {
+    savedPath: string;
+  };
+  expect(formalPdfResult.savedPath).toMatch(/GTC-\d{6}-\d{2}-R01\.pdf$/);
+  await expect(
+    page.getByText(`正式報告 PDF 已儲存至：${formalPdfResult.savedPath}`, {
+      exact: true,
+    }),
+  ).toBeVisible();
   await assertViewportSafe(page);
   await saveEvidence(page, testInfo.project.name, "05-exported-draft");
 
@@ -259,9 +274,7 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
   await expect(page.getByText(/修訂 2/).first()).toBeVisible({
     timeout: 30_000,
   });
-  await expect(
-    page.getByText("先填完任一可用軌的必要資料，即可開始計算。"),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "開始計算" })).toBeVisible();
   await assertViewportSafe(page);
 
   expect(consoleErrors).toEqual([]);

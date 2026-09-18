@@ -2,18 +2,20 @@
 
 文件狀態：`Static Spark Production Deployed`
 
-權威版本：`3.2`
+權威版本：`3.4`
 
-最後更新：`2026-07-17`
+最後更新：`2026-09-18`
 
 ## 冷啟動順序
 
 1. [project_overview.md](project_overview.md)：產品、架構與風險。
 2. [dev_task.md](dev_task.md)：目前工作、驗證與 re-entry。
-3. [ADR-009](decisions/ADR-009-static-firebase-spark-spa.md)：Spark 純靜態決策。
-4. [SPEC-001](specs/SPEC-001-functional-engineering.md)：功能、資料、交易與報告契約。
-5. [SPEC-002](specs/SPEC-002-ui-ux.md)：route、畫面、狀態與 responsive 契約。
-6. [QA-001](qa/QA-001-validation-plan.md) 與 [QC-001](qa/QC-001-local-acceptance.md)：計畫與事實證據。
+3. [ADR-011](decisions/ADR-011-effective-volume-to-flow-task.md)：有效容積換算處理水量的算法 A 單軌任務。
+4. [ADR-010](decisions/ADR-010-direct-formal-report-output.md)：直接產出正式報告、不建立核發流程。
+5. [ADR-009](decisions/ADR-009-static-firebase-spark-spa.md)：Spark 純靜態決策。
+6. [SPEC-001](specs/SPEC-001-functional-engineering.md)：功能、資料、交易與報告契約。
+7. [SPEC-002](specs/SPEC-002-ui-ux.md)：route、畫面、狀態與 responsive 契約。
+8. [QA-001](qa/QA-001-validation-plan.md) 與 [QC-001](qa/QC-001-local-acceptance.md)：計畫與事實證據。
 
 不得只憑聊天記憶或 README 開始後續修改。
 
@@ -29,6 +31,8 @@
 | [ADR-002](decisions/ADR-002-one-valid-track-release.md)              | Active / updated | 任一有效軌可產生草稿       |
 | [ADR-004](decisions/ADR-004-exclude-product-certificate-matching.md) | Active           | 排除產品／證書匹配         |
 | [ADR-009](decisions/ADR-009-static-firebase-spark-spa.md)            | Active           | Spark 靜態 Firebase 架構   |
+| [ADR-010](decisions/ADR-010-direct-formal-report-output.md)          | Active           | 無核發流程的正式報告輸出   |
+| [ADR-011](decisions/ADR-011-effective-volume-to-flow-task.md)        | Active           | T06 單軌任務與公式邊界     |
 | [QA-001](qa/QA-001-validation-plan.md)                               | Active           | 驗證計畫                   |
 | [QC-001](qa/QC-001-local-acceptance.md)                              | Active           | 本輪事實驗證               |
 
@@ -49,20 +53,27 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 | HD-09 | 不搬移既有正式資料。                                   |
 | HD-10 | 部署不得使用既有 PDM 或 ProJED Firebase project。      |
 | HD-11 | 目標 project 為 `jenfu-grease-trap-calculator`。       |
+| HD-12 | 所有人可直接產出正式報告，不建立核發機制。             |
+| HD-13 | 原定 `RDR-YYMMDD-00` 報告編號，已由 HD-14 取代。       |
+| HD-14 | 案件與正式報告共用 `GTC-YYMMDD-00`，不另建編碼邏輯。   |
+| HD-15 | 新增有效容積換算處理水量情境，僅使用算法 A。          |
 
 ## 權威順序
 
 1. 最新使用者明確決策。
-2. ADR-009。
-3. ADR-001、ADR-002、ADR-004 未被取代的產品規則。
-4. SPEC-001、SPEC-002。
-5. QA-001、QC-001。
-6. 歷史 ADR 與 git baseline 只作追溯。
+2. ADR-011。
+3. ADR-010。
+4. ADR-009 未被 ADR-010 取代的技術規則。
+5. ADR-001、ADR-002、ADR-004 未被取代的產品規則。
+6. SPEC-001、SPEC-002。
+7. QA-001、QC-001。
+8. 歷史 ADR 與 git baseline 只作追溯。
 
 ## 目前狀態
 
 - 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。
+- DEV-023：有效容積換算設計處理水量情境已完成本機驗證；不含部署。
 - DEV-012：已部署至 `https://jenfu-grease-trap-calculator.web.app`，production smoke 已通過。
 - 本輪不建立 Firebase project、不啟用計費、不部署。
 - Java 是 Firestore Emulator integration／E2E 的本機前置需求，不影響 production static build。
@@ -71,4 +82,4 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 - Firebase production：建立新 project、啟用 Anonymous Auth、建立 Firestore、設定 Web config、部署 Rules 與 Hosting 後執行 smoke。
 - 真實案件：提供 3～5 個去識別案例與人工預期值。
-- 正式核發或敏感資料：新 ADR、可信任後端、身分與留存政策。
+- 若要加入簽核、核發、不可變留存或敏感資料：新 ADR、可信任後端、身分與留存政策。

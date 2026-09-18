@@ -10,6 +10,7 @@ import {
 import {
   calculateLegacyByArea,
   calculateLegacyByDiners,
+  calculateLegacyFlowByEffectiveVolume,
   calculateLegacyMeasured,
   reverseLegacyByEffectiveVolume,
   type LegacyByAreaInput,
@@ -17,6 +18,7 @@ import {
   type LegacyMeasuredInput,
   type LegacyResult,
   type LegacyReverseInput,
+  type LegacyVolumeToFlowInput,
 } from "@/domain/calculation/legacy";
 import { calculationBasisDisplay } from "@/domain/rules/source-display";
 import {
@@ -31,6 +33,7 @@ export const taskCodes = [
   "T03_AREA_TO_FLOW",
   "T04_AREA_TO_DESIGN",
   "T05_DESIGN_TO_DINERS_AND_AREA",
+  "T06_EFFECTIVE_VOLUME_TO_FLOW",
 ] as const;
 export type TaskCode = (typeof taskCodes)[number];
 
@@ -59,7 +62,8 @@ export type LegacyCalculationInput =
   | ({ kind: "DINERS" } & LegacyByDinersInput)
   | ({ kind: "AREA" } & LegacyByAreaInput)
   | ({ kind: "MEASURED" } & LegacyMeasuredInput)
-  | ({ kind: "REVERSE" } & LegacyReverseInput);
+  | ({ kind: "REVERSE" } & LegacyReverseInput)
+  | ({ kind: "VOLUME_TO_FLOW" } & LegacyVolumeToFlowInput);
 
 export interface TrackAssessment {
   track: Track;
@@ -193,7 +197,9 @@ function executeLegacy(input?: LegacyCalculationInput): TrackExecution {
           ? calculateLegacyByArea(input)
           : input.kind === "MEASURED"
             ? calculateLegacyMeasured(input)
-            : reverseLegacyByEffectiveVolume(input);
+            : input.kind === "REVERSE"
+              ? reverseLegacyByEffectiveVolume(input)
+              : calculateLegacyFlowByEffectiveVolume(input);
     return {
       assessment: {
         track: "LEGACY_QV",

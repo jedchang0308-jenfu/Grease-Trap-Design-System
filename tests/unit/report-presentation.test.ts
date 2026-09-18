@@ -159,4 +159,42 @@ describe("report presentation model", () => {
       expect.objectContaining({ symbol: "k", role: "計算依據參數" }),
     ]);
   });
+
+  it("presents effective-volume-to-flow inputs without treating volume as an output", () => {
+    const groups = buildInputGroups(
+      {
+        legacyInputs: {
+          kind: "VOLUME_TO_FLOW",
+          effectiveVolumeL: "500",
+          evidenceSource: "設備圖面 A-01",
+        },
+      },
+      ["LEGACY_QV"],
+    );
+    const model = buildDesignResults(
+      [
+        {
+          track: "LEGACY_QV",
+          methodCode: "LEGACY_FLOW_BY_EFFECTIVE_VOLUME",
+          adopted: { qLph: "3000" },
+        },
+      ],
+      "LEGACY_QV",
+    );
+
+    expect(groups[0].rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "設備有效容積", value: "500" }),
+        expect.objectContaining({
+          label: "有效容積資料來源",
+          value: "設備圖面 A-01",
+        }),
+      ]),
+    );
+    expect(model.rows).toHaveLength(1);
+    expect(model.rows[0]).toMatchObject({
+      label: "設計處理水量",
+      cells: { LEGACY_QV: { state: "VALUE", value: "50", unit: "L/min" } },
+    });
+  });
 });

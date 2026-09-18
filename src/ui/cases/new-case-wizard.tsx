@@ -18,24 +18,13 @@ const tasks = [
     "T05_DESIGN_TO_DINERS_AND_AREA",
     "我知道設備能力／有效容積，要反推等效人數及面積。",
   ],
+  ["T06_EFFECTIVE_VOLUME_TO_FLOW", "我知道設備有效容積，要換算設計處理水量。"],
 ] as const;
 
 const modes = [
-  [
-    "CURRENT_QG",
-    calculationBasisDisplay.CURRENT_QG.shortLabel,
-    calculationBasisDisplay.CURRENT_QG.resultLabel,
-  ],
-  [
-    "LEGACY_QV",
-    calculationBasisDisplay.LEGACY_QV.shortLabel,
-    calculationBasisDisplay.LEGACY_QV.resultLabel,
-  ],
-  [
-    "DUAL_COMPARISON",
-    calculationModeDisplay.DUAL_COMPARISON.label,
-    "兩份資料來源分開計算；任一份有效即可預覽並匯出報告草稿。",
-  ],
+  ["CURRENT_QG", calculationBasisDisplay.CURRENT_QG.shortLabel],
+  ["LEGACY_QV", calculationBasisDisplay.LEGACY_QV.shortLabel],
+  ["DUAL_COMPARISON", calculationModeDisplay.DUAL_COMPARISON.label],
 ] as const;
 
 export function NewCaseWizard() {
@@ -55,6 +44,10 @@ export function NewCaseWizard() {
   const [hydrated, setHydrated] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<UiProblem | null>(null);
+  const availableModes =
+    taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW"
+      ? modes.filter(([value]) => value === "LEGACY_QV")
+      : modes;
 
   useEffect(() => setHydrated(true), []);
 
@@ -92,7 +85,6 @@ export function NewCaseWizard() {
       <header className="page-header">
         <div>
           <h1>建立案件</h1>
-          <p className="lede">先選擇你要解決的問題，再填入已知資料。</p>
         </div>
       </header>
       <span
@@ -119,10 +111,14 @@ export function NewCaseWizard() {
                   name="task"
                   value={value}
                   checked={taskCode === value}
-                  onChange={() => setTaskCode(value)}
+                  onChange={() => {
+                    setTaskCode(value);
+                    if (value === "T06_EFFECTIVE_VOLUME_TO_FLOW") {
+                      setMode("LEGACY_QV");
+                    }
+                  }}
                 />
                 <strong>{label}</strong>
-                <span>選擇此任務</span>
               </label>
             ))}
           </div>
@@ -132,7 +128,7 @@ export function NewCaseWizard() {
               type="button"
               onClick={() => setStep(2)}
             >
-              下一步：選擇模式
+              下一步
             </button>
           </div>
         </section>
@@ -142,7 +138,7 @@ export function NewCaseWizard() {
         <section className="panel">
           <h2>選擇計算模式</h2>
           <div className="choice-grid" role="radiogroup" aria-label="計算模式">
-            {modes.map(([value, label, description]) => (
+            {availableModes.map(([value, label]) => (
               <label className="choice" key={value}>
                 <input
                   type="radio"
@@ -152,7 +148,6 @@ export function NewCaseWizard() {
                   onChange={() => setMode(value)}
                 />
                 <strong>{label}</strong>
-                <span>{description}</span>
               </label>
             ))}
           </div>
@@ -169,7 +164,7 @@ export function NewCaseWizard() {
               type="button"
               onClick={() => setStep(3)}
             >
-              下一步：填寫資料
+              填寫基本資料
             </button>
           </div>
         </section>
@@ -178,9 +173,6 @@ export function NewCaseWizard() {
       {step === 3 ? (
         <form className="panel" onSubmit={submit}>
           <h2>案件基本資料</h2>
-          <p className="help">
-            以下資料皆可選填；建立案件後，再於計算資料選擇餐飲類型。
-          </p>
           <div className="form-grid">
             <div className="field">
               <label htmlFor="customer">客戶名稱（選填）</label>
@@ -230,7 +222,6 @@ export function NewCaseWizard() {
               <textarea
                 id="purpose"
                 name="purpose"
-                placeholder="簡述本次計算要支持的工程判斷"
                 value={metadata.purpose}
                 onChange={(event) =>
                   setMetadata((previous) => ({
@@ -245,7 +236,6 @@ export function NewCaseWizard() {
               <input
                 id="evidenceSource"
                 name="evidenceSource"
-                placeholder="例如：客戶提供平面圖 2026-07-13"
                 value={metadata.evidenceSource}
                 onChange={(event) =>
                   setMetadata((previous) => ({
@@ -269,7 +259,7 @@ export function NewCaseWizard() {
               type="submit"
               disabled={submitting}
             >
-              {submitting ? "正在建立…" : "建立案件並填寫計算資料"}
+              {submitting ? "建立中…" : "建立案件"}
             </button>
           </div>
         </form>

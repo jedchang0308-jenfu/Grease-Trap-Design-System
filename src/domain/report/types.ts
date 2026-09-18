@@ -13,6 +13,10 @@ export interface SnapshotCase {
   calculationStatus: string;
 }
 
+export const REPORT_NUMBER_PLACEHOLDER = "TBD";
+
+export type ReportDocumentKind = "DRAFT" | "FORMAL";
+
 export interface SnapshotRun {
   id: string;
   track: string;
@@ -69,5 +73,4 @@ export interface ReportSnapshotData {
     approvedBy: string;
   }>;
   actors: { preparedBy: string; exportedBy: string };
-  limitation: "本文件為瀏覽器產生的報告草稿，不代表公司身分驗證或公司簽核效力。";
 }

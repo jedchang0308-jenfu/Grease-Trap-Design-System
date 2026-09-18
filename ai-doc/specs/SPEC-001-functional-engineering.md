@@ -2,21 +2,21 @@
 
 文件狀態：`Implemented Locally`
 
-版本：`2.0`
+版本：`2.2`
 
-日期：`2026-07-17`
+日期：`2026-09-18`
 
-權威範圍：功能語意、公式邊界、資料、交易、Auth、報告草稿與驗收
+權威範圍：功能語意、公式邊界、資料、交易、Auth、報告與驗收
 
 ## 1. 目標
 
-任何取得網址的人可由瀏覽器自動匿名登入，使用共享案件完成建案、雙軌計算、修訂、報告草稿預覽與瀏覽器列印。此版本不提供公司身分驗證、角色或正式核發。
+任何取得網址的人可由瀏覽器自動匿名登入，使用共享案件完成建案、雙軌計算、修訂、報告草稿預覽，以及草稿或正式 PDF 產出。此版本不提供公司身分驗證、角色、送審、覆核或核發流程。
 
 成功條件：
 
-1. 五個任務在兩份計算依據都可獨立執行。
+1. 原五個任務在兩份計算依據都可獨立執行；有效容積換算處理水量依來源限制為算法 A。
 2. 每個結果保留輸入、單位、公式、參數、來源與規則版本。
-3. 雙軌任一有效軌即可產生報告草稿，不足軌明確提醒。
+3. 雙軌任一有效軌即可產生報告草稿與正式報告，不足軌明確提醒。
 4. 任意 case ID route 可直接開啟與重新整理。
 5. 未匿名登入者不能讀寫 Firestore。
 6. production output 只有 `dist/` 靜態檔。
@@ -27,9 +27,9 @@ In scope：
 
 - 案件清單、建立、搜尋、刪除、工作台與修訂。
 - `CURRENT_QG`、`LEGACY_QV`、`DUAL_COMPARISON`。
-- 五個客戶任務、正向／反向計算、完整性 assessment。
+- 六個客戶任務、正向／反向計算、完整性 assessment。
 - 版本化 rules catalog、來源 metadata 與 checksum。
-- 報告草稿 snapshot、HTML 預覽、隨站 Noto Sans TC、A4 print CSS、瀏覽器列印。
+- 報告草稿 snapshot、草稿與正式 HTML、隨站 Noto Sans TC、A4 print CSS、本機 PDF 產出。
 - Anonymous Auth、Firestore Web SDK、transaction 與 Rules。
 - Firebase Spark 傳統 Hosting。
 
@@ -38,7 +38,7 @@ Out of scope：
 - Email／Password、Google 登入、公司身分與角色 UI。
 - 產品型號、證書、現場施工或法規核准判定。
 - server runtime、business API、Admin SDK 或 service account。
-- Cloud Storage、PDF 上傳／保存、正式簽核及不可變核發。
+- Cloud Storage、PDF 雲端保存、正式簽核、核發流程及不可變稽核鏈。
 - 舊正式資料搬移。
 
 ## 3. 穩定代碼
@@ -52,8 +52,11 @@ Out of scope：
 | `T03_AREA_TO_FLOW`              | 面積換算流量           |
 | `T04_AREA_TO_DESIGN`            | 面積換算設計需求       |
 | `T05_DESIGN_TO_DINERS_AND_AREA` | 輸入能力反推人數／面積 |
+| `T06_EFFECTIVE_VOLUME_TO_FLOW`   | 有效容積換算處理水量   |
 
 模式：`CURRENT_QG`、`LEGACY_QV`、`DUAL_COMPARISON`。兩軌不得共用單位或建立第三套混合公式。
+
+T01～T05 可選三種模式。T06 只允許 `LEGACY_QV`；UI、client schema 與 Firestore Rules 都必須拒絕 T06 搭配其他模式。
 
 ## 4. 計算契約
 
@@ -98,9 +101,14 @@ n(area) = area * dinerDensity * turnover
 
 nEquivalentMax = (6 * effectiveVolumeL * t) / (q * k)
 areaEquivalentMax = nEquivalentMax / (dinerDensity * turnover)
+
+Qhour(effective volume) = 6 * effectiveVolumeL
+Qminute(effective volume) = Qhour / 60
 ```
 
 q 優先用實測值；無實測時必須在來源範圍內選 exact value 並保存理由，不得自動取平均。B／C 類安全係數必須明確選 exact k。
+
+T06 使用後兩式，只輸入設備有效容積與可追溯資料來源；不得把外殼名目容積當成有效容積，也不得用此結果補算內政部附錄 5 的 G 能力。
 
 ### 4.3 精度
 
@@ -113,7 +121,7 @@ q 優先用實測值；無實測時必須在來源範圍內選 exact value 並�
 
 每一要求軌產生 `TrackAssessment`：`CALCULATED`、`INSUFFICIENT_DATA`、`INVALID` 或 `ERROR`。只有成功軌建立 calculation run。
 
-| 模式 | 有效軌 | CalculationStatus        | 可產生草稿     |
+| 模式 | 有效軌 | CalculationStatus        | 可產生報告     |
 | ---- | -----: | ------------------------ | -------------- |
 | 單軌 |      1 | `COMPLETE`               | 是             |
 | 單軌 |      0 | `BLOCKED`                | 否             |
@@ -128,7 +136,7 @@ DRAFT -> CALCULATED -> REPORT_DRAFT
 REPORT_DRAFT -> new revision -> DRAFT
 ```
 
-`ISSUED`、`SUPERSEDED`、`IN_REVIEW`、`REVIEWED` 只作舊資料相容。新程式不得建立新的正式核發狀態；舊 `ISSUED`／`SUPERSEDED` 為唯讀。
+正式報告輸出不新增 lifecycle state。`ISSUED`、`SUPERSEDED`、`IN_REVIEW`、`REVIEWED` 只作舊資料相容；舊 `ISSUED`／`SUPERSEDED` 為唯讀。
 
 重新計算會清除既有 report draft。建立新修訂時 `revision_no + 1`、`version + 1`，清除 calculation、assessment、override 與 report draft，但保留案件 group、原建立者及原建立時間。
 
@@ -162,15 +170,17 @@ REPORT_DRAFT -> new revision -> DRAFT
 
 UI 對 anonymous sign-in、permission denied、quota、network unavailable、timeout 與 stale version 提供明確錯誤及可重試狀態。
 
-## 9. Report Draft
+## 9. Report Output
 
 snapshot schema `2.0` 至少包含 case、input、calculation runs、assessments、rules、preparedBy、exportedBy、snapshot hash、限制與產生時間。
 
-- CTA 使用「預覽報告草稿」「匯出報告草稿」「列印／另存 PDF」。
+- CTA 使用「預覽報告草稿」「匯出報告草稿」「產生草稿 PDF」「產生正式報告」。
 - 匯出只把 snapshot 保存到 case document，不建立 PDF blob 或獨立 report collection。
+- 正式報告輸出不檢查角色；若草稿尚未保存，先保存當下 snapshot，再以同一 snapshot 產出正式 PDF。
+- 草稿不配置正式報告編號；正式報告直接使用案件編號 `GTC-YYMMDD-00`，不建立第二套編碼或轉換邏輯，版次使用案件修訂號。
 - HTML 使用 A4 print CSS、重複表頭、孤行與斷頁控制；報告字型使用 build-time 靜態輸出的 Noto Sans TC。
-- report iframe 完成載入後，必須等待 `document.fonts.ready`、指定字型檢查、圖片載入／解碼及兩個 render frame，才可呼叫 `window.print()`。
-- 顯示「不是正式簽核／核發」，並說明已降低字型差異但紙張、縮放與列印引擎仍可能造成細微差異。
+- PDF renderer 必須等待 `document.fonts.ready`、指定字型檢查與圖片載入／解碼後才可寫檔。
+- 正式報告不代表另有身分驗證、簽核、核發或不可變稽核鏈。
 - 舊 `ISSUED` snapshot 可唯讀預覽與列印，不能重新匯出成新的正式紀錄。
 
 ## 10. SPA 與 Hosting

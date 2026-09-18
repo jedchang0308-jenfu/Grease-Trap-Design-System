@@ -1,5 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
 import net from "node:net";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -27,6 +29,11 @@ const prepareFonts = path.join(
   "scripts",
   "prepare-report-fonts.mjs",
 );
+const reportPdfOutputDirectory = path.join(
+  tmpdir(),
+  "grease-trap-e2e-pdfs",
+  String(process.pid),
+);
 
 const baseEnv = Object.fromEntries(
   Object.entries(process.env)
@@ -41,6 +48,7 @@ const env = {
   VITE_FIREBASE_PROJECT_ID: "demo-grease-trap",
   VITE_FIREBASE_APP_ID: "demo-app-id",
   VITE_USE_FIREBASE_EMULATORS: "true",
+  REPORT_PDF_OUTPUT_DIR: reportPdfOutputDirectory,
 };
 
 let emulatorProcess;
@@ -107,6 +115,7 @@ function shutdown(code = 0) {
   shuttingDown = true;
   stopProcess(previewProcess);
   stopProcess(emulatorProcess);
+  rmSync(reportPdfOutputDirectory, { recursive: true, force: true });
   setTimeout(() => process.exit(code), 700).unref();
 }
 
@@ -115,6 +124,7 @@ process.on("SIGTERM", () => shutdown(0));
 process.on("exit", () => {
   stopProcess(previewProcess);
   stopProcess(emulatorProcess);
+  rmSync(reportPdfOutputDirectory, { recursive: true, force: true });
 });
 
 await run(process.execPath, [prepareFonts]);

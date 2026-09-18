@@ -29,4 +29,19 @@ describe("createCaseSchema", () => {
 
     expect(result.success).toBe(true);
   });
+
+  it("limits effective-volume-to-flow cases to algorithm A", () => {
+    expect(
+      createCaseSchema.safeParse({
+        taskCode: "T06_EFFECTIVE_VOLUME_TO_FLOW",
+        mode: "LEGACY_QV",
+      }).success,
+    ).toBe(true);
+    expect(
+      createCaseSchema.safeParse({
+        taskCode: "T06_EFFECTIVE_VOLUME_TO_FLOW",
+        mode: "CURRENT_QG",
+      }).success,
+    ).toBe(false);
+  });
 });

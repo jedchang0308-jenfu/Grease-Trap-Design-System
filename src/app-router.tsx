@@ -24,7 +24,6 @@ function NotFound() {
     <div className="page">
       <div className="empty-state">
         <h1>找不到這個頁面</h1>
-        <p className="muted">請返回案件清單，重新選擇要處理的案件。</p>
         <Link className="button primary" to="/cases">
           返回案件清單
         </Link>
@@ -45,7 +44,7 @@ export function AppRouter() {
         </Link>
         <nav className="app-nav" aria-label="主要導覽">
           <Link to="/cases">案件</Link>
-          <Link to="/rules">規則</Link>
+          <Link to="/rules">參考文件</Link>
         </nav>
       </header>
       <main id="main-content">

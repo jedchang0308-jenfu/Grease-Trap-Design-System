@@ -72,8 +72,10 @@ service cloud.firestore {
           'T02_DINERS_TO_DESIGN',
           'T03_AREA_TO_FLOW',
           'T04_AREA_TO_DESIGN',
-          'T05_DESIGN_TO_DINERS_AND_AREA'
+          'T05_DESIGN_TO_DINERS_AND_AREA',
+          'T06_EFFECTIVE_VOLUME_TO_FLOW'
         ]
+        && (data.taskCode != 'T06_EFFECTIVE_VOLUME_TO_FLOW' || data.mode == 'LEGACY_QV')
         && data.mode in ['CURRENT_QG', 'LEGACY_QV', 'DUAL_COMPARISON']
         && data.lifecycleStatus in [
           'DRAFT',

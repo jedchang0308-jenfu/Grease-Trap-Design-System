@@ -2,29 +2,32 @@
 
 文件狀態：`Active`
 
-版本：`2.0`
+版本：`2.2`
 
-日期：`2026-07-17`
+日期：`2026-09-18`
 
 ## 1. 目標
 
-驗證雙軌計算核心未因 SPA 重構回歸，且 Anonymous Auth、Firestore client repository、Rules、static Hosting routes、report draft 與 responsive UI 符合 ADR-009。
+驗證雙軌計算核心未因報告輸出變更而回歸，且 Anonymous Auth、Firestore client repository、Rules、report draft、直接正式報告輸出與 responsive UI 符合 ADR-009 及 ADR-010。
 
 ## 2. 風險矩陣
 
-| 風險                                | 等級 | 控制                                      |
-| ----------------------------------- | ---- | ----------------------------------------- |
-| 公式／單位／捨入回歸                | P0   | golden unit tests、raw/adopted assertions |
-| 未登入可讀寫 Firestore              | P0   | Rules integration negative test           |
-| Rules 可寫未知欄位或跳 version      | P0   | schema／oversize／version negative tests  |
-| transaction 靜默覆蓋                | P1   | repository multi-session integration      |
-| static route refresh 404            | P1   | production preview direct route + reload  |
-| 匿名登入前洩漏案件                  | P1   | Auth gate E2E／component behavior         |
-| 報告誤稱正式核發                    | P1   | unit content + E2E visible text           |
-| PDF 保存或 server runtime 殘留      | P1   | dependency/source/dist search             |
-| 字型／圖片未完成即開啟列印          | P1   | browser font/image readiness + print stub |
-| quota／permission／network 無法恢復 | P1   | problem mapping unit tests + retry UI     |
-| mobile overflow／overlap            | P1   | 390 screenshot + numeric overflow check   |
+| 風險                                     | 等級 | 控制                                      |
+| ---------------------------------------- | ---- | ----------------------------------------- |
+| 公式／單位／捨入回歸                     | P0   | golden unit tests、raw/adopted assertions |
+| 未登入可讀寫 Firestore                   | P0   | Rules integration negative test           |
+| Rules 可寫未知欄位或跳 version           | P0   | schema／oversize／version negative tests  |
+| transaction 靜默覆蓋                     | P1   | repository multi-session integration      |
+| static route refresh 404                 | P1   | production preview direct route + reload  |
+| 匿名登入前洩漏案件                       | P1   | Auth gate E2E／component behavior         |
+| 正式報告編號或版次錯置                   | P1   | unit mapping + E2E saved filename         |
+| 正式報告誤加入簽核或核發 gate            | P1   | unit content + E2E direct action          |
+| PDF 本機 renderer 進入 production bundle | P1   | source/dist search                        |
+| 字型／圖片未完成即產生 PDF               | P1   | renderer font/image readiness             |
+| quota／permission／network 無法恢復      | P1   | problem mapping unit tests + retry UI     |
+| mobile overflow／overlap                 | P1   | 390 screenshot + numeric overflow check   |
+| 有效容積任務誤開放算法 B／雙軌          | P1   | UI、schema、Rules 三層負向驗證            |
+| 有效容積被誤當名目容積或公式單位錯置    | P1   | 欄位說明、domain golden case、報告步驟    |
 
 ## 3. Gate Commands
 
@@ -45,10 +48,12 @@ git diff --check
 
 - Current Q/G：人數、面積、Q/G 控制條件、A-36 分段 solver、嚴格不等式。
 - Legacy Q/V：人數、面積、有效容積反推、q/k exact selection。
+- Legacy T06：`500 L -> 3000 L/h -> 50 L/min`，並保留有效容積資料來源。
 - Orchestrator：單軌、雙軌、一軌完成、零軌 blocked。
 - 精度：Decimal raw、source display、adopted 與 rounding direction。
 - Schema：建案、輸入、report snapshot strict parsing。
-- Report HTML：草稿 H1、來源章節、限制、無正式核發用語。
+- Report HTML：草稿／正式 H1、正式編號與版次、來源章節、草稿標記隔離。
+- Report number：正式報告必須直接使用 `GTC-YYMMDD-00`，不得另建前綴或轉換函式。
 - Problem mapping：Auth、permission、quota、unavailable、timeout。
 
 ## 5. Firestore Rules／Repository Integration
@@ -83,11 +88,20 @@ git diff --check
 3. 編輯人數並完成雙軌計算。
 4. reload `/cases/:id`，資料與結果仍存在。
 5. 開啟 `/cases/:id/report`，預覽 report draft。
-6. 匯出 snapshot，看到共享案件保存與已降低排版差異的揭露。
-7. 確認指定 Noto Sans TC、圖片與 iframe ready 後，stub `print()` 並驗證 `列印／另存 PDF` 有呼叫。
-8. reload report route，已匯出狀態存在。
-9. 第二匿名 browser context 直接開啟同 case 與 report route。
-10. 建立新修訂，revision +1 且 calculations/report draft 清除。
+6. 匯出 snapshot，看到共享案件保存狀態。
+7. 產生草稿 PDF，確認原頁成功訊息及本機儲存路徑。
+8. 直接產生正式報告，確認 `GTC-YYMMDD-00-R01.pdf` 與成功訊息；不得出現第二套報告編碼、簽核或核發 gate。
+9. reload report route，已匯出狀態存在。
+10. 第二匿名 browser context 直接開啟同 case 與 report route。
+11. 建立新修訂，revision +1 且 calculations/report draft 清除。
+
+T06 targeted UI 案例：
+
+1. 在正常建案入口選擇「我知道設備有效容積，要換算設計處理水量」。
+2. 計算模式只出現算法 A。
+3. 建案後只顯示有效容積與資料來源欄位。
+4. 輸入 `500 L` 後結果顯示 `50 L/min`，畫面不得出現 visible error。
+5. 390×844 不得有水平 overflow、重疊或截斷。
 
 每個主要 state 保存 full-page screenshot 到 OS temp evidence，不提交 binary artifacts。
 

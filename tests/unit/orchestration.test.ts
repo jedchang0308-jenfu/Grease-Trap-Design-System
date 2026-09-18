@@ -46,4 +46,19 @@ describe("dual track release matrix", () => {
         ?.status,
     ).toBe("INSUFFICIENT_DATA");
   });
+
+  it("runs the effective-volume-to-flow task on the legacy track", () => {
+    const result = orchestrateCalculation({
+      taskCode: "T06_EFFECTIVE_VOLUME_TO_FLOW",
+      mode: "LEGACY_QV",
+      legacyInputs: {
+        kind: "VOLUME_TO_FLOW",
+        effectiveVolumeL: "500",
+        evidenceSource: "設備圖面 A-01",
+      },
+    });
+
+    expect(result.status).toBe("COMPLETE");
+    expect(result.results.LEGACY_QV?.adopted.qLph).toBe("3000");
+  });
 });
