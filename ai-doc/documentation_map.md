@@ -75,7 +75,7 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。
 - DEV-023：有效容積換算設計處理水量情境已完成本機驗證與 production smoke。
 - DEV-012：已部署至 `https://jenfu-grease-trap-calculator.web.app`，production smoke 已通過。
-- 本輪未建立 Firebase project、未啟用計費；`69b25ba` 與 `b27933e` 已部署至獨立 Spark project，Hosting smoke 通過。
+- 本輪未建立 Firebase project、未啟用計費；`69b25ba`、`b27933e` 與 `313e83e` 已部署至獨立 Spark project，Hosting smoke 通過。
 - Java 是 Firestore Emulator integration／E2E 的本機前置需求，不影響 production static build。
 
 ## Re-entry

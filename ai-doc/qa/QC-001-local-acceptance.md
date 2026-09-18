@@ -63,7 +63,7 @@ Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、�
 | 正式報告 PDF                    | PASS | `GTC-260914-02-R01.pdf`；4 頁 A4          |
 | `dist`／source forbidden search | PASS | 無 server bundle 或禁用 runtime           |
 | production dependency audit     | PASS | 0 vulnerabilities                         |
-| Hosting deploy                  | PASS | release `1789718525735000`                |
+| Hosting deploy                  | PASS | release `1789719635265000`                |
 | production artifact provenance  | PASS | live asset 與本地 production build 對應   |
 | production smoke                | PASS | Auth、Firestore、routes、T06、列印提示、console |
 | `git diff --check`              | PASS | 最終重跑                                  |
@@ -86,7 +86,7 @@ E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report 
 ## Production Release
 
 - URL：`https://jenfu-grease-trap-calculator.web.app`。
-- release commits：`69b25ba`、`b27933e`；Hosting version：`928209396b020781`；release：`1789718525735000`。
+- release commits：`69b25ba`、`b27933e`、`313e83e`；Hosting version：`b80619292330c218`；release：`1789719635265000`。
 - 未登入 Firestore 讀取為 403；兩個不同匿名 session 皆可讀取共享案件。
 - `/cases`、`/cases/new`、任意 case ID 與 report URL 皆由 Hosting SPA rewrite 回應 200。
 - post-deploy browser smoke 的 console error、page error 與 T06／正式報告列印 fallback 驗證通過；disposable smoke case 已刪除。
