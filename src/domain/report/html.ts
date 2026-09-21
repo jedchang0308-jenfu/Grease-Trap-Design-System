@@ -1,5 +1,9 @@
 import Decimal from "decimal.js";
-import { basisForTrack, modeDisplayFor } from "../rules/source-display";
+import {
+  basisForTrack,
+  calculationTrackOrder,
+  modeDisplayFor,
+} from "../rules/source-display";
 import {
   buildInputGroups,
   buildDesignResults,
@@ -47,10 +51,97 @@ const taskLabels: Record<string, string> = {
   T06_EFFECTIVE_VOLUME_TO_FLOW: "由設備有效容積換算設計處理水量",
 };
 
-function formatNumber(value: string): string {
+const primaryOutputLabelsByTask: Record<string, readonly string[]> = {
+  T01_DINERS_TO_FLOW: ["設計處理水量"],
+  T02_DINERS_TO_DESIGN: ["設計處理水量", "清除週期油脂量", "設備所需有效容積"],
+  T03_AREA_TO_FLOW: ["設計處理水量"],
+  T04_AREA_TO_DESIGN: ["設計處理水量", "清除週期油脂量", "設備所需有效容積"],
+  T05_DESIGN_TO_DINERS_AND_AREA: ["可支援的用餐人數", "可支援的服務面積"],
+  T06_EFFECTIVE_VOLUME_TO_FLOW: ["設計處理水量"],
+};
+
+const referenceOnlyInputLabelsByTask: Record<string, readonly string[]> = {
+  T01_DINERS_TO_FLOW: ["油脂清除週期", "殘渣清除週期"],
+  T03_AREA_TO_FLOW: ["油脂清除週期", "殘渣清除週期"],
+};
+
+const primaryOutcomeFormulaCodesByTask: Record<string, readonly string[]> = {
+  T01_DINERS_TO_FLOW: ["CUR-DIN-Q", "LEG-MEAN-Q", "LEG-DIN-Q"],
+  T02_DINERS_TO_DESIGN: [
+    "CUR-DIN-Q",
+    "CUR-DIN-G",
+    "LEG-MEAN-Q",
+    "LEG-DIN-Q",
+    "LEG-VEFF",
+  ],
+  T03_AREA_TO_FLOW: ["CUR-AREA-Q", "LEG-DIN-Q"],
+  T04_AREA_TO_DESIGN: ["CUR-AREA-Q", "CUR-AREA-G", "LEG-DIN-Q", "LEG-VEFF"],
+  T05_DESIGN_TO_DINERS_AND_AREA: [
+    "CUR-REV-N-Q",
+    "CUR-REV-N-G",
+    "CUR-REV-A",
+    "LEG-REV-N",
+    "LEG-REV-A",
+  ],
+  T06_EFFECTIVE_VOLUME_TO_FLOW: ["LEG-VOL-QM"],
+};
+
+function isPrimaryCalculationStep(
+  taskCode: string,
+  formulaCode: string,
+): boolean {
+  if (
+    taskCode === "T02_DINERS_TO_DESIGN" ||
+    taskCode === "T04_AREA_TO_DESIGN" ||
+    taskCode === "T05_DESIGN_TO_DINERS_AND_AREA"
+  )
+    return true;
+  if (taskCode === "T01_DINERS_TO_FLOW")
+    return (
+      formulaCode === "CUR-DIN-Q" ||
+      formulaCode === "LEG-DIN-Q" ||
+      formulaCode === "LEG-MEAN-Q" ||
+      formulaCode.startsWith("LEG-PERIOD-")
+    );
+  if (taskCode === "T03_AREA_TO_FLOW")
+    return ["CUR-AREA-A", "CUR-AREA-Q", "LEG-AREA-N", "LEG-DIN-Q"].includes(
+      formulaCode,
+    );
+  if (taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW")
+    return ["LEG-VOL-QH", "LEG-VOL-QM"].includes(formulaCode);
+  return true;
+}
+
+function isPrimaryOutcomeStep(
+  taskCode: string,
+  step: SnapshotRun["steps"][number],
+  run: SnapshotRun,
+): boolean {
+  if (
+    taskCode === "T05_DESIGN_TO_DINERS_AND_AREA" &&
+    ["CUR-REV-N-Q", "CUR-REV-N-G"].includes(step.formulaCode)
+  ) {
+    const candidates = run.steps.filter((candidate) =>
+      ["CUR-REV-N-Q", "CUR-REV-N-G"].includes(candidate.formulaCode),
+    );
+    try {
+      const limitingValue = candidates
+        .map((candidate) => new Decimal(candidate.result))
+        .reduce((minimum, value) => Decimal.min(minimum, value));
+      return new Decimal(step.result).equals(limitingValue);
+    } catch {
+      return false;
+    }
+  }
+  return (primaryOutcomeFormulaCodesByTask[taskCode] ?? []).includes(
+    step.formulaCode,
+  );
+}
+
+function formatNumber(value: string, maximumFractionDigits = 4): string {
   const numeric = Number(value);
   return Number.isFinite(numeric)
-    ? numeric.toLocaleString("zh-TW", { maximumFractionDigits: 4 })
+    ? numeric.toLocaleString("zh-TW", { maximumFractionDigits })
     : value;
 }
 
@@ -126,12 +217,16 @@ function formulaPurpose(formulaCode: string): string {
     "LEG-VEFF": "計算設備所需有效容積",
     "LEG-REV-N": "依有效容積反推可支援人數",
     "LEG-REV-A": "依反推人數換算可支援面積",
+    "LEG-VOL-QH": "由有效容積換算每小時處理水量",
+    "LEG-VOL-QM": "換算每分鐘設計處理水量",
   };
   return labels[formulaCode] ?? "依本計算依據公式計算";
 }
 
 function formatStepResult(value: string, unit: string): string {
-  return `${escapeHtml(formatNumber(value))}${unit ? ` ${escapeHtml(unit)}` : ""}`;
+  const displayUnit = unit === "person" ? "人" : unit;
+  const maximumFractionDigits = unit === "L/min" ? 1 : 4;
+  return `${escapeHtml(formatNumber(value, maximumFractionDigits))}${displayUnit ? ` ${escapeHtml(displayUnit)}` : ""}`;
 }
 
 const finalFlowFormulaCodes = new Set([
@@ -143,7 +238,8 @@ const finalFlowFormulaCodes = new Set([
 ]);
 
 function stepComparisonValue(step: SnapshotRun["steps"][number]): string {
-  if (!finalFlowFormulaCodes.has(step.formulaCode)) return "";
+  if (step.unit !== "L/h" || !finalFlowFormulaCodes.has(step.formulaCode))
+    return "";
   return flowComparisonValue(step.unit, step.result);
 }
 
@@ -199,20 +295,35 @@ function outputCell(cell: ReportOutputCell): string {
   return `<strong class="output-value">${escapeHtml(cell.value)}</strong>${cell.unit ? ` <span class="unit">${escapeHtml(cell.unit)}</span>` : ""}`;
 }
 
-function outputOverview(snapshot: ReportSnapshotData): string {
+function outputOverview(
+  snapshot: ReportSnapshotData,
+  includeReferenceCalculations: boolean,
+): string {
   const { tracks, rows } = buildDesignResults(
     snapshot.runs,
     snapshot.case.mode,
   );
-  if (!rows.length)
+  const primaryOutputLabels =
+    primaryOutputLabelsByTask[snapshot.case.taskCode] ?? [];
+  const visibleRows = includeReferenceCalculations
+    ? rows
+    : rows.filter((row) => primaryOutputLabels.includes(row.label));
+  if (!visibleRows.length)
     return `<div class="empty-note">本次尚無可列出的設計結果；報告不以 0 或推測值補齊。</div>`;
-  return `<p class="result-guide">下表顯示本次採用值。</p><div class="table-scroll"><table class="output-table"><thead><tr><th>輸出項目</th>${tracks
+  return `<div class="table-scroll"><table class="output-table"><thead><tr><th>輸出項目</th>${tracks
     .map((track) => `<th>${escapeHtml(basisForTrack(track).shortLabel)}</th>`)
-    .join("")}</tr></thead><tbody>${rows
+    .join("")}</tr></thead><tbody>${visibleRows
     .map(
       (row) =>
         `<tr><th>${escapeHtml(row.label)}</th>${tracks
-          .map((track) => `<td>${outputCell(row.cells[track])}</td>`)
+          .map((track) => {
+            const cell = row.cells[track];
+            const emphasisClass =
+              cell.state === "VALUE" && primaryOutputLabels.includes(row.label)
+                ? ' class="output-cell-final"'
+                : "";
+            return `<td${emphasisClass}>${outputCell(cell)}</td>`;
+          })
           .join("")}</tr>`,
     )
     .join("")}</tbody></table></div>`;
@@ -246,17 +357,43 @@ function algorithmProcess(
   run: SnapshotRun,
   inputGroup: ReportInputGroup | undefined,
   chapterNumber: string,
+  taskCode: string,
+  includeReferenceCalculations: boolean,
 ): string {
   const basis = basisForTrack(run.track);
   if (!run.steps.length)
-    return `<section class="algorithm-method"><h3>${chapterNumber} 計算依據：${escapeHtml(basis.fullLabel)}</h3><p class="muted">目前沒有可列出的計算步驟。</p></section>`;
-  return `<section class="algorithm-method"><h3>${chapterNumber} 計算依據：${escapeHtml(basis.fullLabel)}</h3><ol class="algorithm-steps">${run.steps
-    .map((step) => {
-      const comparison = stepComparisonValue(step);
-      const stepNumber = `${chapterNumber}.${step.sequence}`;
-      return `<li class="algorithm-step"><h4 class="step-purpose">${stepNumber} ${escapeHtml(formulaPurpose(step.formulaCode))}</h4><div class="step-content"><p class="step-line"><span class="step-label">公式</span><span class="step-expression">${formulaMarkup(step.expression)}</span></p><div class="formula-block"><p class="step-label">代入內容</p>${formulaValueTable(step, inputGroup)}</div><p class="step-line"><span class="step-label">數值算式</span><span class="step-expression">${escapeHtml(step.substitution)}</span></p><p class="step-line step-result"><span class="step-label">計算結果</span><strong>${formatStepResult(step.result, step.unit)}</strong></p>${comparison ? `<p class="step-line step-comparison"><span class="step-label">換算值</span>${comparison}</p>` : ""}</div></li>`;
+    return `<section class="algorithm-method"><h3>${chapterNumber} 使用${escapeHtml(basis.shortLabel)}</h3><p class="muted">目前沒有可列出的計算步驟。</p></section>`;
+  const renderStep = (step: SnapshotRun["steps"][number], index: number) => {
+    const comparison = stepComparisonValue(step);
+    const primary = isPrimaryCalculationStep(taskCode, step.formulaCode);
+    const primaryOutcome = isPrimaryOutcomeStep(taskCode, step, run);
+    const relevanceClass = primary ? "is-primary" : "is-reference";
+    const resultClass =
+      primaryOutcome && !comparison ? " step-primary-result" : "";
+    const comparisonClass = primaryOutcome ? " step-primary-result" : "";
+    return `<li class="algorithm-step ${relevanceClass}"><p class="step-purpose"><span class="step-index">步驟 ${index + 1}</span>${escapeHtml(formulaPurpose(step.formulaCode))}</p><div class="step-content"><p class="step-line"><span class="step-label">公式</span><span class="step-expression">${formulaMarkup(step.expression)}</span></p><div class="formula-block"><p class="step-label">代入內容</p>${formulaValueTable(step, inputGroup)}</div><p class="step-line"><span class="step-label">數值算式</span><span class="step-expression">${escapeHtml(step.substitution)}</span></p><p class="step-line step-result${resultClass}"><span class="step-label">計算結果</span><strong>${formatStepResult(step.result, step.unit)}</strong></p>${comparison ? `<p class="step-line step-comparison${comparisonClass}"><span class="step-label">每分鐘流量</span><strong>${comparison}</strong></p>` : ""}</div></li>`;
+  };
+  const visibleSteps = run.steps
+    .map((step, index) => ({ step, index }))
+    .filter(
+      ({ step }) =>
+        includeReferenceCalculations ||
+        isPrimaryCalculationStep(taskCode, step.formulaCode),
+    );
+  if (!visibleSteps.length) return "";
+  let referenceDividerInserted = false;
+  const stepsMarkup = visibleSteps
+    .map(({ step, index }) => {
+      const isReference = !isPrimaryCalculationStep(taskCode, step.formulaCode);
+      const divider =
+        includeReferenceCalculations && isReference && !referenceDividerInserted
+          ? `<li class="reference-divider"><span>以下為參考資訊, 與此次計算目的無關</span></li>`
+          : "";
+      if (divider) referenceDividerInserted = true;
+      return `${divider}${renderStep(step, index)}`;
     })
-    .join("")}</ol></section>`;
+    .join("");
+  return `<section class="algorithm-method"><h3>${chapterNumber} 使用${escapeHtml(basis.shortLabel)}</h3><ol class="algorithm-steps">${stepsMarkup}</ol></section>`;
 }
 
 function missingWorkflowBanner(snapshot: ReportSnapshotData): string {
@@ -274,36 +411,81 @@ function missingWorkflowBanner(snapshot: ReportSnapshotData): string {
 export function renderReportHtml(
   snapshot: ReportSnapshotData,
   documentKind: ReportDocumentKind = "DRAFT",
+  options: {
+    includeReferenceCalculations?: boolean;
+    provenance?: "REGENERATED_HISTORY";
+  } = {},
 ): string {
   const isFormal = documentKind === "FORMAL";
+  const includeReferenceCalculations =
+    options.includeReferenceCalculations ?? false;
+  const regeneratedHistory = options.provenance === "REGENERATED_HISTORY";
+  const orderedRuns = [
+    ...calculationTrackOrder.flatMap((track) =>
+      snapshot.runs.filter((run) => run.track === track),
+    ),
+    ...snapshot.runs.filter(
+      (run) => !calculationTrackOrder.some((track) => track === run.track),
+    ),
+  ];
+  const hasReferenceCalculations = orderedRuns.some((run) =>
+    run.steps.some(
+      (step) =>
+        !isPrimaryCalculationStep(snapshot.case.taskCode, step.formulaCode),
+    ),
+  );
+  const calculationSectionTitle =
+    hasReferenceCalculations && !includeReferenceCalculations
+      ? "需求目的計算過程"
+      : "完整計算過程";
+  const calculationGuide = includeReferenceCalculations
+    ? "採用值依規則取整；以下列出完整計算步驟。"
+    : "採用值依規則取整；以下僅列本次需求目的的計算步驟。";
   const reportNumber = isFormal
     ? snapshot.reportNumber
     : REPORT_NUMBER_PLACEHOLDER;
   const task = taskLabels[snapshot.case.taskCode] ?? "設計需求計算";
-  const reportTitle = isFormal
+  const reportTitleBase = isFormal
     ? "油脂截留器設計計算報告"
     : "油脂截留器設計計算報告草稿";
-  const versionLabel = `修訂 ${snapshot.case.revisionNo}`;
+  const reportTitle = regeneratedHistory
+    ? `${reportTitleBase}（歷史版本重新產生）`
+    : reportTitleBase;
+  const versionLabel = `版本 ${snapshot.case.revisionNo}`;
   const coverDocumentMeta = isFormal
     ? `<p>報告編號：${escapeHtml(reportNumber)}</p><p>版次：${escapeHtml(versionLabel)}</p>`
     : `<p>文件狀態：草稿</p>`;
+  const provenanceMarkup = regeneratedHistory
+    ? `<div class="banner warning historical-provenance"><strong>歷史版本重新產生</strong><br>本文件使用保存的歷史資料套用目前版型重新產生，不是當時的原始 PDF。</div>`
+    : "";
   const reportNumberHeader = isFormal
     ? `"報告編號：" ${cssString(reportNumber)}`
     : '"報告草稿"';
   const reportVersionHeader = isFormal
     ? `"版次：" ${cssString(versionLabel)}`
     : '""';
-  const screenFooterStatus = isFormal
-    ? '<span class="screen-footer-page">正式報告</span>'
-    : "";
+  const screenFooterStatus = regeneratedHistory
+    ? '<span class="screen-footer-page">歷史版本重新產生</span>'
+    : isFormal
+      ? '<span class="screen-footer-page">正式報告</span>'
+      : "";
   const footerLogo = jenfuLogoDataUri();
   const footerLogoRule = footerLogo
     ? `background-image: url("${footerLogo}"); background-repeat: no-repeat; background-position: right 28mm center; background-size: 3.2mm auto;`
     : "";
   const inputGroups = buildInputGroups(
     snapshot.inputs,
-    snapshot.runs.map((run) => run.track),
+    orderedRuns.map((run) => run.track),
   );
+  const hiddenInputLabels = new Set(
+    referenceOnlyInputLabelsByTask[snapshot.case.taskCode] ?? [],
+  );
+  const visibleInputGroups = includeReferenceCalculations
+    ? inputGroups
+    : inputGroups.map((group) => ({
+        ...group,
+        rows: group.rows.filter((row) => !hiddenInputLabels.has(row.label)),
+      }));
   const mode = modeDisplayFor(snapshot.case.mode);
   const summaryItems = [
     { label: "案件", value: `${snapshot.case.caseNo} / ${versionLabel}` },
@@ -313,13 +495,19 @@ export function renderReportHtml(
     { label: "計算依據", value: mode.label },
   ];
   const summaryMarkup = summaryItems
-    .map(
-      ({ label, value }) =>
-        `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`,
-    )
+    .reduce<string[]>((rows, item, index) => {
+      if (index % 2 !== 0) return rows;
+      const next = summaryItems[index + 1];
+      rows.push(
+        next
+          ? `<tr><th scope="row">${escapeHtml(item.label)}</th><td>${escapeHtml(item.value)}</td><th scope="row">${escapeHtml(next.label)}</th><td>${escapeHtml(next.value)}</td></tr>`
+          : `<tr><th scope="row">${escapeHtml(item.label)}</th><td colspan="3">${escapeHtml(item.value)}</td></tr>`,
+      );
+      return rows;
+    }, [])
     .join("");
   const groupForTrack = (track: string) =>
-    inputGroups.find((group) => group.track === track);
+    visibleInputGroups.find((group) => group.track === track);
   const detailsClass = "page-break";
   const methodChapterNumbers = new Map<string, string>(
     inputGroups.map((group, index) => [group.track, `4.${index + 1}`]),
@@ -349,16 +537,16 @@ p { margin: 0 0 3mm; orphans: 3; widows: 3; }
 .cover-meta-body p { margin: 0; }
 .report-body { page: report; }
 .screen-report-header, .screen-report-footer { display: none; }
- h2 { margin: 6mm 0 3mm; padding: 0 0 1.4mm; border-bottom: .6pt solid #B8C0CC; color: #111; font-size: 14pt; line-height: 1.3; }
+ h2 { margin: 6mm 0 3mm; padding: 0; color: #111; font-size: 14pt; line-height: 1.3; }
 h3 { margin: 3mm 0 2mm; color: #111; font-size: 12pt; line-height: 1.35; }
 h4 { margin: 3mm 0 2mm; color: #111; font-size: 10.5pt; line-height: 1.35; }
 h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
 .eyebrow { margin-bottom: 2mm; color: #4472C4; font-size: 9pt; font-weight: 700; letter-spacing: 0; }
 .document-number { color: #333; font-size: 9pt; font-variant-numeric: tabular-nums; margin-bottom: 3mm; }
-.summary-list { display: flex; flex-wrap: wrap; gap: 1.5mm 8mm; margin: 3mm 0 5mm; padding: 2.5mm 0; border-top: .6pt solid #B8C0CC; border-bottom: .6pt solid #B8C0CC; }
-.summary-list > div { display: grid; grid-template-columns: 18mm minmax(0, 1fr); gap: 2mm; min-width: 42%; align-items: baseline; }
-.summary-list dt { color: #555; font-size: 8.5pt; }
-.summary-list dd { margin: 0; font-weight: 400; overflow-wrap: anywhere; }
+.summary-table { margin: 3mm 0 5mm; font-size: 8.5pt; }
+.summary-table tbody th { width: 14%; background: #F2F2F2; color: #555; font-weight: 700; }
+.summary-table tbody td { width: 36%; }
+.summary-table td { font-weight: 400; }
 .flow-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; margin: 4mm 0 5mm; border: 1px solid #7f7f7f; background: #fff; break-inside: avoid; }
 .flow-step { position: relative; min-height: 16mm; padding: 3mm 4mm; }
 .flow-step + .flow-step { border-left: 1px solid #7f7f7f; }
@@ -389,18 +577,22 @@ thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; t
 .input-table th:nth-child(2) { width: 28%; }
 .input-table th:nth-child(3) { width: 18%; }
 .number-cell { white-space: nowrap; }
+/* 報告輸入表的選值理由可能是完整句子，不能因數值欄的預設不換行而穿越相鄰欄位。 */
+.input-table .number-cell { white-space: normal; overflow-wrap: anywhere; }
 .unit { color: #444; font-size: .9em; white-space: nowrap; }
 .role-badge { display: inline-block; border: 1px solid #9FB3D8; border-radius: 2mm; padding: .3mm 1.3mm; background: #F8FAFF; color: #1f1f1f; font-size: 7pt; font-weight: 400; white-space: nowrap; }
 .role-case { border-color: #9FB3D8; }
 .role-source { border-color: #D6A45D; background: #FFF8ED; }
 .role-derived { border-color: #9FB3D8; }
 .result-section { break-inside: avoid; }
- .result-guide { margin: 0 0 2mm; color: #333; font-size: 8.5pt; }
 .table-scroll { border: 0; break-inside: avoid; }
 .output-table th, .output-table td { padding: 1.8mm 2.5mm; }
 .output-table thead th { font-size: 8.5pt; }
 .output-table tbody th { width: 34%; background: #F2F2F2; color: #111; }
 .output-value { color: #111; font-size: 11pt; }
+.output-table td.output-cell-final { background: #F3F7FF; box-shadow: inset 3px 0 0 #4472C4; }
+.output-table td.output-cell-final .output-value { display: inline-block; color: #173B63; font-size: 13pt; font-weight: 800; line-height: 1.15; }
+.output-table td.output-cell-final .unit { color: #173B63; font-size: .95em; font-weight: 700; }
 .cell-state { font-size: 8pt; font-weight: 400; }
 .not-completed { color: #8a4b08; }
 .not-applicable { color: #555; }
@@ -408,32 +600,39 @@ thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; t
 .empty-note.compact { font-size: 8pt; }
 .page-break { break-before: page; }
  .comparison-guide { margin: 0 0 4mm; padding: 0 0 0 3mm; border-left: 2px solid #4472C4; color: #333; font-size: 8.5pt; }
+.comparison-guide strong, .comparison-guide span { display: block; }
+.comparison-guide strong { margin-bottom: .6mm; color: #173B63; font-size: 9pt; }
 .muted { color: #555; font-size: 8.5pt; }
 .method-badge { display: inline-block; padding: 1mm 2.5mm; border: 1px solid #9FB3D8; border-radius: 2mm; background: #F8FAFF; color: #111; font-size: 8pt; font-weight: 700; break-after: avoid-page; page-break-after: avoid; }
 .algorithm-method { margin: 4mm 0 6mm; }
- .algorithm-method + .algorithm-method { padding-top: 5mm; border-top: 1px solid #B8C0CC; }
+ .algorithm-method + .algorithm-method { padding-top: 5mm; border-top: 0; }
 .method-inputs { margin-bottom: 4mm; }
-.algorithm-steps { list-style: none; margin: 2mm 0 0; padding: 0; }
-.algorithm-step { padding: 2mm 0; border-top: 1px solid #BFBFBF; break-inside: avoid; }
+.algorithm-steps { list-style: none; margin: 3mm 0 0; padding: 0; }
+.algorithm-step { padding: 2mm 0; break-inside: avoid; }
+.reference-divider { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 3mm; margin: 5mm 0 1mm; padding: 0; color: #173B63; font-size: 9pt; font-weight: 700; list-style: none; text-align: center; }
+.reference-divider::before, .reference-divider::after { content: ""; border-top: 1px solid #9FB3D8; }
 .step-content { min-width: 0; }
 .step-purpose { margin: 0 0 1mm; color: #111; font-weight: 700; }
+.step-index { display: inline-block; min-width: 16mm; margin-right: 2mm; color: #4472C4; }
 .step-line { display: grid; grid-template-columns: 19mm 1fr; gap: 2mm; margin: 0 0 .6mm; font-size: 8.5pt; }
 .step-label { color: #555; font-weight: 400; }
 .step-expression { color: #111; overflow-wrap: anywhere; }
 .step-expression sub, .formula-values .symbol sub { font-size: .72em; line-height: 0; vertical-align: -0.25em; }
 .formula-block { margin: 1mm 0; }
-.formula-block > .step-label { display: block; margin-bottom: .6mm; }
+.formula-block > .step-label { display: block; margin-bottom: .6mm; font-size: 8.5pt; }
 .formula-values { font-size: 7.7pt; }
 .formula-values th, .formula-values td { padding: 1mm 1.5mm; }
 .formula-values .symbol { color: #111; font-variant-numeric: tabular-nums; font-weight: 400; }
 .step-result { color: #111; font-weight: 700; margin-top: .6mm; }
 .step-comparison { margin-top: .6mm; padding: .8mm 1.5mm; border: 1px solid #9FB3D8; background: #F8FAFF; color: #111; }
-@media screen { body { background: #E9EDF3; padding: 8mm 0; } .cover-page, .report-body { width: 210mm; margin: 0 auto 8mm; background: #fff; box-shadow: 0 0 0 1px #d9dfe8; } .cover-page { padding: 12.7mm; } .report-body { padding: 8mm 12.7mm 14mm; } .screen-report-header { display: grid; grid-template-columns: 1fr 1.3fr .7fr; column-gap: 6mm; align-items: end; margin: 0 0 7mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #4472C4; color: #777; font-size: 9pt; } .screen-report-header span:nth-child(2) { text-align: center; } .screen-report-footer { position: relative; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; min-height: 10mm; margin-top: 12mm; color: #777; font-size: 9pt; } .screen-report-footer::before, .screen-report-footer::after { content: ""; position: absolute; bottom: 0; width: 8mm; height: 8mm; border-top: .7pt solid #9A9A9A; } .screen-report-footer::before { left: -6mm; border-left: .7pt solid #9A9A9A; } .screen-report-footer::after { right: -6mm; border-right: .7pt solid #9A9A9A; } .screen-footer-page { text-align: center; } .screen-footer-brand { display: inline-flex; grid-column: 3; align-items: center; justify-content: flex-end; gap: 1.3mm; font-size: 10pt; font-weight: 700; } .screen-footer-logo { width: 3.2mm; height: auto; } }
-@media screen and (max-width: 800px) { body { padding: 0; background: #fff; font-size: 10pt; } .cover-page, .report-body { width: 100%; margin: 0; box-shadow: none; } .cover-page { min-height: 100vh; padding: 20px; } .cover-brand { margin-top: 34px; } .cover-logo { width: 54px; margin-bottom: 14px; } .cover-company-cn { font-size: 20pt; } .cover-company-en { font-size: 11pt; } .cover-title { margin-top: 54px; font-size: 20pt; } .cover-meta { margin: 24px 0 12px; } .cover-meta-strip { height: 12px; } .cover-meta-body { padding: 16px; font-size: 11pt; line-height: 1.55; overflow-wrap: anywhere; } .report-body { padding: 16px; } .screen-report-header { grid-template-columns: 1fr; gap: 4px; margin-bottom: 20px; } .screen-report-header span:nth-child(2) { text-align: left; overflow-wrap: anywhere; } .input-groups { grid-template-columns: 1fr; } .flow-strip { grid-template-columns: 1fr; } .flow-step + .flow-step { border-top: 1px solid #7f7f7f; border-left: 0; } .flow-step + .flow-step::before { display: none; } .summary-list { display: grid; gap: 1.5mm; } .summary-list > div { min-width: 0; } .step-line { grid-template-columns: 1fr; } .screen-report-footer { grid-template-columns: 1fr; } .screen-report-footer::before, .screen-report-footer::after { display: none; } .screen-footer-page { text-align: left; } .screen-footer-brand { grid-column: 1; justify-content: flex-start; } }
+.step-primary-result { padding: .8mm 1.5mm; border-left: 3px solid #4472C4; background: #F3F7FF; color: #173B63; }
+.step-primary-result .step-label { color: #173B63; }
+@media screen { body { background: #E9EDF3; padding: 8mm 0; } .cover-page, .report-body { width: 210mm; margin: 0 auto 8mm; background: #fff; box-shadow: 0 0 0 1px #d9dfe8; } .cover-page { padding: 12.7mm; } .report-body { padding: 8mm 12.7mm 14mm; } .screen-report-header { display: grid; grid-template-columns: 1fr 1.3fr .7fr; column-gap: 6mm; align-items: end; margin: 0 0 7mm; padding-bottom: 1mm; border-bottom: 1.5pt solid #4472C4; color: #777; font-size: 9pt; } .screen-report-header span:nth-child(2) { text-align: center; } .screen-report-footer { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; min-height: 10mm; margin-top: 12mm; color: #777; font-size: 9pt; } .screen-footer-page { text-align: center; } .screen-footer-brand { display: inline-flex; grid-column: 3; align-items: center; justify-content: flex-end; gap: 1.3mm; font-size: 10pt; font-weight: 700; } .screen-footer-logo { width: 3.2mm; height: auto; } }
+@media screen and (max-width: 800px) { body { padding: 0; background: #fff; font-size: 10pt; } .cover-page, .report-body { width: 100%; margin: 0; box-shadow: none; } .cover-page { min-height: 100vh; padding: 20px; } .cover-brand { margin-top: 34px; } .cover-logo { width: 54px; margin-bottom: 14px; } .cover-company-cn { font-size: 20pt; } .cover-company-en { font-size: 11pt; } .cover-title { margin-top: 54px; font-size: 20pt; } .cover-meta { margin: 24px 0 12px; } .cover-meta-strip { height: 12px; } .cover-meta-body { padding: 16px; font-size: 11pt; line-height: 1.55; overflow-wrap: anywhere; } .report-body { padding: 16px; } .screen-report-header { grid-template-columns: 1fr; gap: 4px; margin-bottom: 20px; } .screen-report-header span:nth-child(2) { text-align: left; overflow-wrap: anywhere; } .input-groups { grid-template-columns: 1fr; } .flow-strip { grid-template-columns: 1fr; } .flow-step + .flow-step { border-top: 1px solid #7f7f7f; border-left: 0; } .flow-step + .flow-step::before { display: none; } .summary-table { font-size: 8pt; } .summary-table tbody th { width: 18%; } .summary-table tbody td { width: 32%; } .step-line { grid-template-columns: 1fr; } .screen-report-footer { grid-template-columns: 1fr; } .screen-footer-page { text-align: left; } .screen-footer-brand { grid-column: 1; justify-content: flex-start; } }
 @media print { html, body { background: #fff; } .cover-page, .report-body { box-shadow: none; } .screen-report-header, .screen-report-footer { display: none; } }
 </style></head><body>
- <section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body">${coverDocumentMeta}</div></div></section>
- <main class="report-body"><section class="overview"><h2>1 案件資料</h2><dl class="summary-list">${summaryMarkup}</dl>${missingWorkflowBanner(snapshot)}<h2>2 本次輸入條件</h2>${inputOverview(inputGroups, "2")}<div class="result-section"><h2>3 本次設計結果</h2>${outputOverview(snapshot)}</div></section>
- <section class="${detailsClass}"><h2>4 完整計算過程</h2><p class="comparison-guide">採用值依規則取整；計算過程保留原值。設計處理水量另列 L/min 換算；清除週期油脂量使用 kg，有效容積使用 L。</p>${snapshot.runs.map((run, index) => algorithmProcess(run, groupForTrack(run.track), methodChapterNumbers.get(run.track) ?? `4.${index + 1}`)).join("")}</section><div class="screen-report-footer"><span></span>${screenFooterStatus}<span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
+ <section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body">${coverDocumentMeta}${regeneratedHistory ? "<p>資料來源：歷史版本重新產生</p>" : ""}</div></div></section>
+ <main class="report-body">${provenanceMarkup}<section class="overview"><h2>1 案件資料</h2><table class="summary-table"><tbody>${summaryMarkup}</tbody></table>${missingWorkflowBanner(snapshot)}<h2>2 本次輸入條件</h2>${inputOverview(visibleInputGroups, "2")}<div class="result-section"><h2>3 本次設計結果</h2>${outputOverview(snapshot, includeReferenceCalculations)}</div></section>
+ <section class="${detailsClass}"><h2>4 ${calculationSectionTitle}</h2><p class="comparison-guide"><strong>需求目的｜${escapeHtml(task)}</strong><span>${calculationGuide}</span></p>${orderedRuns.map((run, index) => algorithmProcess(run, groupForTrack(run.track), methodChapterNumbers.get(run.track) ?? `4.${index + 1}`, snapshot.case.taskCode, includeReferenceCalculations)).join("")}</section><div class="screen-report-footer"><span></span>${screenFooterStatus}<span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
 </body></html>`;
 }

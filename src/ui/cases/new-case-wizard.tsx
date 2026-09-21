@@ -22,8 +22,8 @@ const tasks = [
 ] as const;
 
 const modes = [
-  ["CURRENT_QG", calculationBasisDisplay.CURRENT_QG.shortLabel],
   ["LEGACY_QV", calculationBasisDisplay.LEGACY_QV.shortLabel],
+  ["CURRENT_QG", calculationBasisDisplay.CURRENT_QG.shortLabel],
   ["DUAL_COMPARISON", calculationModeDisplay.DUAL_COMPARISON.label],
 ] as const;
 
@@ -49,7 +49,10 @@ export function NewCaseWizard() {
       ? modes.filter(([value]) => value === "LEGACY_QV")
       : modes;
 
-  useEffect(() => setHydrated(true), []);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setHydrated(true), 0);
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>依面積計算｜不同計算方式對照</title>
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="index.html">油脂截留器計算系統</a>
+      <nav aria-label="頁面導覽">
+        <a href="#summary">結果對照</a><a href="#process">計算過程</a>
+      </nav>
+    </header>
+
+    <main class="sheet">
+      <header class="report-head">
+        <div>
+          <p class="eyebrow">不同計算方式對照 02</p>
+          <h1>依面積計算設計需求</h1>
+          <p class="lead">
+            以廚房 50 m²、用餐區 150 m²
+            的速食餐飲為例，對照兩套依據如何由面積推算設備需求。
+          </p>
+          <span class="prototype-badge">版型原型｜非正式報告</span>
+        </div>
+        <img
+          class="logo"
+          src="../../public/jenfu-logo-small.png"
+          alt="鉦富機械"
+        />
+      </header>
+
+      <section>
+        <h2>1 計算任務</h2>
+        <dl class="facts">
+          <dt>要回答的問題</dt>
+          <dd>此餐飲空間需要多大的油脂截留器設計能力？</dd>
+          <dt>比較方式</dt>
+          <dd>相同空間條件下，分別套用 Q/G 法與 Q/V 法</dd>
+          <dt>餐飲型態</dt>
+          <dd>速食／西式速食</dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>2 輸入條件</h2>
+        <div class="input-grid">
+          <article class="method">
+            <h3>內政部附錄 5（Q/G）</h3>
+            <dl class="facts">
+              <dt>廚房／用餐區</dt>
+              <dd>50／150 m²</dd>
+              <dt>總面積 A</dt>
+              <dd>200 m²</dd>
+              <dt>座位利用 n／補正 n0</dt>
+              <dd>8／5.0</dd>
+              <dt>每日使用時間 t</dt>
+              <dd>720 min</dd>
+              <dt>油脂／沉積物清除</dt>
+              <dd>7 日／7 日</dd>
+            </dl>
+          </article>
+          <article class="method legacy">
+            <h3>臺北市歷史計算法（Q/V）</h3>
+            <dl class="facts">
+              <dt>用餐區面積</dt>
+              <dd>150 m²</dd>
+              <dt>人員密度</dt>
+              <dd>0.5 人／m²</dd>
+              <dt>座位週轉率</dt>
+              <dd>8 次</dd>
+              <dt>每人每餐用水量 q</dt>
+              <dd>30 L／人・餐</dd>
+              <dt>營業時間／安全係數</dt>
+              <dd>5 h／1.5</dd>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>3 結果對照</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>設計指標</th>
+                <th>內政部 Q/G 法</th>
+                <th>臺北市 Q/V 法</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>推算用餐人數</th>
+                <td>不另列人數結果</td>
+                <td class="result">600 人</td>
+              </tr>
+              <tr>
+                <th>設計處理水量</th>
+                <td class="result">31.2 L/min</td>
+                <td class="result">90.0 L/min</td>
+              </tr>
+              <tr>
+                <th>清除週期油脂量</th>
+                <td class="result">9.0 kg</td>
+                <td>此法未定義</td>
+              </tr>
+              <tr>
+                <th>有效容積</th>
+                <td>此法未定義</td>
+                <td class="result">900 L</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notice">
+          <strong>閱讀重點：</strong>Q/G 法以廚房與用餐區總面積計算；Q/V
+          法先以用餐區面積換算人數。兩者的面積定義與輸出指標不同，報告必須明示，不能只放最後數字。
+        </div>
+      </section>
+
+      <section id="process">
+        <h2>4 完整計算過程</h2>
+
+        <h3>4.1 內政部附錄 5（Q/G）</h3>
+        <article class="result-group">
+          <h4>設計處理水量 Q</h4>
+          <p class="outcome">
+            <strong>採用值 31.2 L/min</strong
+            ><small>原始值 31.1111 L/min，向上取至小數 1 位</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">A = 廚房面積 + 用餐區面積</span
+                ><span class="substitution">50 + 150 = 200 m²</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">Q = A × Wm × (n ÷ n0) ÷ t × k</span
+                ><span class="substitution"
+                  >200 × 20 × (8 ÷ 5) ÷ 720 × 3.5 = 31.1111 L/min</span
+                >
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group">
+          <h4>清除週期油脂量 G</h4>
+          <p class="outcome">
+            <strong>採用值 9.0 kg</strong
+            ><small>原始值 8.96 kg，向上取至小數 1 位</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Gu = A × gu × (n ÷ n0) × iu ÷ 1000</span
+                ><span class="substitution"
+                  >200 × 3 × (8 ÷ 5) × 7 ÷ 1000 = 6.72 kg</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">Gb = A × gb × (n ÷ n0) × ib ÷ 1000</span
+                ><span class="substitution"
+                  >200 × 1 × (8 ÷ 5) × 7 ÷ 1000 = 2.24 kg</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">G = Gu + Gb</span
+                ><span class="substitution">6.72 + 2.24 = 8.96 kg</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <h3>4.2 臺北市歷史計算法（Q/V）</h3>
+        <article class="result-group legacy">
+          <h4>用餐人數 n</h4>
+          <p class="outcome">
+            <strong>600 人</strong><small>由用餐區面積、密度及週轉率推算</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">n = area × density × turnover</span
+                ><span class="substitution">150 × 0.5 × 8 = 600 人</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group legacy">
+          <h4>設計處理水量 Q</h4>
+          <p class="outcome">
+            <strong>90.0 L/min</strong><small>每小時水量 5,400 L/h</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Qhour = (n × q ÷ t) × k</span
+                ><span class="substitution"
+                  >(600 × 30 ÷ 5) × 1.5 = 5,400 L/h</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">Qminute = Qhour ÷ 60</span
+                ><span class="substitution">5,400 ÷ 60 = 90.0 L/min</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group legacy">
+          <h4>有效容積 Veff</h4>
+          <p class="outcome"><strong>900 L</strong></p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Veff = Qhour ÷ 6</span
+                ><span class="substitution">5,400 ÷ 6 = 900 L</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+      </section>
+
+      <section>
+        <h2>5 採用判斷</h2>
+        <div class="decision">
+          <strong>先確認面積口徑，再選採用軌。</strong>Q/G 法的 A
+          為廚房加用餐區；本 Q/V 範例的 area
+          為用餐區。正式案件若資料口徑不同，應退回補正，不應以同名欄位直接套算。
+        </div>
+      </section>
+
+      <footer class="footer">
+        範例資料僅用於版型審視｜回到 <a href="index.html">三份審稿範例</a>
+      </footer>
+    </main>
+  </body>
+</html>

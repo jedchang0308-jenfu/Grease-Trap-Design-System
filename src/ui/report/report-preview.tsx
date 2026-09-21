@@ -4,15 +4,21 @@ import {
   exportReportDraft,
   previewReport,
 } from "@/application/reports/report-service";
+import {
+  historicalReportFileName,
+  previewHistoricalReport,
+} from "@/application/reports/historical-report-service";
 import { toProblem } from "@/application/problem";
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 
-interface Preview {
+export interface Preview {
   version: number;
   reportNumber: string;
   snapshotHash: string;
   exported: boolean;
   legacyIssued: boolean;
+  historical?: boolean;
+  sourceRevisionNo?: number;
   case: {
     caseNo: string;
     revisionNo: number;
@@ -26,10 +32,27 @@ interface Preview {
   assessments: Array<{ track: string; status: string }>;
   html: string;
   formalHtml: string;
+  htmlWithReferenceCalculations: string;
+  formalHtmlWithReferenceCalculations: string;
 }
 
 type PdfKind = "DRAFT" | "FORMAL";
+type ReportCalculationMode = "PURPOSE_ONLY" | "FULL";
 const useLocalPdfRenderer = import.meta.env.VITE_REPORT_PDF_LOCAL === "true";
+
+function selectedReportHtml(
+  preview: Preview,
+  kind: PdfKind,
+  includeReferenceCalculations: boolean,
+) {
+  if (kind === "FORMAL")
+    return includeReferenceCalculations
+      ? preview.formalHtmlWithReferenceCalculations
+      : preview.formalHtml;
+  return includeReferenceCalculations
+    ? preview.htmlWithReferenceCalculations
+    : preview.html;
+}
 
 function printReportHtml(html: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -97,7 +120,14 @@ function printReportHtml(html: string): Promise<void> {
   });
 }
 
-export function ReportPreview({ caseId }: { caseId: string }) {
+export function ReportPreview({
+  caseId,
+  revisionNo,
+}: {
+  caseId: string;
+  revisionNo?: number;
+}) {
+  const historical = revisionNo !== undefined;
   const [preview, setPreview] = useState<Preview | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [pdfGenerating, setPdfGenerating] = useState<PdfKind | null>(null);
@@ -105,6 +135,9 @@ export function ReportPreview({ caseId }: { caseId: string }) {
   const [pdfSavedPath, setPdfSavedPath] = useState<string | null>(null);
   const [pdfSavedKind, setPdfSavedKind] = useState<PdfKind | null>(null);
   const [pdfPrintKind, setPdfPrintKind] = useState<PdfKind | null>(null);
+  const [reportCalculationMode, setReportCalculationMode] =
+    useState<ReportCalculationMode>("PURPOSE_ONLY");
+  const includeReferenceCalculations = reportCalculationMode === "FULL";
   const [frameReady, setFrameReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<UiProblem | null>(null);
@@ -116,13 +149,17 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     setPdfPrintKind(null);
     setProblem(null);
     try {
-      setPreview(await previewReport(caseId));
+      setPreview(
+        historical
+          ? await previewHistoricalReport(caseId, revisionNo)
+          : await previewReport(caseId),
+      );
     } catch (error) {
       setProblem(toProblem(error, "報告草稿預覽尚未完成，請重試。"));
     } finally {
       setLoading(false);
     }
-  }, [caseId]);
+  }, [caseId, historical, revisionNo]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => void load(), 0);
@@ -143,7 +180,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     setProblem(null);
     try {
       let source = preview;
-      if (kind === "FORMAL" && !source.exported) {
+      if (!historical && kind === "FORMAL" && !source.exported) {
         const exported = await exportReportDraft(caseId, source.version);
         source = {
           ...source,
@@ -153,17 +190,25 @@ export function ReportPreview({ caseId }: { caseId: string }) {
           exported: true,
           html: exported.html,
           formalHtml: exported.formalHtml,
+          htmlWithReferenceCalculations: exported.htmlWithReferenceCalculations,
+          formalHtmlWithReferenceCalculations:
+            exported.formalHtmlWithReferenceCalculations,
         };
         setFrameReady(false);
         setPreview(source);
       }
-      const revision = String(source.case.revisionNo).padStart(2, "0");
-      const fileName =
-        kind === "FORMAL"
-          ? `${source.case.caseNo}-R${revision}.pdf`
+      const fileName = historical
+        ? historicalReportFileName(source.case.caseNo, source.case.revisionNo)
+        : kind === "FORMAL"
+          ? `${source.case.caseNo}-R${String(source.case.revisionNo).padStart(2, "0")}.pdf`
           : `${source.case.caseNo}-DRAFT.pdf`;
+      const selectedHtml = selectedReportHtml(
+        source,
+        kind,
+        includeReferenceCalculations,
+      );
       if (!useLocalPdfRenderer) {
-        await printReportHtml(kind === "FORMAL" ? source.formalHtml : source.html);
+        await printReportHtml(selectedHtml);
         setPdfPrintKind(kind);
         return;
       }
@@ -171,13 +216,13 @@ export function ReportPreview({ caseId }: { caseId: string }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          html: kind === "FORMAL" ? source.formalHtml : source.html,
+          html: selectedHtml,
           fileName,
         }),
       });
       const contentType = response.headers.get("content-type") ?? "";
       if (!contentType.includes("application/json")) {
-        await printReportHtml(kind === "FORMAL" ? source.formalHtml : source.html);
+        await printReportHtml(selectedHtml);
         setPdfPrintKind(kind);
         return;
       }
@@ -204,6 +249,7 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     setSubmitting(true);
     setProblem(null);
     try {
+      if (historical) return;
       const exported = await exportReportDraft(caseId, preview.version);
       setFrameReady(false);
       setPdfSavedPath(null);
@@ -217,6 +263,10 @@ export function ReportPreview({ caseId }: { caseId: string }) {
               exported: true,
               html: exported.html,
               formalHtml: exported.formalHtml,
+              htmlWithReferenceCalculations:
+                exported.htmlWithReferenceCalculations,
+              formalHtmlWithReferenceCalculations:
+                exported.formalHtmlWithReferenceCalculations,
             }
           : current,
       );
@@ -249,10 +299,14 @@ export function ReportPreview({ caseId }: { caseId: string }) {
     <div className="page report-preview-page">
       <header className="page-header no-print">
         <div>
-          <h1>報告草稿預覽</h1>
+          <h1>{historical ? "歷史報告重新產生預覽" : "報告草稿預覽"}</h1>
         </div>
         <div className="actions">
-          <Link to={`/cases/${caseId}`}>返回案件</Link>
+          <Link
+            to={historical ? `/cases/${caseId}/history` : `/cases/${caseId}`}
+          >
+            {historical ? "返回版本清單" : "返回案件"}
+          </Link>
         </div>
       </header>
 
@@ -269,41 +323,81 @@ export function ReportPreview({ caseId }: { caseId: string }) {
         </div>
       ) : null}
 
-      <section
-        className="panel report-controls no-print"
-        aria-label="報告操作"
-      >
-        <div className="button-row end">
-          {!preview.legacyIssued ? (
+      {historical ? (
+        <div className="state-banner warning no-print" role="status">
+          <strong>歷史版本重新產生</strong>
+          <p>
+            本預覽使用保存的歷史資料套用目前版型，不是當時的原始
+            PDF；不會回寫目前案件。
+          </p>
+        </div>
+      ) : null}
+
+      <section className="panel report-controls no-print" aria-label="報告操作">
+        <fieldset className="report-settings-row">
+          <legend>報告設定</legend>
+          <div className="report-settings-options" role="radiogroup">
+            {(
+              [
+                ["PURPOSE_ONLY", "精簡計算-只計算此次目的"],
+                ["FULL", "完整計算-連同參考資訊一同完整計算"],
+              ] as const
+            ).map(([value, label]) => (
+              <label className="report-setting-option" key={value}>
+                <input
+                  type="radio"
+                  name="report-calculation-mode"
+                  value={value}
+                  checked={reportCalculationMode === value}
+                  disabled={submitting || Boolean(pdfGenerating)}
+                  onChange={() => {
+                    setFrameReady(false);
+                    setPdfSavedPath(null);
+                    setPdfSavedKind(null);
+                    setPdfPrintKind(null);
+                    setReportCalculationMode(value);
+                  }}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        <div className="report-action-groups">
+          {!preview.legacyIssued && !historical ? (
+            <div className="report-save-action">
+              <button
+                className="button secondary"
+                type="button"
+                disabled={submitting || Boolean(pdfGenerating)}
+                onClick={() => void exportDraft()}
+              >
+                {submitting ? "正在儲存草稿…" : "儲存草稿版本"}
+              </button>
+            </div>
+          ) : null}
+          <div className="button-row end report-output-actions">
             <button
               className="button secondary"
               type="button"
-              disabled={submitting || Boolean(pdfGenerating)}
-              onClick={() => void exportDraft()}
+              disabled={submitting || Boolean(pdfGenerating) || !frameReady}
+              onClick={() => void generateReportPdf("DRAFT")}
             >
-              {submitting ? "正在準備草稿…" : "匯出報告草稿"}
+              {pdfGenerating === "DRAFT" ? "正在輸出草稿 PDF…" : "輸出草稿 PDF"}
             </button>
-          ) : null}
-          <button
-            className="button secondary"
-            type="button"
-            disabled={submitting || Boolean(pdfGenerating) || !frameReady}
-            onClick={() => void generateReportPdf("DRAFT")}
-          >
-            {pdfGenerating === "DRAFT" ? "正在產生草稿…" : "產生草稿 PDF"}
-          </button>
-          {!preview.legacyIssued ? (
-            <button
-              className="button primary"
-              type="button"
-              disabled={submitting || Boolean(pdfGenerating)}
-              onClick={() => void generateReportPdf("FORMAL")}
-            >
-              {pdfGenerating === "FORMAL"
-                ? "正在產生正式報告…"
-                : "產生正式報告"}
-            </button>
-          ) : null}
+            {!preview.legacyIssued || historical ? (
+              <button
+                className="button primary"
+                type="button"
+                disabled={submitting || Boolean(pdfGenerating)}
+                onClick={() => void generateReportPdf("FORMAL")}
+              >
+                {pdfGenerating === "FORMAL"
+                  ? "正在輸出正式 PDF…"
+                  : "輸出正式 PDF"}
+              </button>
+            ) : null}
+          </div>
         </div>
         {pdfPrintKind ? (
           <p className="report-pdf-status" role="status">
@@ -321,9 +415,13 @@ export function ReportPreview({ caseId }: { caseId: string }) {
 
       <section className="panel report-document-panel" aria-label="文件預覽">
         <iframe
-          key={`${preview.version}-${preview.reportNumber}`}
-          title="客戶設計計算報告草稿預覽"
-          srcDoc={preview.html}
+          key={`${preview.version}-${preview.reportNumber}-${includeReferenceCalculations ? "with-reference" : "purpose-only"}`}
+          title={historical ? "歷史版本報告預覽" : "客戶設計計算報告草稿預覽"}
+          srcDoc={selectedReportHtml(
+            preview,
+            "DRAFT",
+            includeReferenceCalculations,
+          )}
           sandbox="allow-modals allow-same-origin"
           onLoad={handleFrameLoad}
         />

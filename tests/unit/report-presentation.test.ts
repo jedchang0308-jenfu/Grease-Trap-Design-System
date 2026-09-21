@@ -97,14 +97,14 @@ describe("report presentation model", () => {
     );
 
     expect(
-      groups[0].rows.find((row) => row.label === "每日實際使用時間"),
+      groups[1].rows.find((row) => row.label === "每日實際使用時間"),
     ).toMatchObject({
       role: "覆寫值",
       sourceNote:
         "取代內政部附錄 5 流量 Q 公式中的 t（每日使用時間）；需保留案件依據。",
     });
     expect(
-      groups[1].rows.find((row) => row.label === "選值原因"),
+      groups[0].rows.find((row) => row.label === "選值原因"),
     ).toMatchObject({
       value: "依餐飲型態選用",
       role: "工程選值",
@@ -112,6 +112,10 @@ describe("report presentation model", () => {
     expect(badges.map((badge) => badge.label)).toEqual([
       "使用特殊條件完成",
       "工程選值已記錄",
+    ]);
+    expect(groups.map((group) => group.track)).toEqual([
+      "LEGACY_QV",
+      "CURRENT_QG",
     ]);
   });
 
@@ -138,7 +142,7 @@ describe("report presentation model", () => {
     expect(grease?.cells.LEGACY_QV.state).toBe("NOT_APPLICABLE");
     expect(volume?.cells.CURRENT_QG.state).toBe("NOT_APPLICABLE");
     expect(rows.some((row) => row.label === "原始設計處理水量")).toBe(false);
-    expect(model.tracks).toEqual(["CURRENT_QG", "LEGACY_QV"]);
+    expect(model.tracks).toEqual(["LEGACY_QV", "CURRENT_QG"]);
   });
 
   it("labels every value in a known formula substitution", () => {

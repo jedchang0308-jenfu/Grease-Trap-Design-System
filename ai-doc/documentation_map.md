@@ -2,39 +2,41 @@
 
 文件狀態：`Static Spark Production Deployed`
 
-權威版本：`3.4`
+權威版本：`3.9`
 
-最後更新：`2026-09-18`
+最後更新：`2026-09-21`
 
 ## 冷啟動順序
 
 1. [project_overview.md](project_overview.md)：產品、架構與風險。
 2. [dev_task.md](dev_task.md)：目前工作、驗證與 re-entry。
-3. [ADR-011](decisions/ADR-011-effective-volume-to-flow-task.md)：有效容積換算處理水量的算法 A 單軌任務。
-4. [ADR-010](decisions/ADR-010-direct-formal-report-output.md)：直接產出正式報告、不建立核發流程。
-5. [ADR-009](decisions/ADR-009-static-firebase-spark-spa.md)：Spark 純靜態決策。
-6. [SPEC-001](specs/SPEC-001-functional-engineering.md)：功能、資料、交易與報告契約。
-7. [SPEC-002](specs/SPEC-002-ui-ux.md)：route、畫面、狀態與 responsive 契約。
-8. [QA-001](qa/QA-001-validation-plan.md) 與 [QC-001](qa/QC-001-local-acceptance.md)：計畫與事實證據。
+
+只在選定工作後載入對應文件：
+
+- 繼續 DEV-029：依序讀 [ADR-012](decisions/ADR-012-immutable-case-revision-subcollection.md) → [SPEC-003](specs/SPEC-003-case-version-history.md) → [QA-002](qa/QA-002-case-version-history.md)。
+- 其他 DEV：依 `dev_task.md` 的直接引用，從下方 Active 文件表載入最少必要 ADR／SPEC／QA／QC；不要一次讀完整套文件。
 
 不得只憑聊天記憶或 README 開始後續修改。
 
 ## Active 文件
 
-| 文件                                                                 | 地位             | 主要用途                   |
-| -------------------------------------------------------------------- | ---------------- | -------------------------- |
-| [project_overview.md](project_overview.md)                           | End-State 權威   | 架構、scope、風險          |
-| [dev_task.md](dev_task.md)                                           | 唯一 DEV 入口    | 狀態、acceptance、re-entry |
-| [SPEC-001](specs/SPEC-001-functional-engineering.md)                 | 功能工程權威     | 公式、資料、交易、報告     |
-| [SPEC-002](specs/SPEC-002-ui-ux.md)                                  | UI／UX 權威      | route、CTA、RWD、錯誤      |
-| [ADR-001](decisions/ADR-001-dual-track-first-class.md)               | Active           | 雙軌隔離                   |
-| [ADR-002](decisions/ADR-002-one-valid-track-release.md)              | Active / updated | 任一有效軌可產生草稿       |
-| [ADR-004](decisions/ADR-004-exclude-product-certificate-matching.md) | Active           | 排除產品／證書匹配         |
-| [ADR-009](decisions/ADR-009-static-firebase-spark-spa.md)            | Active           | Spark 靜態 Firebase 架構   |
-| [ADR-010](decisions/ADR-010-direct-formal-report-output.md)          | Active           | 無核發流程的正式報告輸出   |
-| [ADR-011](decisions/ADR-011-effective-volume-to-flow-task.md)        | Active           | T06 單軌任務與公式邊界     |
-| [QA-001](qa/QA-001-validation-plan.md)                               | Active           | 驗證計畫                   |
-| [QC-001](qa/QC-001-local-acceptance.md)                              | Active           | 本輪事實驗證               |
+| 文件                                                                  | 地位             | 主要用途                   |
+| --------------------------------------------------------------------- | ---------------- | -------------------------- |
+| [project_overview.md](project_overview.md)                            | End-State 權威   | 架構、scope、風險          |
+| [dev_task.md](dev_task.md)                                            | 唯一 DEV 入口    | 狀態、acceptance、re-entry |
+| [ADR-012](decisions/ADR-012-immutable-case-revision-subcollection.md) | Active           | 歷史版本資料與交易架構     |
+| [SPEC-003](specs/SPEC-003-case-version-history.md)                    | Feature Contract | 歷史版本產品與技術邊界     |
+| [SPEC-001](specs/SPEC-001-functional-engineering.md)                  | 功能工程權威     | 公式、資料、交易、報告     |
+| [SPEC-002](specs/SPEC-002-ui-ux.md)                                   | UI／UX 權威      | route、CTA、RWD、錯誤      |
+| [ADR-001](decisions/ADR-001-dual-track-first-class.md)                | Active           | 雙軌隔離                   |
+| [ADR-002](decisions/ADR-002-one-valid-track-release.md)               | Active / updated | 任一有效軌可產生草稿       |
+| [ADR-004](decisions/ADR-004-exclude-product-certificate-matching.md)  | Active           | 排除產品／證書匹配         |
+| [ADR-009](decisions/ADR-009-static-firebase-spark-spa.md)             | Active           | Spark 靜態 Firebase 架構   |
+| [ADR-010](decisions/ADR-010-direct-formal-report-output.md)           | Active           | 無核發流程的正式報告輸出   |
+| [ADR-011](decisions/ADR-011-effective-volume-to-flow-task.md)         | Active           | T06 單軌任務與公式邊界     |
+| [QA-001](qa/QA-001-validation-plan.md)                                | Active           | 驗證計畫                   |
+| [QA-002](qa/QA-002-case-version-history.md)                           | Local Verified   | DEV-029 驗證契約與本機證據 |
+| [QC-001](qa/QC-001-local-acceptance.md)                               | Active           | 本輪事實驗證               |
 
 ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名產品決策仍有效，但技術實作以 ADR-009 為準。
 
@@ -56,21 +58,26 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 | HD-12 | 所有人可直接產出正式報告，不建立核發機制。             |
 | HD-13 | 原定 `RDR-YYMMDD-00` 報告編號，已由 HD-14 取代。       |
 | HD-14 | 案件與正式報告共用 `GTC-YYMMDD-00`，不另建編碼邏輯。   |
-| HD-15 | 新增有效容積換算處理水量情境，僅使用算法 A。          |
+| HD-15 | 新增有效容積換算處理水量情境，僅使用算法 A。           |
+| HD-16 | 未來建立新版本時須保留舊版，並提供歷史版本唯讀查看。   |
+| HD-17 | 刪除案件時永久刪除目前版本與全部歷史版本，不改成封存。 |
+| HD-18 | 歷史版本可用目前版型重新輸出 PDF，且須標示重新產生。   |
 
 ## 權威順序
 
 1. 最新使用者明確決策。
-2. ADR-011。
-3. ADR-010。
-4. ADR-009 未被 ADR-010 取代的技術規則。
-5. ADR-001、ADR-002、ADR-004 未被取代的產品規則。
-6. SPEC-001、SPEC-002。
-7. QA-001、QC-001。
-8. 歷史 ADR 與 git baseline 只作追溯。
+2. ADR-012 與 SPEC-003（僅 DEV-029 歷史版本範圍）。
+3. ADR-011。
+4. ADR-010。
+5. ADR-009 未被 ADR-010／ADR-012 取代的技術規則。
+6. ADR-001、ADR-002、ADR-004 未被取代的產品規則。
+7. SPEC-001、SPEC-002。
+8. QA-002（DEV-029）與 QA-001、QC-001（既有基線）。
+9. 歷史 ADR 與 git baseline 只作追溯。
 
 ## 目前狀態
 
+- DEV-029：已完成本機實作與驗證；資料路徑、atomic transaction、`DELETING` recovery、routes、歷史報告 provenance 已落地。使用 task-owned emulator／Vite 完成 desktop、tablet、mobile Playwright E2E，測試後 runtime 已清理；未部署遠端環境。
 - 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。
 - DEV-023：有效容積換算設計處理水量情境已完成本機驗證與 production smoke。
@@ -80,6 +87,7 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 ## Re-entry
 
+- DEV-029：本機實作與驗證已完成；若進入正式發布，必須依 release gate 一次部署 archive schema、Rules、routes 與 `DELETING` lifecycle，禁止部分發布。
 - Firebase production：既有獨立 Spark project 已完成 Rules/Hosting 發布；後續變更需重跑受影響 smoke 並保留 rollback 參考。
 - 真實案件：提供 3～5 個去識別案例與人工預期值。
 - 若要加入簽核、核發、不可變留存或敏感資料：新 ADR、可信任後端、身分與留存政策。

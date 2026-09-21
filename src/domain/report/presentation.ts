@@ -1,6 +1,10 @@
 import Decimal from "decimal.js";
-import type { CalculationTrack } from "@/domain/rules/source-display";
-import { basisForTrack } from "@/domain/rules/source-display";
+import {
+  basisForTrack,
+  calculationTrackOrder,
+  calculationTracksForMode,
+  type CalculationTrack,
+} from "@/domain/rules/source-display";
 import type { SnapshotRun } from "./types";
 
 export type InputRole =
@@ -338,9 +342,7 @@ function legacyRows(input: Record<string, unknown>): ReportInputRow[] {
 }
 
 export function reportTracksForMode(mode: string): CalculationTrack[] {
-  if (mode === "CURRENT_QG") return ["CURRENT_QG"];
-  if (mode === "LEGACY_QV") return ["LEGACY_QV"];
-  return ["CURRENT_QG", "LEGACY_QV"];
+  return calculationTracksForMode(mode);
 }
 
 export function buildInputGroups(
@@ -349,31 +351,32 @@ export function buildInputGroups(
 ): ReportInputGroup[] {
   const payload = asRecord(inputs);
   if (!payload) return [];
-  return completedTracks.flatMap((track) => {
-    if (track !== "CURRENT_QG" && track !== "LEGACY_QV") return [];
-    const key = track === "CURRENT_QG" ? "currentInputs" : "legacyInputs";
-    const input = asRecord(payload[key]);
-    if (!input) return [];
-    const rows =
-      track === "CURRENT_QG"
-        ? rowsFromFields(input, currentInputFields)
-        : legacyRows(input);
-    return [
-      {
-        track,
-        sourceLabel: basisForTrack(track).shortLabel,
-        rows,
-      },
-    ];
-  });
+  return calculationTrackOrder
+    .filter((track) => completedTracks.includes(track))
+    .flatMap((track) => {
+      if (track !== "CURRENT_QG" && track !== "LEGACY_QV") return [];
+      const key = track === "CURRENT_QG" ? "currentInputs" : "legacyInputs";
+      const input = asRecord(payload[key]);
+      if (!input) return [];
+      const rows =
+        track === "CURRENT_QG"
+          ? rowsFromFields(input, currentInputFields)
+          : legacyRows(input);
+      return [
+        {
+          track,
+          sourceLabel: basisForTrack(track).shortLabel,
+          rows,
+        },
+      ];
+    });
 }
 
 function completedCalculationTracks(
   completedTracks: string[],
 ): CalculationTrack[] {
-  return completedTracks.filter(
-    (track): track is CalculationTrack =>
-      track === "CURRENT_QG" || track === "LEGACY_QV",
+  return calculationTrackOrder.filter((track) =>
+    completedTracks.includes(track),
   );
 }
 
@@ -539,8 +542,8 @@ export function buildOutputRows(
     current: ReportOutputCell,
     legacy: ReportOutputCell,
   ): Record<CalculationTrack, ReportOutputCell> => ({
-    CURRENT_QG: current,
     LEGACY_QV: legacy,
+    CURRENT_QG: current,
   });
 
   if (hasAdoptedValue(runs, "qLpm") || hasAdoptedValue(runs, "qLph")) {

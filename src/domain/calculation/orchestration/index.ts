@@ -20,7 +20,10 @@ import {
   type LegacyReverseInput,
   type LegacyVolumeToFlowInput,
 } from "@/domain/calculation/legacy";
-import { calculationBasisDisplay } from "@/domain/rules/source-display";
+import {
+  calculationBasisDisplay,
+  calculationTracksForMode,
+} from "@/domain/rules/source-display";
 import {
   DomainInputError,
   type Track,
@@ -38,8 +41,8 @@ export const taskCodes = [
 export type TaskCode = (typeof taskCodes)[number];
 
 export const calculationModes = [
-  "CURRENT_QG",
   "LEGACY_QV",
+  "CURRENT_QG",
   "DUAL_COMPARISON",
 ] as const;
 export type CalculationMode = (typeof calculationModes)[number];
@@ -99,9 +102,7 @@ export interface OrchestrationResult {
 }
 
 function requiredTracks(mode: CalculationMode): Track[] {
-  if (mode === "CURRENT_QG") return ["CURRENT_QG"];
-  if (mode === "LEGACY_QV") return ["LEGACY_QV"];
-  return ["CURRENT_QG", "LEGACY_QV"];
+  return calculationTracksForMode(mode);
 }
 
 export function deriveCaseStatus(

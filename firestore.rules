@@ -82,6 +82,7 @@ service cloud.firestore {
           'INPUT_READY',
           'CALCULATED',
           'REPORT_DRAFT',
+          'DELETING',
           'IN_REVIEW',
           'REVIEWED',
           'ISSUED',
@@ -122,6 +123,55 @@ service cloud.firestore {
         && data.reportDraftJson.size() <= 360000;
     }
 
+    function sameCaseIdentity(before, after) {
+      return after.caseGroupId == before.caseGroupId
+        && after.caseNo == before.caseNo
+        && after.createdBy == before.createdBy
+        && after.createdAt == before.createdAt;
+    }
+
+    function sameCaseDocument(before, after) {
+      return after.schemaVersion == before.schemaVersion
+        && after.id == before.id
+        && after.caseGroupId == before.caseGroupId
+        && after.caseNo == before.caseNo
+        && after.revisionNo == before.revisionNo
+        && after.customer == before.customer
+        && after.location == before.location
+        && after.title == before.title
+        && after.purpose == before.purpose
+        && after.diningType == before.diningType
+        && after.taskCode == before.taskCode
+        && after.mode == before.mode
+        && after.lifecycleStatus == before.lifecycleStatus
+        && after.calculationStatus == before.calculationStatus
+        && after.version == before.version
+        && after.createdBy == before.createdBy
+        && after.createdByName == before.createdByName
+        && after.preparedBy == before.preparedBy
+        && after.preparedByName == before.preparedByName
+        && after.createdAt == before.createdAt
+        && after.updatedAt == before.updatedAt
+        && after.inputPayloadJson == before.inputPayloadJson
+        && after.calculationsJson == before.calculationsJson
+        && after.assessmentsJson == before.assessmentsJson
+        && after.overridesJson == before.overridesJson
+        && after.reportDraftJson == before.reportDraftJson;
+    }
+
+    function validRevisionHead(before, after, caseId) {
+      return sameCaseIdentity(before, after)
+        && after.id != before.id
+        && after.revisionNo == before.revisionNo + 1
+        && after.version == before.version + 1
+        && after.lifecycleStatus == 'DRAFT'
+        && existsAfter(/databases/$(database)/documents/cases/$(caseId)/revisions/$(before.id))
+        && sameCaseDocument(
+          before,
+          getAfter(/databases/$(database)/documents/cases/$(caseId)/revisions/$(before.id)).data
+        );
+    }
+
     match /cases/{caseId} {
       allow read: if signedIn();
 
@@ -135,17 +185,61 @@ service cloud.firestore {
 
       allow update: if signedIn()
         && validCase(request.resource.data, caseId)
-        && activeLifecycle(resource.data.lifecycleStatus)
-        && activeLifecycle(request.resource.data.lifecycleStatus)
-        && request.resource.data.caseGroupId == resource.data.caseGroupId
-        && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.version == resource.data.version + 1
-        && request.resource.data.revisionNo >= resource.data.revisionNo
-        && request.resource.data.revisionNo <= resource.data.revisionNo + 1;
+        && (
+          (
+            activeLifecycle(resource.data.lifecycleStatus)
+            && activeLifecycle(request.resource.data.lifecycleStatus)
+            && sameCaseIdentity(resource.data, request.resource.data)
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.revisionNo == resource.data.revisionNo
+            && request.resource.data.version == resource.data.version + 1
+          )
+          || (
+            activeLifecycle(resource.data.lifecycleStatus)
+            && validRevisionHead(resource.data, request.resource.data, caseId)
+          )
+          || (
+            activeLifecycle(resource.data.lifecycleStatus)
+            && request.resource.data.lifecycleStatus == 'DELETING'
+            && request.resource.data.id == resource.data.id
+            && request.resource.data.revisionNo == resource.data.revisionNo
+            && request.resource.data.version == resource.data.version + 1
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'lifecycleStatus',
+              'version',
+              'updatedAt'
+            ])
+          )
+        );
 
       allow delete: if signedIn()
-        && activeLifecycle(resource.data.lifecycleStatus);
+        && resource.data.lifecycleStatus == 'DELETING';
+    }
+
+    match /cases/{caseId}/revisions/{recordId} {
+      allow read: if signedIn()
+        && exists(/databases/$(database)/documents/cases/$(caseId));
+
+      allow create: if signedIn()
+        && exists(/databases/$(database)/documents/cases/$(caseId))
+        && recordId == get(/databases/$(database)/documents/cases/$(caseId)).data.id
+        && sameCaseDocument(
+          get(/databases/$(database)/documents/cases/$(caseId)).data,
+          request.resource.data
+        )
+        && existsAfter(/databases/$(database)/documents/cases/$(caseId))
+        && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.revisionNo
+          == get(/databases/$(database)/documents/cases/$(caseId)).data.revisionNo + 1
+        && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.id
+          != get(/databases/$(database)/documents/cases/$(caseId)).data.id
+        && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.version
+          == get(/databases/$(database)/documents/cases/$(caseId)).data.version + 1
+        && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.lifecycleStatus == 'DRAFT';
+
+      allow update: if false;
+
+      allow delete: if signedIn()
+        && get(/databases/$(database)/documents/cases/$(caseId)).data.lifecycleStatus == 'DELETING';
     }
 
     match /{document=**} {

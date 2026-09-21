@@ -243,7 +243,12 @@ export function mutateCase<T>(caseGroupId: string, mutator: CaseMutator<T>) {
 }
 
 export async function deleteCaseGroup(caseGroupId: string) {
-  await caseStore.delete(caseGroupId);
+  const current = await caseStore.get(caseGroupId);
+  await caseStore.beginDelete(caseGroupId, current.version);
+  while ((await caseStore.purgeRevisions(caseGroupId)) > 0) {
+    // Keep each batch small so an interrupted browser can safely resume.
+  }
+  await caseStore.finishDelete(caseGroupId);
   return { caseId: caseGroupId };
 }
 

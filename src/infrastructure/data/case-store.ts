@@ -83,6 +83,19 @@ export interface CaseStore {
   list(): Promise<CaseRecord[]>;
   get(caseGroupId: string): Promise<CaseRecord>;
   mutate<T>(caseGroupId: string, mutator: CaseMutator<T>): Promise<T>;
+  archiveCurrentAndMutate<T>(
+    caseGroupId: string,
+    expectedVersion: number,
+    mutator: CaseMutator<T>,
+  ): Promise<T>;
+  listRevisions(caseGroupId: string): Promise<CaseRecord[]>;
+  getRevision(caseGroupId: string, revisionNo: number): Promise<CaseRecord>;
+  beginDelete(
+    caseGroupId: string,
+    expectedVersion: number,
+  ): Promise<CaseRecord>;
+  purgeRevisions(caseGroupId: string): Promise<number>;
+  finishDelete(caseGroupId: string): Promise<void>;
   delete(caseGroupId: string): Promise<void>;
 }
 

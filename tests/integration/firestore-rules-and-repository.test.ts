@@ -198,4 +198,73 @@ describe("Firestore rules and browser repository", () => {
     );
     await assertFails(deleteDoc(reference));
   });
+
+  it("archives revisions atomically and allows resumable deletion", async () => {
+    const database = environment
+      .authenticatedContext("anonymous-one", {
+        firebase: { sign_in_provider: "anonymous" },
+      })
+      .firestore() as unknown as Firestore;
+    const current = {
+      ...record(),
+      id: "55555555-5555-4555-8555-555555555555",
+      case_group_id: "66666666-6666-4666-8666-666666666666",
+    };
+    const store = new FirestoreCaseStore(database);
+    await assertSucceeds(store.create(current));
+    await assertSucceeds(
+      store.mutate(current.case_group_id, (item) => ({
+        next: {
+          ...item,
+          lifecycle_status: "REPORT_DRAFT",
+          version: item.version + 1,
+          updated_at: "2026-07-17T00:00:30.000Z",
+        },
+        result: null,
+      })),
+    );
+
+    await assertSucceeds(
+      store.archiveCurrentAndMutate(current.case_group_id, 2, (item) => ({
+        next: {
+          ...item,
+          id: "77777777-7777-4777-8777-777777777777",
+          revision_no: item.revision_no + 1,
+          version: item.version + 1,
+          lifecycle_status: "DRAFT",
+          calculation_status: null,
+          title: "第二版",
+          updated_at: "2026-07-17T00:01:00.000Z",
+        },
+        result: null,
+      })),
+    );
+
+    const revisions = await store.listRevisions(current.case_group_id);
+    expect(revisions).toHaveLength(1);
+    expect(revisions[0].revision_no).toBe(1);
+    expect((await store.get(current.case_group_id)).revision_no).toBe(2);
+
+    const revisionReference = doc(
+      database,
+      "cases",
+      current.case_group_id,
+      "revisions",
+      current.id,
+    );
+    await assertFails(
+      setDoc(revisionReference, {
+        ...encodeCase(current),
+        title: "不可變更歷史",
+      }),
+    );
+
+    await assertSucceeds(store.beginDelete(current.case_group_id, 3));
+    await assertSucceeds(getDoc(revisionReference));
+    await assertSucceeds(deleteDoc(revisionReference));
+    await assertSucceeds(store.finishDelete(current.case_group_id));
+    await expect(store.get(current.case_group_id)).rejects.toThrow(
+      "找不到這筆共享案件",
+    );
+  });
 });

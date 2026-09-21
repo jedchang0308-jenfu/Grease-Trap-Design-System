@@ -142,6 +142,40 @@ a {
   margin-left: auto;
 }
 
+.case-page-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.revision-confirmation {
+  width: min(360px, 100%);
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.revision-confirmation-title,
+.revision-confirmation-copy {
+  margin-bottom: 8px;
+}
+
+.revision-confirmation-title {
+  font-weight: 720;
+}
+
+.revision-confirmation-copy {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.revision-confirmation .button-row {
+  margin-top: 10px;
+}
+
 h1,
 h2,
 h3,
@@ -587,15 +621,50 @@ button.button {
 
 .case-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
 }
 
 .case-table th,
 .case-table td {
-  padding: 12px 10px;
+  padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid var(--line);
+  line-height: 1.35;
   vertical-align: top;
+}
+
+@media (min-width: 901px) {
+  .case-table th:nth-child(1),
+  .case-table td:nth-child(1) {
+    width: 18%;
+  }
+
+  .case-table th:nth-child(2),
+  .case-table td:nth-child(2) {
+    width: 14%;
+  }
+
+  .case-table th:nth-child(3),
+  .case-table td:nth-child(3) {
+    width: 28%;
+  }
+
+  .case-table th:nth-child(4),
+  .case-table td:nth-child(4) {
+    width: 11%;
+  }
+
+  .case-table th:nth-child(5),
+  .case-table td:nth-child(5) {
+    width: 17%;
+  }
+
+  .case-table th:nth-child(6),
+  .case-table td:nth-child(6) {
+    width: 12%;
+    white-space: nowrap;
+  }
 }
 
 .case-table th {
@@ -608,7 +677,6 @@ button.button {
 .case-title {
   display: block;
   font-weight: 720;
-  margin-bottom: 3px;
 }
 
 .case-title:hover {
@@ -616,8 +684,96 @@ button.button {
 }
 
 .case-meta {
+  display: block;
   color: var(--muted);
   font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.history-panel,
+.history-detail-panel {
+  display: grid;
+  gap: 0;
+}
+
+.history-current-row,
+.history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-current-row {
+  padding-top: 0;
+}
+
+.history-list {
+  display: grid;
+}
+
+.history-row:last-child {
+  border-bottom: 0;
+}
+
+.history-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 20px 0 0;
+}
+
+.history-summary-grid > div {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.history-summary-grid dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.history-summary-grid dd {
+  margin: 4px 0 0;
+}
+
+.history-detail-actions {
+  margin-top: 18px;
+}
+
+.history-data-grid {
+  display: grid;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.history-data-block {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.history-data-block summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.history-data-block pre {
+  max-height: 420px;
+  overflow: auto;
+  margin: 12px 0 0;
+  padding: 12px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font:
+    0.78rem/1.5 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .source-document-actions {
@@ -1237,6 +1393,66 @@ dialog::backdrop {
   margin-bottom: 18px;
 }
 
+.report-settings-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+}
+
+.report-settings-row legend {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 720;
+  padding: 0;
+}
+
+.report-settings-options {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px 20px;
+}
+
+.report-setting-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 36px;
+  color: var(--ink);
+  font-weight: 680;
+  cursor: pointer;
+}
+
+.report-setting-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand);
+}
+
+.report-setting-option:has(input:disabled) {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.report-action-groups {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.report-output-actions {
+  flex: 1 1 auto;
+}
+
 .report-pdf-status {
   margin: 10px 0 0;
   color: var(--muted);
@@ -1305,6 +1521,24 @@ dialog::backdrop {
 
   .page-header .actions {
     margin-top: 16px;
+  }
+
+  .history-current-row,
+  .history-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .history-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .case-page-actions {
+    align-items: stretch;
+  }
+
+  .revision-confirmation {
+    width: 100%;
   }
 
   .toolbar,
@@ -1541,6 +1775,25 @@ dialog::backdrop {
 
   .panel {
     padding: 16px;
+  }
+
+  .report-settings-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .report-settings-options {
+    justify-content: flex-start;
+  }
+
+  .report-action-groups {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .report-output-actions {
+    justify-content: flex-start;
   }
 
   .report-document-panel {

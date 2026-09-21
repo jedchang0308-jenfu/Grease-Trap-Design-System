@@ -30,8 +30,8 @@ export async function calculateCase(payload: unknown) {
   const actor = currentActor();
   const requestId = crypto.randomUUID();
   const runIds: Record<RuleTrack, string> = {
-    CURRENT_QG: crypto.randomUUID(),
     LEGACY_QV: crypto.randomUUID(),
+    CURRENT_QG: crypto.randomUUID(),
   };
 
   return mutateCase(request.caseId, (caseRow) => {

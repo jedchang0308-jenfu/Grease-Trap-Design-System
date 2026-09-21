@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>依設備能力反推｜不同計算方式對照</title>
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="index.html">油脂截留器計算系統</a>
+      <nav aria-label="頁面導覽">
+        <a href="#summary">結果對照</a><a href="#process">計算過程</a>
+      </nav>
+    </header>
+
+    <main class="sheet">
+      <header class="report-head">
+        <div>
+          <p class="eyebrow">不同計算方式對照 03</p>
+          <h1>依設備能力反推支援規模</h1>
+          <p class="lead">
+            分別以設備的 Q/G
+            額定能力及有效容積，反推在兩套依據下可支援的用餐人數與餐飲面積。
+          </p>
+          <span class="prototype-badge">版型原型｜非正式報告</span>
+        </div>
+        <img
+          class="logo"
+          src="../../public/jenfu-logo-small.png"
+          alt="鉦富機械"
+        />
+      </header>
+
+      <div class="notice warning">
+        <strong>重要限制：</strong>Q/G
+        額定值與有效容積是不同能力證據，本頁是雙軌結果並列，不宣稱兩組輸入代表同一台設備或可互相換算。
+      </div>
+
+      <section>
+        <h2>1 計算任務</h2>
+        <dl class="facts">
+          <dt>要回答的問題</dt>
+          <dd>已知設備能力時，各依據可支援多少人及多少面積？</dd>
+          <dt>比較方式</dt>
+          <dd>各軌使用自身定義的設備能力，分別反推上限</dd>
+          <dt>餐飲型態</dt>
+          <dd>速食／西式速食</dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>2 設備能力與條件</h2>
+        <div class="input-grid">
+          <article class="method">
+            <h3>內政部附錄 5（Q/G）</h3>
+            <dl class="facts">
+              <dt>處理水量能力</dt>
+              <dd>31.2 L/min</dd>
+              <dt>油脂容量</dt>
+              <dd>9.0 kg</dd>
+              <dt>每日使用時間</dt>
+              <dd>720 min</dd>
+              <dt>油脂／沉積物清除</dt>
+              <dd>7 日／7 日</dd>
+              <dt>能力證據</dt>
+              <dd>審稿用假設額定資料</dd>
+            </dl>
+          </article>
+          <article class="method legacy">
+            <h3>臺北市歷史計算法（Q/V）</h3>
+            <dl class="facts">
+              <dt>有效容積 Veff</dt>
+              <dd>900 L</dd>
+              <dt>每人每餐用水量 q</dt>
+              <dd>30 L／人・餐</dd>
+              <dt>營業時間 t</dt>
+              <dd>5 h</dd>
+              <dt>安全係數 k</dt>
+              <dd>1.5（A 類）</dd>
+              <dt>密度／週轉率</dt>
+              <dd>0.5 人／m²／8 次</dd>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>3 結果對照</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>反推指標</th>
+                <th>內政部 Q/G 法</th>
+                <th>臺北市 Q/V 法</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>可支援用餐人數</th>
+                <td class="result">641 人</td>
+                <td class="result">600 人</td>
+              </tr>
+              <tr>
+                <th>可支援餐飲面積</th>
+                <td class="result">200.6 m²</td>
+                <td class="result">150.0 m²</td>
+              </tr>
+              <tr>
+                <th>控制條件</th>
+                <td>處理水量 Q</td>
+                <td>有效容積 Veff</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notice">
+          <strong>閱讀重點：</strong
+          >人數與面積都是「依各軌輸入能力反推的等效上限」，不是產品保證值；正式報告必須附設備能力來源。
+        </div>
+      </section>
+
+      <section id="process">
+        <h2>4 完整計算過程</h2>
+
+        <h3>4.1 內政部附錄 5（Q/G）</h3>
+        <article class="result-group">
+          <h4>可支援用餐人數</h4>
+          <p class="outcome">
+            <strong>採用值 641 人</strong
+            ><small>取 Q 與 G 反推值中較小者，並符合嚴格上限</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">NbyQ = Qcapacity × t ÷ (Wm′ × k)</span
+                ><span class="substitution"
+                  >31.2 × 720 ÷ (10 × 3.5) = 641.8286 人</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula"
+                  >NbyG = 1000 × Gcapacity ÷ (gu × iu + gb × ib)</span
+                ><span class="substitution"
+                  >1000 × 9 ÷ (1.5 × 7 + 0.5 × 7) = 642.8571 人</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">Nmax = floor[min(NbyQ, NbyG)]</span
+                ><span class="substitution"
+                  >floor[min(641.8286, 642.8571)] = 641 人；Q 為控制條件</span
+                >
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group">
+          <h4>可支援餐飲面積</h4>
+          <p class="outcome">
+            <strong>採用值 200.6 m²</strong
+            ><small
+              >A-36 分段補正；同時滿足 Q(A) &lt; 31.2 與 G(A) &lt; 9.0</small
+            >
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula"
+                  >以 0.1 m² 為單位，依 A-36 區間內插 n0 並逐點驗證</span
+                ><span class="substitution"
+                  >A = 200.6 m² 時：n0 = 5.0012、Q(A) = 31.1970 L/min、G(A) =
+                  8.9847 kg，兩項皆低於額定能力</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">驗證下一級面積</span
+                ><span class="substitution"
+                  >A = 200.7 m² 時：Q(A) = 31.2113 L/min，已超過 31.2
+                  L/min，因此上限為 200.6 m²</span
+                >
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <h3>4.2 臺北市歷史計算法（Q/V）</h3>
+        <article class="result-group legacy">
+          <h4>可支援用餐人數</h4>
+          <p class="outcome"><strong>採用值 600 人</strong></p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Nmax = (6 × Veff × t) ÷ (q × k)</span
+                ><span class="substitution"
+                  >(6 × 900 × 5) ÷ (30 × 1.5) = 600 人</span
+                >
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group legacy">
+          <h4>可支援餐飲面積</h4>
+          <p class="outcome"><strong>採用值 150.0 m²</strong></p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Amax = Nmax ÷ (density × turnover)</span
+                ><span class="substitution">600 ÷ (0.5 × 8) = 150.0 m²</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+      </section>
+
+      <section>
+        <h2>5 採用判斷</h2>
+        <div class="decision">
+          <strong>先驗證能力證據，再採用反推結果。</strong
+          >若產品只有有效容積資料，不可自行補成 Q/G 額定值；若只有 Q/G
+          額定值，也不可由本系統假設有效容積。兩軌缺一項證據時，該軌應標示「不可計算」。
+        </div>
+      </section>
+
+      <footer class="footer">
+        範例資料僅用於版型審視｜回到 <a href="index.html">三份審稿範例</a>
+      </footer>
+    </main>
+  </body>
+</html>

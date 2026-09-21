@@ -2,9 +2,9 @@
 
 文件狀態：`Static Spark Production Deployed`
 
-版本：`4.4`
+版本：`4.6`
 
-日期：`2026-09-18`
+日期：`2026-09-21`
 
 ## 1. 產品目的
 
@@ -25,7 +25,8 @@ flowchart LR
     AUTH --> SPA["Vite + React SPA on Firebase Hosting"]
     SPA --> CALC["TypeScript / Decimal.js calculation core"]
     SPA --> RULE["Versioned rules catalog"]
-    SPA --> FS[("Cloud Firestore cases")]
+    SPA --> FS[("Cloud Firestore current case heads")]
+    FS --> HIST[("Immutable revision subcollections\nDEV-029")]
     CALC --> SNAP["Calculation and report-draft snapshot"]
     SNAP --> FS
     SNAP --> PRINT["Draft or formal PDF"]
@@ -37,9 +38,10 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 
 - 計算公式只在 domain calculator；UI 與 report template 不另抄公式。
 - 計算、報告 HTML 與規則會下載到瀏覽器，不能視為可信任後端執行。
-- Firestore 只有 `cases` collection。Rules 驗證登入、欄位白名單、型別、長度、狀態列舉與 version 遞增。
+- Firestore runtime 以 `cases/{caseGroupId}` 保存目前 head，並以 `revisions` 子集合保存 DEV-029 的不可變歷史快照；資料與交易架構以 ADR-012 為權威。
 - 複雜 case payload 以有大小上限的 JSON string 保存；client Zod schema 驗證內容，Rules 不保證 JSON 內的工程語意。
 - create、calculate、revision、report draft 以 Firestore transaction 保護 optimistic version。
+- DEV-029 的 current head、immutable revision、atomic 建版、`DELETING` 刪除與 client-only 取捨集中記錄於 ADR-012，不在總覽重複定義。
 - 匿名使用者共用資料；沒有 per-user isolation。
 
 ## 4. 模組責任
@@ -80,6 +82,7 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 | -------------------------- | ------------- | ------------------------------------------------------------- |
 | 雙軌計算與 UI              | Complete      | 既有核心與 responsive UI 保留                                 |
 | DEV-021 Spark 靜態重構     | Complete      | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
+| DEV-029 案件歷史版本       | 本機完成      | ADR-012／SPEC-003／QA-002；Rules、routes、歷史報告與三 viewport E2E 已驗證 |
 | 真實案件平行試算           | Pending Human | 需 3～5 個去識別案件及人工預期                                |
 | Firebase production deploy | Complete      | `jenfu-grease-trap-calculator.web.app`；production smoke 通過 |
 
@@ -89,6 +92,7 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 - client 可修改：沒有可信任後端，不提供簽核、核發流程或稽核保證。
 - 配額：Spark 免費額度或 Firestore quota 到達時，UI 只能提示與重試。
 - 同時編輯：version transaction 可避免靜默覆蓋，但使用者需重新載入後重做操作。
+- 歷史版本：client-only 架構無法完全消除刪除窗口的惡意操作風險；控制流程、可重試刪除及已接受取捨見 ADR-012。
 - PDF：報告使用隨站 Noto Sans TC，列印前等待字型與圖片完成載入，並固定 A4、表頭及斷頁規則；紙張、縮放與不同瀏覽器列印引擎仍可能造成細微差異，不承諾像素一致。
 
 ## 9. Re-entry Trigger

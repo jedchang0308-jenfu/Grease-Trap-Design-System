@@ -15,6 +15,7 @@ const statusLabels: Record<string, string> = {
   INSUFFICIENT_DATA: "資料不足",
   INVALID: "輸入不成立",
   ERROR: "未完成",
+  DELETING: "刪除未完成",
   ACTIVE: "使用中",
   HISTORICAL: "參考來源",
 };
@@ -31,7 +32,7 @@ export function StatusBadge({ status }: { status: string | null | undefined }) {
     "ACTIVE",
   ].includes(value)
     ? "success"
-    : ["BLOCKED", "INVALID", "ERROR"].includes(value)
+    : ["BLOCKED", "INVALID", "ERROR", "DELETING"].includes(value)
       ? "danger"
       : ["COMPLETE_WITH_REMINDER", "INSUFFICIENT_DATA", "HISTORICAL"].includes(
             value,

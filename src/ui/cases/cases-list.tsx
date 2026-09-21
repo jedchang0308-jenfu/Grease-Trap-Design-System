@@ -30,8 +30,8 @@ const taskLabels: Record<string, string> = {
 };
 
 const modeLabels: Record<string, string> = {
-  CURRENT_QG: calculationModeDisplay.CURRENT_QG.label,
   LEGACY_QV: calculationModeDisplay.LEGACY_QV.label,
+  CURRENT_QG: calculationModeDisplay.CURRENT_QG.label,
   DUAL_COMPARISON: calculationModeDisplay.DUAL_COMPARISON.label,
 };
 
@@ -72,14 +72,16 @@ export function CasesList() {
   }, [mode, search, status]);
 
   useEffect(() => {
-    void load();
+    const timeout = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeout);
   }, [load]);
 
   async function deleteCase(item: CaseSummary) {
     const displayTitle = item.title.trim() || item.caseNo;
     if (
+      item.lifecycleStatus !== "DELETING" &&
       !window.confirm(
-        `確定刪除案件「${displayTitle}」（${item.caseNo}）？\n\n這會刪除案件的全部修訂、計算結果與報告紀錄，且無法復原。`,
+        `確定刪除案件「${displayTitle}」（${item.caseNo}）？\n\n這會刪除案件的全部版本、計算結果與報告紀錄，且無法復原。`,
       )
     ) {
       return;
@@ -129,11 +131,11 @@ export function CasesList() {
               onChange={(event) => setMode(event.target.value)}
             >
               <option value="">所有</option>
-              <option value="CURRENT_QG">
-                {calculationModeDisplay.CURRENT_QG.label}
-              </option>
               <option value="LEGACY_QV">
                 {calculationModeDisplay.LEGACY_QV.label}
+              </option>
+              <option value="CURRENT_QG">
+                {calculationModeDisplay.CURRENT_QG.label}
               </option>
               <option value="DUAL_COMPARISON">
                 {calculationModeDisplay.DUAL_COMPARISON.label}
@@ -191,18 +193,24 @@ export function CasesList() {
                         {item.title.trim() || item.caseNo}
                       </Link>
                       <span className="case-meta">
-                        {item.caseNo}｜修訂 {item.revisionNo}
+                        {item.caseNo}｜版本 {item.revisionNo}
                       </span>
+                      <Link
+                        className="case-meta"
+                        to={`/cases/${item.caseId}/history`}
+                      >
+                        查看歷史版本
+                      </Link>
                     </td>
                     <td data-label="客戶／地點">
                       {item.customer.trim() || "未填客戶"}
-                      <span className="case-meta" style={{ display: "block" }}>
+                      <span className="case-meta">
                         {item.location.trim() || "未填地點"}
                       </span>
                     </td>
                     <td data-label="任務／模式">
                       {taskLabels[item.taskCode] ?? item.taskCode}
-                      <span className="case-meta" style={{ display: "block" }}>
+                      <span className="case-meta">
                         {modeLabels[item.mode] ?? item.mode}
                       </span>
                     </td>
@@ -233,7 +241,9 @@ export function CasesList() {
                         >
                           {deletingCaseId === item.caseId
                             ? "正在刪除…"
-                            : "刪除案件"}
+                            : item.lifecycleStatus === "DELETING"
+                              ? "繼續刪除"
+                              : "刪除案件"}
                         </button>
                       )}
                     </td>

@@ -4,6 +4,7 @@ import {
   sourceDocuments,
 } from "./seed-data";
 import { sha256 } from "@/domain/shared/canonical";
+import { calculationTrackOrder } from "./source-display";
 
 export const currentRuleChecksum = sha256(currentRulePayload);
 export const legacyRuleChecksum = sha256(legacyRulePayload);
@@ -16,18 +17,6 @@ const legacySource = sourceDocuments.find(
 )!;
 
 export const ruleCatalog = {
-  CURRENT_QG: {
-    id: "RULE-CURRENT-QG@2020.1",
-    code: "RULE-CURRENT-QG",
-    version: "2020.1",
-    methodFamily: "CURRENT_QG",
-    status: "ACTIVE",
-    checksum: currentRuleChecksum,
-    activatedAt: "2026-07-13T00:00:00.000Z",
-    sourceCode: currentSource.code,
-    sourceTitle: currentSource.title,
-    sourceHash: currentSource.sha256,
-  },
   LEGACY_QV: {
     id: "RULE-LEGACY-QV@legacy.1",
     code: "RULE-LEGACY-QV",
@@ -39,6 +28,18 @@ export const ruleCatalog = {
     sourceCode: legacySource.code,
     sourceTitle: legacySource.title,
     sourceHash: legacySource.sha256,
+  },
+  CURRENT_QG: {
+    id: "RULE-CURRENT-QG@2020.1",
+    code: "RULE-CURRENT-QG",
+    version: "2020.1",
+    methodFamily: "CURRENT_QG",
+    status: "ACTIVE",
+    checksum: currentRuleChecksum,
+    activatedAt: "2026-07-13T00:00:00.000Z",
+    sourceCode: currentSource.code,
+    sourceTitle: currentSource.title,
+    sourceHash: currentSource.sha256,
   },
 } as const;
 
@@ -57,15 +58,18 @@ export function ruleSnapshot(track: RuleTrack) {
 }
 
 export function presentRuleSets() {
-  return Object.values(ruleCatalog).map((rule) => ({
-    id: rule.id,
-    code: rule.code,
-    version: rule.version,
-    methodFamily: rule.methodFamily,
-    status: rule.status,
-    checksum: rule.checksum,
-    activatedAt: rule.activatedAt,
-    source: rule.sourceTitle,
-    sourceHash: rule.sourceHash,
-  }));
+  return calculationTrackOrder.map((track) => {
+    const rule = ruleCatalog[track];
+    return {
+      id: rule.id,
+      code: rule.code,
+      version: rule.version,
+      methodFamily: rule.methodFamily,
+      status: rule.status,
+      checksum: rule.checksum,
+      activatedAt: rule.activatedAt,
+      source: rule.sourceTitle,
+      sourceHash: rule.sourceHash,
+    };
+  });
 }

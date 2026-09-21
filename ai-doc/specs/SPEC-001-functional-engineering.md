@@ -2,9 +2,9 @@
 
 文件狀態：`Implemented Locally`
 
-版本：`2.2`
+版本：`2.5`
 
-日期：`2026-09-18`
+日期：`2026-09-21`
 
 權威範圍：功能語意、公式邊界、資料、交易、Auth、報告與驗收
 
@@ -52,7 +52,7 @@ Out of scope：
 | `T03_AREA_TO_FLOW`              | 面積換算流量           |
 | `T04_AREA_TO_DESIGN`            | 面積換算設計需求       |
 | `T05_DESIGN_TO_DINERS_AND_AREA` | 輸入能力反推人數／面積 |
-| `T06_EFFECTIVE_VOLUME_TO_FLOW`   | 有效容積換算處理水量   |
+| `T06_EFFECTIVE_VOLUME_TO_FLOW`  | 有效容積換算處理水量   |
 
 模式：`CURRENT_QG`、`LEGACY_QV`、`DUAL_COMPARISON`。兩軌不得共用單位或建立第三套混合公式。
 
@@ -178,6 +178,9 @@ snapshot schema `2.0` 至少包含 case、input、calculation runs、assessments
 - 匯出只把 snapshot 保存到 case document，不建立 PDF blob 或獨立 report collection。
 - 正式報告輸出不檢查角色；若草稿尚未保存，先保存當下 snapshot，再以同一 snapshot 產出正式 PDF。正式 Hosting 以瀏覽器列印／另存為 PDF；本機 Vite preview 才可使用 PDF helper。
 - 草稿不配置正式報告編號；正式報告直接使用案件編號 `GTC-YYMMDD-00`，不建立第二套編碼或轉換邏輯，版次使用案件修訂號。
+- 雙軌報告先以表格並列各計算依據的採用值；第 4 章依各計算依據呈現連續公式步驟，不重複列出主題採用值或結果主題小標，僅保留公式步驟的原始計算結果與必要單位換算。
+- 個別公式只作計算依據內的「步驟」，不得生成 `4.1.1` 類公式章節。原始單位為 L/h 時可在連續步驟中列出 L/min 換算；原始單位已為 L/min 時不得重複顯示相同換算值。
+- T06 有效容積換算設計處理水量只呈現臺北市 Q/V 軌及其 `Qhour`、`Qminute` 步驟；不得補造內政部 Q/G 結果或公式。
 - HTML 使用 A4 print CSS、重複表頭、孤行與斷頁控制；報告字型使用 build-time 靜態輸出的 Noto Sans TC。
 - PDF／列印流程必須等待 `document.fonts.ready`、指定字型檢查與圖片載入／解碼後才可輸出；production bundle 不含 server-side PDF renderer。
 - 正式報告不代表另有身分驗證、簽核、核發或不可變稽核鏈。

@@ -171,18 +171,20 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
     reportFrame.getByText("文件狀態：草稿", { exact: true }),
   ).toBeVisible();
   await assertViewportSafe(page);
-  await expect(page.getByText(/GTC-\d{6}-\d{2}｜修訂/)).toHaveCount(0);
+  await expect(page.getByText(/GTC-\d{6}-\d{2}｜版本/)).toHaveCount(0);
   await expect(page.getByText("尚未保存", { exact: true })).toHaveCount(0);
-  await expect(page.getByText("案件／修訂", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("案件／版本", { exact: true })).toHaveCount(0);
   await saveEvidence(page, testInfo.project.name, "04-report-preview");
 
-  await page.getByRole("button", { name: "匯出報告草稿" }).click();
-  await expect(page.getByText("報告草稿已保存", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "產生草稿 PDF" })).toBeEnabled({
+  await page.getByRole("button", { name: "儲存草稿版本" }).click();
+  await expect(page.getByText("報告草稿已保存", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("button", { name: "輸出草稿 PDF" })).toBeEnabled({
     timeout: 30_000,
   });
   await expect(
-    page.getByRole("button", { name: "產生正式報告" }),
+    page.getByRole("button", { name: "輸出正式 PDF" }),
   ).toBeEnabled();
 
   await saveReportPdfEvidence(browser, page, testInfo.project.name);
@@ -192,7 +194,7 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
       response.request().method() === "POST",
     { timeout: 30_000 },
   );
-  await page.getByRole("button", { name: "產生草稿 PDF" }).click();
+  await page.getByRole("button", { name: "輸出草稿 PDF" }).click();
   const pdfResponse = await pdfResponsePromise;
   expect(pdfResponse.ok()).toBe(true);
   const pdfResult = (await pdfResponse.json()) as { savedPath: string };
@@ -207,7 +209,7 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "產生草稿 PDF" })).toBeEnabled({
+  await expect(page.getByRole("button", { name: "輸出草稿 PDF" })).toBeEnabled({
     timeout: 30_000,
   });
   await expect(
@@ -223,7 +225,7 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
       response.request().method() === "POST",
     { timeout: 30_000 },
   );
-  await page.getByRole("button", { name: "產生正式報告" }).click();
+  await page.getByRole("button", { name: "輸出正式 PDF" }).click();
   const formalResponse = await formalResponsePromise;
   expect(formalResponse.ok()).toBe(true);
   const formalPdfResult = (await formalResponse.json()) as {
@@ -269,12 +271,53 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
   await secondContext.close();
 
   await page.getByRole("link", { name: "返回案件" }).click();
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "建立新修訂版" }).click();
-  await expect(page.getByText(/修訂 2/).first()).toBeVisible({
+  await page.getByRole("button", { name: "建立新版本" }).click();
+  await expect(page.getByText("確認建立版本 2")).toBeVisible();
+  await page.getByRole("button", { name: "確認建立版本" }).click();
+  await expect(page.getByText(/版本 2/).first()).toBeVisible({
     timeout: 30_000,
   });
   await expect(page.getByRole("button", { name: "開始計算" })).toBeVisible();
+  await page.getByRole("link", { name: "查看歷史版本" }).click();
+  await expect(page.getByRole("heading", { name: "歷史版本" })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("目前版本 2", { exact: true })).toBeVisible();
+  await expect(page.getByText("歷史版本 1", { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "查看唯讀版本" }).click();
+  await expect(page.getByText("歷史版本｜唯讀", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.reload();
+  await expect(page.getByText("歷史版本｜唯讀", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page.getByRole("link", { name: "重新產生歷史報告" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "重新產生歷史報告" }).click();
+  await expect(
+    page.getByRole("heading", { name: "歷史報告重新產生預覽" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page.getByText("歷史版本重新產生", { exact: true }),
+  ).toBeVisible();
+  const historicalFrame = page.frameLocator('iframe[title="歷史版本報告預覽"]');
+  await expect(
+    historicalFrame.getByText("歷史版本重新產生", { exact: true }).first(),
+  ).toBeVisible({ timeout: 30_000 });
+  const historicalPdfResponse = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/report-pdf") &&
+      response.request().method() === "POST",
+    { timeout: 30_000 },
+  );
+  await page.getByRole("button", { name: "輸出草稿 PDF" }).click();
+  const historicalPdfRequest = await historicalPdfResponse;
+  const historicalPdfPayload = historicalPdfRequest
+    .request()
+    .postDataJSON() as { fileName?: string };
+  expect(historicalPdfPayload.fileName).toMatch(/-R01-REGENERATED\.pdf$/);
   await assertViewportSafe(page);
 
   expect(consoleErrors).toEqual([]);

@@ -28,7 +28,8 @@ export function RulesList() {
     }
   }, []);
   useEffect(() => {
-    void load();
+    const timeout = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeout);
   }, [load]);
   return (
     <div className="page">

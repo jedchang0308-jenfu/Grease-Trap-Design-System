@@ -6,14 +6,19 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { calculateCase } from "@/application/cases/calculation-service";
 import { createRevision } from "@/application/cases/revision-service";
-import { getLatestCase, presentCase } from "@/application/cases/repository";
+import {
+  deleteCaseGroup,
+  getLatestCase,
+  presentCase,
+} from "@/application/cases/repository";
 import { toProblem } from "@/application/problem";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
+  calculationTrackOrder,
 } from "@/domain/rules/source-display";
 import { DesignResultsTable } from "@/ui/components/design-results-table";
 import {
@@ -257,10 +262,13 @@ const fieldHelp = {
 } satisfies Record<string, FieldHelpContent>;
 
 export function CaseWorkbench({ caseId }: { caseId: string }) {
+  const navigate = useNavigate();
   const [item, setItem] = useState<CaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [creatingRevision, setCreatingRevision] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmingRevision, setConfirmingRevision] = useState(false);
   const [problem, setProblem] = useState<UiProblem | null>(null);
   const [current, setCurrent] = useState<Record<string, string>>({
     diningType: "",
@@ -336,7 +344,8 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
   }, [caseId]);
 
   useEffect(() => {
-    void load();
+    const timeout = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timeout);
   }, [load]);
 
   const latestResults = useMemo(() => {
@@ -349,9 +358,9 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
 
   const designResultRuns = useMemo(
     () =>
-      Object.values(latestResults).filter((result): result is PersistedResult =>
-        Boolean(result),
-      ),
+      calculationTrackOrder
+        .map((track) => latestResults[track])
+        .filter((result): result is PersistedResult => Boolean(result)),
     [latestResults],
   );
   async function calculate(event: FormEvent) {
@@ -386,22 +395,22 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
     }
   }
 
-  async function startRevision() {
+  function requestRevision() {
+    if (!item || creatingRevision) return;
+    setProblem(null);
+    setConfirmingRevision(true);
+  }
+
+  async function confirmRevision() {
     if (!item) return;
-    if (
-      !window.confirm(
-        `確定建立修訂 ${item.revision_no + 1}？\n\n新修訂會保留案件基本資料，但會清除目前計算結果與報告草稿。`,
-      )
-    ) {
-      return;
-    }
     setCreatingRevision(true);
     setProblem(null);
     try {
       await createRevision(caseId, item.version);
+      setConfirmingRevision(false);
       await load();
     } catch (error) {
-      setProblem(toProblem(error, "新修訂建立未完成，請重試。"));
+      setProblem(toProblem(error, "新版本建立未完成，請重試。"));
     } finally {
       setCreatingRevision(false);
     }
@@ -423,6 +432,51 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
       </div>
     );
   if (!item) return null;
+
+  if (item.lifecycle_status === "DELETING") {
+    async function resumeDelete() {
+      setDeleting(true);
+      setProblem(null);
+      try {
+        await deleteCaseGroup(caseId);
+        navigate("/cases", { replace: true });
+      } catch (error) {
+        setProblem(toProblem(error, "案件刪除未完成，請重試。"));
+      } finally {
+        setDeleting(false);
+      }
+    }
+    return (
+      <div className="page">
+        <header className="page-header">
+          <div>
+            <p className="muted">
+              {item.case_no}｜版本 {item.revision_no}
+            </p>
+            <h1>{item.title.trim() || item.case_no}</h1>
+          </div>
+          <div className="actions">
+            <Link to="/cases">返回案件清單</Link>
+          </div>
+        </header>
+        {problem ? (
+          <RuntimeError problem={problem} onRetry={() => void resumeDelete()} />
+        ) : null}
+        <div className="state-banner warning">
+          <strong>刪除未完成</strong>
+          <p>案件正在清理目前版本與歷史版本，歷史內容暫不顯示。</p>
+          <button
+            className="button primary"
+            type="button"
+            disabled={deleting}
+            onClick={() => void resumeDelete()}
+          >
+            {deleting ? "正在刪除…" : "繼續刪除"}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const readonly = ["ISSUED", "SUPERSEDED"].includes(item.lifecycle_status);
   const currentEnabled = item.mode !== "LEGACY_QV";
@@ -448,26 +502,63 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
       <header className="page-header">
         <div>
           <p className="muted" style={{ marginBottom: 5 }}>
-            {item.case_no}｜修訂 {item.revision_no}
+            {item.case_no}｜版本 {item.revision_no}
           </p>
           <h1>{displayTitle}</h1>
           <p className="lede case-context">
             {displayCustomer}｜{displayLocation}
           </p>
         </div>
-        <div className="actions">
+        <div className="actions case-page-actions">
           {item.reports.length > 0 &&
           item.lifecycle_status === "REPORT_DRAFT" ? (
-            <button
-              className="button secondary"
-              type="button"
-              disabled={creatingRevision}
-              onClick={() => void startRevision()}
-            >
-              {creatingRevision ? "正在建立修訂…" : "建立新修訂版"}
-            </button>
+            confirmingRevision ? (
+              <div
+                className="revision-confirmation"
+                role="group"
+                aria-labelledby="revision-confirmation-title"
+              >
+                <p
+                  id="revision-confirmation-title"
+                  className="revision-confirmation-title"
+                >
+                  確認建立版本 {item.revision_no + 1}
+                </p>
+                <p className="revision-confirmation-copy">
+                  新版本會保留案件基本資料，但會清除目前計算結果與報告草稿。
+                </p>
+                <div className="button-row end">
+                  <button
+                    className="button secondary compact"
+                    type="button"
+                    disabled={creatingRevision}
+                    onClick={() => setConfirmingRevision(false)}
+                  >
+                    取消
+                  </button>
+                  <button
+                    className="button primary compact"
+                    type="button"
+                    disabled={creatingRevision}
+                    onClick={() => void confirmRevision()}
+                  >
+                    {creatingRevision ? "正在建立版本…" : "確認建立版本"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="button secondary"
+                type="button"
+                disabled={creatingRevision}
+                onClick={requestRevision}
+              >
+                建立新版本
+              </button>
+            )
           ) : null}
           <Link to="/cases">返回案件清單</Link>
+          <Link to={`/cases/${item.caseId}/history`}>查看歷史版本</Link>
         </div>
       </header>
 
@@ -509,23 +600,6 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
             </div>
           </div>
           <div className="track-grid">
-            {currentEnabled ? (
-              <fieldset
-                className="track-panel"
-                disabled={readonly}
-                style={{ margin: 0 }}
-              >
-                <legend className="legend-label">
-                  {calculationBasisDisplay.CURRENT_QG.shortLabel}
-                </legend>
-                <CurrentFields
-                  taskCode={item.task_code}
-                  values={current}
-                  setValues={setCurrent}
-                  onSharedDiningAreaChange={setSharedDiningArea}
-                />
-              </fieldset>
-            ) : null}
             {legacyEnabled ? (
               <fieldset
                 className="track-panel legacy"
@@ -539,6 +613,23 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
                   taskCode={item.task_code}
                   values={legacy}
                   setValues={setLegacy}
+                  onSharedDiningAreaChange={setSharedDiningArea}
+                />
+              </fieldset>
+            ) : null}
+            {currentEnabled ? (
+              <fieldset
+                className="track-panel"
+                disabled={readonly}
+                style={{ margin: 0 }}
+              >
+                <legend className="legend-label">
+                  {calculationBasisDisplay.CURRENT_QG.shortLabel}
+                </legend>
+                <CurrentFields
+                  taskCode={item.task_code}
+                  values={current}
+                  setValues={setCurrent}
                   onSharedDiningAreaChange={setSharedDiningArea}
                 />
               </fieldset>

@@ -5,6 +5,7 @@ import {
   mutateCase,
 } from "@/application/cases/repository";
 import { renderReportHtml } from "@/domain/report/html";
+import { calculationTrackOrder } from "@/domain/rules/source-display";
 import {
   REPORT_NUMBER_PLACEHOLDER,
   type ReportSnapshotData,
@@ -111,22 +112,41 @@ export async function exportReportDraft(
   });
 }
 
-function reportPreviewFromSnapshot<T extends Record<string, unknown>>(
+export function reportPreviewFromSnapshot<T extends Record<string, unknown>>(
   snapshot: ReportSnapshotData,
   metadata: T,
+  options: { historical?: boolean } = {},
 ) {
+  const historical = options.historical === true;
   const formalSnapshot = {
     ...snapshot,
     reportNumber: snapshot.case.caseNo,
   };
   return {
     ...metadata,
+    historical,
     reportNumber: REPORT_NUMBER_PLACEHOLDER,
     snapshotHash: sha256(snapshot),
     case: snapshot.case,
     assessments: snapshot.assessments,
-    html: renderReportHtml(snapshot),
-    formalHtml: renderReportHtml(formalSnapshot, "FORMAL"),
+    html: renderReportHtml(snapshot, "DRAFT", {
+      provenance: historical ? "REGENERATED_HISTORY" : undefined,
+    }),
+    formalHtml: renderReportHtml(formalSnapshot, "FORMAL", {
+      provenance: historical ? "REGENERATED_HISTORY" : undefined,
+    }),
+    htmlWithReferenceCalculations: renderReportHtml(snapshot, "DRAFT", {
+      includeReferenceCalculations: true,
+      provenance: historical ? "REGENERATED_HISTORY" : undefined,
+    }),
+    formalHtmlWithReferenceCalculations: renderReportHtml(
+      formalSnapshot,
+      "FORMAL",
+      {
+        includeReferenceCalculations: true,
+        provenance: historical ? "REGENERATED_HISTORY" : undefined,
+      },
+    ),
   };
 }
 
@@ -142,7 +162,15 @@ function buildSnapshot(
       retryable: false,
     });
   }
-  const runs: SnapshotRun[] = item.calculations.map((run) => ({
+  const orderedCalculations = [
+    ...calculationTrackOrder.flatMap((track) =>
+      item.calculations.filter((run) => run.track === track),
+    ),
+    ...item.calculations.filter(
+      (run) => !calculationTrackOrder.some((track) => track === run.track),
+    ),
+  ];
+  const runs: SnapshotRun[] = orderedCalculations.map((run) => ({
     id: run.id,
     track: run.track,
     methodCode: run.methodCode,

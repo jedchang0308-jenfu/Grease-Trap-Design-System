@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>依人數計算｜不同計算方式對照</title>
+    <link rel="stylesheet" href="review.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="index.html">油脂截留器計算系統</a>
+      <nav aria-label="頁面導覽">
+        <a href="#summary">結果對照</a><a href="#process">計算過程</a>
+      </nav>
+    </header>
+
+    <main class="sheet">
+      <header class="report-head">
+        <div>
+          <p class="eyebrow">不同計算方式對照 01</p>
+          <h1>依人數計算設計需求</h1>
+          <p class="lead">
+            以每日用餐人數 100 人的速食餐飲為例，並列內政部附錄
+            5（Q/G）及臺北市歷史計算法（Q/V）的計算結果。
+          </p>
+          <span class="prototype-badge">版型原型｜非正式報告</span>
+        </div>
+        <img
+          class="logo"
+          src="../../public/jenfu-logo-small.png"
+          alt="鉦富機械"
+        />
+      </header>
+
+      <section>
+        <h2>1 計算任務</h2>
+        <dl class="facts">
+          <dt>要回答的問題</dt>
+          <dd>100 人用餐規模需要多大的油脂截留器設計能力？</dd>
+          <dt>比較方式</dt>
+          <dd>同一規模、兩套計算依據並列，不互相代換</dd>
+          <dt>餐飲型態</dt>
+          <dd>速食／西式速食</dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>2 輸入條件</h2>
+        <div class="input-grid">
+          <article class="method">
+            <h3>內政部附錄 5（Q/G）</h3>
+            <dl class="facts">
+              <dt>每日用餐人數 N</dt>
+              <dd>100 人／日</dd>
+              <dt>用水量 Wm′</dt>
+              <dd>10 L／人</dd>
+              <dt>每日使用時間 t</dt>
+              <dd>720 min</dd>
+              <dt>尖峰係數 k</dt>
+              <dd>3.5</dd>
+              <dt>油脂／沉積物清除</dt>
+              <dd>7 日／7 日</dd>
+            </dl>
+          </article>
+          <article class="method legacy">
+            <h3>臺北市歷史計算法（Q/V）</h3>
+            <dl class="facts">
+              <dt>單餐期人數 n</dt>
+              <dd>100 人</dd>
+              <dt>每人每餐用水量 q</dt>
+              <dd>30 L／人・餐</dd>
+              <dt>營業時間 t</dt>
+              <dd>5 h</dd>
+              <dt>安全係數 k</dt>
+              <dd>1.5（A 類）</dd>
+              <dt>餐期彙整</dt>
+              <dd>單一餐期</dd>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section id="summary">
+        <h2>3 結果對照</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>設計指標</th>
+                <th>內政部 Q/G 法</th>
+                <th>臺北市 Q/V 法</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>設計處理水量</th>
+                <td class="result">4.9 L/min</td>
+                <td class="result">15.0 L/min</td>
+              </tr>
+              <tr>
+                <th>清除週期油脂量</th>
+                <td class="result">1.4 kg</td>
+                <td>此法未定義</td>
+              </tr>
+              <tr>
+                <th>有效容積</th>
+                <td>此法未定義</td>
+                <td class="result">150 L</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="notice">
+          <strong>閱讀重點：</strong
+          >兩套依據輸出的設計指標不同，不能只比較數字大小後取較小值；應依審查機關、契約或專案採用依據決定。
+        </div>
+      </section>
+
+      <section id="process">
+        <h2>4 完整計算過程</h2>
+
+        <h3>4.1 內政部附錄 5（Q/G）</h3>
+        <article class="result-group">
+          <h4>設計處理水量 Q</h4>
+          <p class="outcome">
+            <strong>採用值 4.9 L/min</strong
+            ><small>原始值 4.8611 L/min，向上取至小數 1 位</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Q = N × Wm′ ÷ t × k</span
+                ><span class="substitution"
+                  >100 × 10 ÷ 720 × 3.5 = 4.8611 L/min</span
+                >
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group">
+          <h4>清除週期油脂量 G</h4>
+          <p class="outcome">
+            <strong>採用值 1.4 kg</strong><small>油脂與沉積物合計</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Gu = N × gu × iu ÷ 1000</span
+                ><span class="substitution"
+                  >100 × 1.5 × 7 ÷ 1000 = 1.05 kg</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">Gb = N × gb × ib ÷ 1000</span
+                ><span class="substitution"
+                  >100 × 0.5 × 7 ÷ 1000 = 0.35 kg</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">G = Gu + Gb</span
+                ><span class="substitution">1.05 + 0.35 = 1.40 kg</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <h3>4.2 臺北市歷史計算法（Q/V）</h3>
+        <article class="result-group legacy">
+          <h4>設計處理水量 Q</h4>
+          <p class="outcome">
+            <strong>15.0 L/min</strong
+            ><small>先計算每小時水量，再於同一結果內換算</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Qhour = (n × q ÷ t) × k</span
+                ><span class="substitution"
+                  >(100 × 30 ÷ 5) × 1.5 = 900 L/h</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                <span class="formula">Qminute = Qhour ÷ 60</span
+                ><span class="substitution">900 ÷ 60 = 15.0 L/min</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+
+        <article class="result-group legacy">
+          <h4>有效容積 Veff</h4>
+          <p class="outcome">
+            <strong>150 L</strong><small>依 Qhour 換算</small>
+          </p>
+          <ol class="steps">
+            <li>
+              <div>
+                <span class="formula">Veff = Qhour ÷ 6</span
+                ><span class="substitution">900 ÷ 6 = 150 L</span>
+              </div>
+            </li>
+          </ol>
+        </article>
+      </section>
+
+      <section>
+        <h2>5 採用判斷</h2>
+        <div class="decision">
+          <strong>本原型不代替專案判定。</strong
+          >正式報告應明載審查依據與採用軌；若契約要求雙軌呈現，兩者皆保留，且不得把
+          Q/G 與 Q/V 的不同指標混成單一結論。
+        </div>
+      </section>
+
+      <footer class="footer">
+        範例資料僅用於版型審視｜回到 <a href="index.html">三份審稿範例</a>
+      </footer>
+    </main>
+  </body>
+</html>

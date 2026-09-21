@@ -49,6 +49,20 @@ npm run dev:local
 
 開啟 `http://127.0.0.1:3100/cases`。Emulator 使用 `demo-grease-trap`，不會連線或寫入任何正式 Firebase project。
 
+### 已有本機 runtime 時
+
+`dev:local` 會嘗試建立 Auth `9099`、Firestore `8080` 與 Vite `3100`。同一專案已有 runtime 時不要重複執行；若這三個埠已有本系統服務，直接重用 `http://127.0.0.1:3100/cases` 即可。Firebase 顯示 `Port ... is not open`／`port taken` 代表埠號已被既有行程占用，不代表資料或程式碼損壞。
+
+唯讀檢查埠號與服務：
+
+```powershell
+netstat -ano | Select-String ':8080\s|:9099\s|:3100\s'
+Invoke-WebRequest http://127.0.0.1:9099/emulator/v1/projects/demo-grease-trap/config
+Invoke-WebRequest http://127.0.0.1:3100/
+```
+
+若要重啟，先確認 PID 屬於本專案的 runtime，再明確停止該 process tree；不要直接終止未知或其他專案的行程。
+
 ## Firebase Web 設定
 
 複製 `.env.example` 的欄位到 `.env.local`，填入新 Firebase Web App 的公開設定：
