@@ -144,7 +144,7 @@ Firestore Rules 無法證明某 subcollection 已為空，也無法讓 parent de
 
 ## Implementation Boundary
 
-本 ADR 只完成架構定案，不授權本輪修改產品程式、Rules、遠端資料或部署。實作必須依 SPEC-003 與 QA-002 分 slice 完成，且不可把 `DELETING` 或 revision subcollection 部分發布到 production。
+本 ADR 本身只負責架構定案，不提供操作授權；產品實作與 release 必須依 SPEC-003、QA-002 及正式 release gate 執行，且不可把 `DELETING` 或 revision subcollection 部分發布到 production。本次 `2e1d261` 已完整發布 Rules／Hosting；未執行 production migration 或正式案件資料寫入／刪除。
 
 ## Official References
 

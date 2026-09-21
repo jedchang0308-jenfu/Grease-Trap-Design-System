@@ -140,7 +140,7 @@ git diff --check
 
 ## 10. Current Evidence Status
 
-`Local Verified / Partial`。
+`Local Verified / Production Published / Authenticated Smoke Pending`。
 
 已通過（2026-09-21，`demo-grease-trap` Firestore Emulator）：
 
@@ -153,3 +153,12 @@ git diff --check
 
 - `npm run test:integration`／`npm run test:e2e` 的標準 supervisor 會受既有 8080／9099 emulator 佔用與 Firebase CLI configstore 權限影響；未停止非本任務 runtime，也未將既有瀏覽器頁面當作測試環境。
 - 改用 task-owned 8180／9199 emulator、3210 Vite 與暫存 Playwright config：`full-workflow.spec.ts` 的 desktop-1440、tablet-1024、mobile-390 各 1 passed；流程包含版本 2 建立、歷史清單／唯讀明細／歷史報告重新產生預覽，並通過 overflow／console error／pageerror assertions。測試後所有 task-owned ports 已釋放，暫存設定已移除。
+
+已發布（2026-09-22，commit `2e1d261`）：
+
+- `firestore.rules` 編譯成功並發布至 `jenfu-grease-trap-calculator`。
+- `dist/` 發布至 `https://jenfu-grease-trap-calculator.web.app`；canonical root、SPA deep route 與 production asset hash 均與本地 build 對應。
+
+待補驗：
+
+- production authenticated history flow。只讀 browser smoke 在執行器停留於 `建立連線中…`／Firestore `unavailable`，未建立、修改或刪除正式案件；不可將 static smoke 視為歷史資料流程通過證據。

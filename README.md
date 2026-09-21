@@ -114,7 +114,7 @@ git diff --check
 6. 執行 `npm run build`。
 7. 部署純靜態 Hosting：`firebase deploy --only hosting`。
 
-`firebase.json` 的 Hosting public 目錄為 `dist`，所有應用路徑 rewrite 至 `/index.html`。2026-07-17 已部署至獨立 Spark project `jenfu-grease-trap-calculator`；未啟用 Blaze、Storage、Functions 或 App Hosting。
+`firebase.json` 的 Hosting public 目錄為 `dist`，所有應用路徑 rewrite 至 `/index.html`。系統已部署至獨立 Spark project `jenfu-grease-trap-calculator`；2026-09-22 發布 commit `2e1d261` 的 Rules／Hosting。未啟用 Blaze、Storage、Functions 或 App Hosting。
 
 正式 Hosting 不提供 server runtime；報告 PDF 由瀏覽器列印視窗另存。`/api/report-pdf` 僅供 E2E 的本機 Vite preview 使用，不進入 production bundle。
 

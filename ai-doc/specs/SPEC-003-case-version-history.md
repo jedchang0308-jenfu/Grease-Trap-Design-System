@@ -1,12 +1,12 @@
 # SPEC-003｜案件歷史版本保留與唯讀查看
 
-文件狀態：`RD Implementation Ready`
+文件狀態：`RD Implementation Ready / 已發版；production feature smoke 待補`
 
 架構定案：`已定案`
 
-版本：`1.2`
+版本：`1.3`
 
-日期：`2026-09-21`
+日期：`2026-09-22`
 
 關聯任務：`DEV-029`
 
@@ -14,7 +14,7 @@
 
 目前案件以單一 Firestore aggregate 保存；建立新版本會在同一 document 更新版號並清除原有輸入、計算與報告，因此使用者無法返回查看舊版。本規格定義版本保存、唯讀查看、永久刪除及歷史報告重新輸出的可實作產品與技術契約。
 
-本文件已完成可實作架構契約；DEV-029 已在本機完成產品程式與 Rules 實作及自動化驗證，不代表已修改遠端資料或正式環境。
+本文件已完成可實作架構契約；DEV-029 已完成產品程式與 Rules 實作及自動化驗證，commit `2e1d261` 已發布正式 Rules／Hosting。未執行 production data migration 或正式案件寫入／刪除；authenticated history flow 的 production smoke 待可達 Firestore 的執行器補驗。
 
 ## 2. Human Decision Brief
 
@@ -170,12 +170,12 @@ Target actor：已完成 Anonymous Auth 的共享使用者。
 
 ## 11. Execution Boundary
 
-目前已達 `RD Implementation Ready`，且架構已定案。後續可依 ADR-012 的 slice 與 QA-002 直接開發；本輪沒有產品實作、migration、deploy 或遠端資料變更。
+目前已達 `RD Implementation Ready`，且架構已定案。產品實作已依 ADR-012 的 slice 完成並發布；本輪沒有 production migration 或正式案件資料寫入／刪除。
 
 ## 12. Spec Impact
 
 分類：`Intentional replacement`。
 
-本規格定義 DEV-029 已落地的歷史版本行為，取代 SPEC-001 中「建立新版本只更新單一案件 aggregate 並清除舊資料」的舊契約；ADR-012 是資料與交易架構權威；ADR-009 的 Firebase Spark、Anonymous Auth、共享資料及 client-only 邊界維持不變。正式環境尚未部署本變更。
+本規格定義 DEV-029 已落地的歷史版本行為，取代 SPEC-001 中「建立新版本只更新單一案件 aggregate 並清除舊資料」的舊契約；ADR-012 是資料與交易架構權威；ADR-009 的 Firebase Spark、Anonymous Auth、共享資料及 client-only 邊界維持不變。`2e1d261` 已部署正式 Rules／Hosting；production static smoke 通過，authenticated history flow 待補驗。
 
 ADR 判定：已新增 ADR-012，鎖定 current head + immutable revision subcollection、atomic archive、可重試刪除及歷史報告 provenance。若實作發現必須導入 backend／Blaze，停止並另開 ADR，不得在本規格內靜默擴張。
