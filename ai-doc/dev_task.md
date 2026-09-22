@@ -1,6 +1,6 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-029 已完成 / 已部署；production read-only smoke 通過`
+文件狀態：`DEV-029 已完成 / 已部署；production feature smoke 通過`
 
 版本：`5.32`
 
@@ -8,11 +8,11 @@
 
 ## 總任務清單
 
-- ◇ DEV-029 [交付點] [驗證中] [P1] [已發版] 案件歷史版本保留與唯讀查看
+- ✓ DEV-029 [交付點] [完成] [P1] [已發版] 案件歷史版本保留與唯讀查看
   - 摘要：建立新版本前保留舊版，提供同案版本紀錄與唯讀查看；刪除涵蓋全部版本，歷史報告可依目前版型標示後重新輸出。
   - 來源 ID：使用者要求「我要可以看歷史版本，請寫開發文件」
-  - 下一步：若需驗證歷史封存明細／歷史報告重新產生分支，需提供既有 production archive fixture 或一次性正式資料寫入授權；目前唯讀 production boundary 已通過，且未建立或刪除正式測試案件。
-  - 證據：ADR-012、SPEC-003、QA-002、commit `2e1d261`、Rules／Hosting deploy、51 unit、7 Firestore integration、3 viewport Playwright E2E、lint、format、typecheck、build、static production smoke、production Auth／Firestore read-only smoke
+  - 下一步：無；後續涉及歷史資料契約、Rules 或報告 renderer 的變更，沿用本次 production feature smoke 並重新執行清理確認。
+  - 證據：ADR-012、SPEC-003、QA-002、commit `2e1d261`、Rules／Hosting deploy、51 unit、7 Firestore integration、3 viewport Playwright E2E、lint、format、typecheck、build、static production smoke、production Auth／Firestore read-only smoke、一次性授權 production fixture 完整 history smoke 與清理證據
   - 計入交付：是
 
 - ✓ DEV-028 [開發點] [完成] [P2] [本機完成] 報告計算目的與參考資料視覺分層
@@ -56,7 +56,7 @@
 
 ### DEV-029｜案件歷史版本保留與唯讀查看
 
-狀態：`完成 / Local Verified`
+狀態：`完成 / Local Verified / Production Feature Smoke Passed`
 
 開發文件成熟度：`RD Implementation Ready`
 
@@ -68,7 +68,7 @@
 
 是否計入產品交付完成：是
 
-原始需求邊界：使用者在案件清單只看得到最新的「版本 2」，明確要求能查看歷史版本並先寫開發文件，之後要求「繼續補到架構確定」；本輪依已定案契約完成產品實作、提交並發布正式 Rules／Hosting，未對正式案件做寫入或刪除 smoke。
+原始需求邊界：使用者在案件清單只看得到最新的「版本 2」，明確要求能查看歷史版本並先寫開發文件，之後要求「繼續補到架構確定」；本輪依已定案契約完成產品實作、提交並發布正式 Rules／Hosting，並在取得一次性授權後以可辨識 production fixture 完成完整 history smoke，驗證後已清理。
 
 風險等級：`Medium`
 
@@ -130,7 +130,7 @@
 
 #### Release Impact Note
 
-本功能已依 release gate 發布 Firestore Rules 與 Hosting；Firestore 歷史資料契約、SPA routes 及 client transaction 行為均隨 commit `2e1d261` 發布。production Auth／Firestore 的唯讀 boundary 已以 CLI browser smoke 驗證；未執行 production data migration 或正式案件寫入／刪除 smoke。因目前正式案件均無 archive revision，歷史封存明細與歷史報告重新產生分支仍待有明確 fixture／寫入授權後驗證。
+本功能已依 release gate 發布 Firestore Rules 與 Hosting；Firestore 歷史資料契約、SPA routes 及 client transaction 行為均隨 commit `2e1d261` 發布。production Auth／Firestore 唯讀 boundary 與完整 history flow 均已以 CLI browser smoke 驗證：使用者明確授權的一次性 production fixture 完成建版、封存、歷史唯讀、歷史報告重新產生與整案刪除，清理後無殘留資料。未執行 production migration；本次寫入僅限該一次性測試資料且已透過產品刪除流程清除。
 
 #### Execution Boundary
 
@@ -150,7 +150,8 @@
 | production Hosting deploy | Passed: `https://jenfu-grease-trap-calculator.web.app`; published asset matches local `dist` hash |
 | production static smoke | Passed: canonical `/` and SPA `/cases/production-smoke-route` returned 200; title and asset hash matched |
 | production authenticated read-only smoke | Passed: anonymous Auth succeeded; `/cases` loaded 9 records; all 9 existing `/history` routes loaded and correctly showed `尚無歷史版本`; current production report route loaded expected headings/results; Playwright console reported 0 errors／warnings |
-| production archived-history detail／report smoke | Not verifiable without fixture: all existing production cases are revision 1 with no archived revision; no live write/delete authorization was used |
+| production archived-history detail／report smoke | Passed: explicit one-time disposable fixture created through UI; version 1 archived when version 2 was created; history list／read-only detail／history report regeneration passed in compact and complete modes; deletion removed head + archive and both direct routes then showed `找不到這筆共享案件` |
+| production smoke transport note | Two late Firestore Listen `ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT` console entries appeared after 172s／208s idle connection timeouts; no page error, runtime error, failed user operation, or data-integrity symptom was observed |
 | Playwright E2E | Passed: desktop-1440、tablet-1024、mobile-390；含歷史清單、唯讀明細、歷史報告重新產生預覽 |
 | `git diff --check` | Passed |
 | task-owned runtime cleanup | Passed: 8180／9199／3210 released; temp config removed |
@@ -168,7 +169,7 @@ ADR 判定：已新增 ADR-012，因 storage path、atomic transaction、deletio
 - 2026-09-21：依「繼續補到架構確定」完成 ADR-012、exact CaseDocument archive、Rules `getAfter` 雙向交易、`DELETING` 可重試刪除、歷史 report provenance、implementation slices 與 QA-002，升級為 `RD Implementation Ready`；本輪未實作產品功能。
 - 2026-09-21：依 RD 技術主管審查收斂文件責任，DEV 只保留執行切片與交接邊界；架構、產品契約與驗證分別以 ADR-012、SPEC-003、QA-002 為唯一權威。
 - 2026-09-21：完成 DEV-029 Data／Rules、application、history routes／UI、歷史報告 provenance 與 resumable delete；51 unit、7 Firestore integration、desktop／tablet／mobile Playwright E2E、format、lint、typecheck、build 通過。E2E 使用 task-owned 8180／9199／3210 runtime，測試後已釋放。
-- 2026-09-22：依使用者要求提交 commit `2e1d261`，發布 `firestore.rules` 與 `dist/` 至 `jenfu-grease-trap-calculator`；canonical static smoke 與 asset provenance 通過。修正 smoke runner 採 `domcontentloaded` 加明確 DOM readiness，production Auth／Firestore read-only boundary 通過：`/cases` 9 筆、9 個 history route 均正確呈現 `尚無歷史版本`、目前案件 report route 載入且 console 0 errors／warnings。正式案件沒有 archive fixture，未建立、修改或刪除正式資料；歷史封存明細／重新產生報告分支保留為 fixture-gated pending。
+- 2026-09-22：依使用者要求提交 commit `2e1d261`，發布 `firestore.rules` 與 `dist/` 至 `jenfu-grease-trap-calculator`；canonical static smoke 與 asset provenance 通過。修正 smoke runner 採 `domcontentloaded` 加明確 DOM readiness，production Auth／Firestore read-only boundary 通過：`/cases` 9 筆、9 個 history route 均正確呈現 `尚無歷史版本`、目前案件 report route 載入。取得使用者一次性正式測試資料授權後，建立 `GTC-260922-01`／`HISTORY-FLOW-SMOKE-ONE-TIME`，完成 REPORT_DRAFT、版本 2 建立、歷史清單／唯讀明細／精簡與完整歷史報告重新產生，接著刪除整案；刪除後 current／history direct URL 均回報找不到共享案件，確認 head 與 archive 已清理。測試未留下正式資料；長時間 listener 只記錄兩筆 late QUIC idle timeout，未影響功能操作。
 
 ### DEV-028｜報告計算目的與參考資料視覺分層
 

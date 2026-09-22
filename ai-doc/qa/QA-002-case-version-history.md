@@ -1,6 +1,6 @@
 # QA-002｜案件歷史版本架構驗證計畫
 
-文件狀態：`Local Verified / Production Read-only Smoke Passed / Archive Fixture Pending`
+文件狀態：`Local Verified / Production Feature Smoke Passed / Disposable Fixture Cleaned`
 
 架構定案：`已定案`
 
@@ -40,7 +40,7 @@
 - `CASE-DELETING-PARTIAL`：head 為 `DELETING`、仍有至少 12 個 archives，用於跨兩個 batch 的 retry。
 - 兩個 authenticated anonymous contexts 與一個 unauthenticated context。
 
-Fixtures 只建立在 Auth／Firestore Emulator；不得使用 production project 或既有正式案件。
+常駐 fixtures 只建立在 Auth／Firestore Emulator；不得未經授權使用 production project 或既有正式案件。若 release gate 取得明確的一次性 production fixture 授權，必須使用可辨識資料、透過產品既有 UI／刪除流程操作，並在驗證後確認 head、archives 與 direct routes 均已清除。
 
 ## 4. Unit Verification
 
@@ -140,7 +140,7 @@ git diff --check
 
 ## 10. Current Evidence Status
 
-`Local Verified / Production Published / Production Read-only Smoke Passed / Archive Fixture Pending`。
+`Local Verified / Production Published / Production Feature Smoke Passed / Disposable Fixture Cleaned`。
 
 已通過（2026-09-21，`demo-grease-trap` Firestore Emulator）：
 
@@ -166,6 +166,10 @@ git diff --check
 - 讀取目前 production 案件 report route，成功載入 `報告草稿預覽`、報告 iframe、`1 案件資料`、`3 本次設計結果`、`4 完整計算過程` 與目前結果；console errors／warnings 為 0。
 - 驗證期間未建立、修改或刪除 production 案件；task-owned browser session 已關閉。
 
-待補驗（需要明確資料邊界，不是目前部署阻塞）：
+已通過（2026-09-22，使用者明確授權的一次性 production fixture）：
 
-- 歷史封存明細與歷史報告重新產生分支：目前 9 筆正式案件皆為 revision 1，沒有 archive fixture；依 QA-002 第 3 節，fixture 只允許建立在 Emulator。若要在 production 驗證，需另取得一次性正式資料寫入授權，否則不得以建立／刪除測試案件補洞。
+- 以 UI 建立可辨識案件 `HISTORY-FLOW-SMOKE-ONE-TIME`（`GTC-260922-01`），完成必要輸入與計算，保存 REPORT_DRAFT。
+- 建立版本 2 後，版本清單正確呈現目前版本 2 與歷史版本 1；歷史版本 1 可開啟唯讀明細，保存的案件資料與計算結果未混入目前版本。
+- 歷史報告重新產生預覽通過精簡與完整兩種設定，均出現「歷史版本重新產生」與「不是當時的原始 PDF」警語，且完整模式保留參考資訊分隔線。
+- 透過案件清單既有刪除流程刪除整案；刪除後目前案件 direct URL 與 `/history` direct URL 均顯示 `找不到這筆共享案件`，確認 current head 與 revision archive 均已清除。
+- 此次 production fixture 未留下正式資料。驗證工作階段記錄兩筆長時間 Firestore Listen `ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT`；發生於功能完成後的 idle reconnect，未造成頁面錯誤、資料錯誤或操作失敗。
