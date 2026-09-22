@@ -77,7 +77,7 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 ## 目前狀態
 
-- DEV-029：已完成本機實作與驗證；資料路徑、atomic transaction、`DELETING` recovery、routes、歷史報告 provenance 已落地。commit `2e1d261` 已發布 Rules／Hosting；canonical static smoke 與 asset provenance 通過。production authenticated history smoke 因執行器停在 `建立連線中…`／Firestore `unavailable` 待補，未對正式資料做寫入或刪除。
+- DEV-029：已完成本機實作與驗證；資料路徑、atomic transaction、`DELETING` recovery、routes、歷史報告 provenance 已落地。commit `2e1d261` 已發布 Rules／Hosting；canonical static smoke、asset provenance 與 production Auth／Firestore read-only smoke 通過（`/cases` 9 筆、9 個 history route 正確呈現 `尚無歷史版本`、目前 report route 載入、console 0 errors／warnings）。正式案件沒有 archive fixture，歷史封存明細／重新產生報告分支仍待明確 fixture／寫入授權；未對正式資料做寫入或刪除。
 - 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。
 - DEV-023：有效容積換算設計處理水量情境已完成本機驗證與 production smoke。
@@ -88,6 +88,6 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 ## Re-entry
 
 - DEV-029：本機實作與驗證已完成；若進入正式發布，必須依 release gate 一次部署 archive schema、Rules、routes 與 `DELETING` lifecycle，禁止部分發布。
-- Firebase production：既有獨立 Spark project 已完成本輪 Rules/Hosting 發布；後續變更需重跑受影響 smoke 並保留 rollback 參考。commit `2e1d261` 的靜態資產已與 production hash 對應，authenticated history flow 仍待可達 Firestore 的執行器補驗。
+- Firebase production：既有獨立 Spark project 已完成本輪 Rules/Hosting 發布；後續變更需重跑受影響 smoke 並保留 rollback 參考。commit `2e1d261` 的靜態資產已與 production hash 對應，Auth／Firestore read-only boundary 已由 CLI browser 驗證；archive branch 仍受 production fixture／寫入授權限制。
 - 真實案件：提供 3～5 個去識別案例與人工預期值。
 - 若要加入簽核、核發、不可變留存或敏感資料：新 ADR、可信任後端、身分與留存政策。

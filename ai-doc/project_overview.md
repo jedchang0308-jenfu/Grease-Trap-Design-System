@@ -82,7 +82,7 @@ production artifact 是 `dist/` 靜態檔。Hosting 對 `**` rewrite `/index.htm
 | -------------------------- | ------------- | ------------------------------------------------------------- |
 | 雙軌計算與 UI              | Complete      | 既有核心與 responsive UI 保留                                 |
 | DEV-021 Spark 靜態重構     | Complete      | 程式、Rules、static build、integration 與三 viewport E2E 通過 |
-| DEV-029 案件歷史版本       | 已發版／功能 smoke 待補 | `2e1d261`；Rules、routes、歷史報告與三 viewport E2E 已驗證；production static smoke 通過，authenticated history flow 待補 |
+| DEV-029 案件歷史版本       | 已發版／read-only smoke 通過 | `2e1d261`；Rules、routes、歷史報告與三 viewport E2E 已驗證；production `/cases`、9 個 history route 與目前 report route 通過；archive fixture 分支待授權 |
 | 真實案件平行試算           | Pending Human | 需 3～5 個去識別案件及人工預期                                |
 | Firebase production deploy | Complete      | `jenfu-grease-trap-calculator.web.app`；Rules／Hosting 發布與 static smoke 通過 |
 

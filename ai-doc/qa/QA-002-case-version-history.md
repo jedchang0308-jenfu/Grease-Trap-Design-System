@@ -1,6 +1,6 @@
 # QA-002｜案件歷史版本架構驗證計畫
 
-文件狀態：`Local Verified`
+文件狀態：`Local Verified / Production Read-only Smoke Passed / Archive Fixture Pending`
 
 架構定案：`已定案`
 
@@ -140,7 +140,7 @@ git diff --check
 
 ## 10. Current Evidence Status
 
-`Local Verified / Production Published / Authenticated Smoke Pending`。
+`Local Verified / Production Published / Production Read-only Smoke Passed / Archive Fixture Pending`。
 
 已通過（2026-09-21，`demo-grease-trap` Firestore Emulator）：
 
@@ -159,6 +159,13 @@ git diff --check
 - `firestore.rules` 編譯成功並發布至 `jenfu-grease-trap-calculator`。
 - `dist/` 發布至 `https://jenfu-grease-trap-calculator.web.app`；canonical root、SPA deep route 與 production asset hash 均與本地 build 對應。
 
-待補驗：
+已通過（2026-09-22，production read-only browser smoke）：
 
-- production authenticated history flow。只讀 browser smoke 在執行器停留於 `建立連線中…`／Firestore `unavailable`，未建立、修改或刪除正式案件；不可將 static smoke 視為歷史資料流程通過證據。
+- 使用 task-owned Playwright CLI 以 `domcontentloaded` 加明確 DOM readiness 驗證 production Auth／Firestore；`/cases` 成功載入 9 筆既有案件。
+- 逐一讀取 9 筆既有案件的 `/history` route，均成功載入並正確呈現 `尚無歷史版本`；未將 empty state 與 loading／error 混用。
+- 讀取目前 production 案件 report route，成功載入 `報告草稿預覽`、報告 iframe、`1 案件資料`、`3 本次設計結果`、`4 完整計算過程` 與目前結果；console errors／warnings 為 0。
+- 驗證期間未建立、修改或刪除 production 案件；task-owned browser session 已關閉。
+
+待補驗（需要明確資料邊界，不是目前部署阻塞）：
+
+- 歷史封存明細與歷史報告重新產生分支：目前 9 筆正式案件皆為 revision 1，沒有 archive fixture；依 QA-002 第 3 節，fixture 只允許建立在 Emulator。若要在 production 驗證，需另取得一次性正式資料寫入授權，否則不得以建立／刪除測試案件補洞。
