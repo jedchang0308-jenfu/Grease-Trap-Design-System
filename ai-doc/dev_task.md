@@ -2,9 +2,9 @@
 
 文件狀態：`DEV-029 已完成 / 已部署；production feature smoke 通過`
 
-版本：`5.32`
+版本：`5.33`
 
-最後更新：`2026-09-22`
+最後更新：`2026-10-01`
 
 ## 總任務清單
 
@@ -152,6 +152,7 @@
 | production authenticated read-only smoke | Passed: anonymous Auth succeeded; `/cases` loaded 9 records; all 9 existing `/history` routes loaded and correctly showed `尚無歷史版本`; current production report route loaded expected headings/results; Playwright console reported 0 errors／warnings |
 | production archived-history detail／report smoke | Passed: explicit one-time disposable fixture created through UI; version 1 archived when version 2 was created; history list／read-only detail／history report regeneration passed in compact and complete modes; deletion removed head + archive and both direct routes then showed `找不到這筆共享案件` |
 | production smoke transport note | Two late Firestore Listen `ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT` console entries appeared after 172s／208s idle connection timeouts; no page error, runtime error, failed user operation, or data-integrity symptom was observed |
+| production report-setting label smoke | Passed: fresh cache-busted production route displayed `精準計算-只計算此次目的` and `完整計算-連相關參考資訊皆計算`; calculation/report output unchanged |
 | Playwright E2E | Passed: desktop-1440、tablet-1024、mobile-390；含歷史清單、唯讀明細、歷史報告重新產生預覽 |
 | `git diff --check` | Passed |
 | task-owned runtime cleanup | Passed: 8180／9199／3210 released; temp config removed |
@@ -170,6 +171,7 @@ ADR 判定：已新增 ADR-012，因 storage path、atomic transaction、deletio
 - 2026-09-21：依 RD 技術主管審查收斂文件責任，DEV 只保留執行切片與交接邊界；架構、產品契約與驗證分別以 ADR-012、SPEC-003、QA-002 為唯一權威。
 - 2026-09-21：完成 DEV-029 Data／Rules、application、history routes／UI、歷史報告 provenance 與 resumable delete；51 unit、7 Firestore integration、desktop／tablet／mobile Playwright E2E、format、lint、typecheck、build 通過。E2E 使用 task-owned 8180／9199／3210 runtime，測試後已釋放。
 - 2026-09-22：依使用者要求提交 commit `2e1d261`，發布 `firestore.rules` 與 `dist/` 至 `jenfu-grease-trap-calculator`；canonical static smoke 與 asset provenance 通過。修正 smoke runner 採 `domcontentloaded` 加明確 DOM readiness，production Auth／Firestore read-only boundary 通過：`/cases` 9 筆、9 個 history route 均正確呈現 `尚無歷史版本`、目前案件 report route 載入。取得使用者一次性正式測試資料授權後，建立 `GTC-260922-01`／`HISTORY-FLOW-SMOKE-ONE-TIME`，完成 REPORT_DRAFT、版本 2 建立、歷史清單／唯讀明細／精簡與完整歷史報告重新產生，接著刪除整案；刪除後 current／history direct URL 均回報找不到共享案件，確認 head 與 archive 已清理。測試未留下正式資料；長時間 listener 只記錄兩筆 late QUIC idle timeout，未影響功能操作。
+- 2026-10-01：依使用者回饋將報告設定文案更新為「精準計算-只計算此次目的」與「完整計算-連相關參考資訊皆計算」；commit `8492a34` 通過 format、lint、typecheck、51 unit tests、build，已發布 Hosting，cache-busted production route 驗證新文案生效。
 
 ### DEV-028｜報告計算目的與參考資料視覺分層
 
