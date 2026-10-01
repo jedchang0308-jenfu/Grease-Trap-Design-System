@@ -21,7 +21,7 @@ export const ruleCatalog = {
     id: "RULE-LEGACY-QV@legacy.1",
     code: "RULE-LEGACY-QV",
     version: "legacy.1",
-    versionLabel: "原始文件未標示版次",
+    versionLabel: "無",
     methodFamily: "LEGACY_QV",
     status: "ACTIVE",
     checksum: legacyRuleChecksum,
