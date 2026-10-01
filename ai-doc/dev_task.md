@@ -1,12 +1,29 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-030 已部署；production static smoke 通過；browser UI 未充分驗證`
+文件狀態：`DEV-032 查表值預填已實作；等待 UI 驗證；DEV-031 本機啟動重用已完成；DEV-030 已部署`
 
-版本：`5.43`
+版本：`5.45`
 
 最後更新：`2026-10-01`
 
 ## 總任務清單
+
+- ◇ DEV-032 [開發點] [實作完成／待 UI 驗證] [P2] [本機未驗證] 算法 B t 預填適用查表值且可編輯
+  - 摘要：每日廚房使用時間 t 依計算任務與餐飲類型預填適用來源表值；使用者可編輯，手動值保留為案件覆寫。
+  - 來源 ID：使用者要求「系統改成會填入查表的帶入值，使用者可以再編輯」
+  - 父任務：DEV-021
+  - 規格：SPEC-001 §4.1、SPEC-002 §6；不變更工程公式。
+  - 驗收：依任務帶入 A-37 或 A-34～A-36；T05 只在兩來源值一致時共用預填；餐飲類型切換時更新尚未手動修改的查表值；使用者編輯值可覆寫並保存；原查表值不保存成覆寫。
+  - 下一步：待瀏覽器 UI 可用後，唯讀確認初始帶入值、餐飲類型切換、手動修改及計算效果。
+  - 證據：source-level data flow review、`git diff --check` 通過。未執行測試套件、typecheck、build 或 UI 驗收；browser automation 啟動因 Windows error 5 退出，未操作既有案件分頁或寫入案件資料。
+  - 計入交付：否
+
+- ✓ DEV-031 [開發點] [完成] [P2] [本機完成] 重複執行 dev:local 時重用同專案 runtime
+  - 摘要：辨認同專案 Emulator Hub 並重用服務；遇未知占用時列出 PID／程序名稱，不終止程序。
+  - 來源 ID：使用者要求「請修復」本機 dev:local 的 Firebase port collision
+  - 父任務：DEV-021
+  - 證據：PowerShell AST、diff check、修改前同專案 Hub／Auth／Firestore／Vite 唯讀回讀
+  - 計入交付：否
 
 - ◇ DEV-030 [開發點] [驗證中] [P2] [沿用既有 production 授權] 全系統「算法依據」用語統一
   - 摘要：報告、計算狀態、參數標籤、工作台提示及有效規格，將原「計算依據」統一為「算法依據」；不改變計算與資料契約。
@@ -61,6 +78,64 @@
   - 計入交付：是
 
 ## Current
+
+### DEV-032｜算法 B t 預填適用查表值且可編輯
+
+狀態：`實作完成 / UI 尚未驗證`
+
+節點類型：開發點
+
+父交付點：DEV-021
+
+是否計入產品交付完成：否
+
+原始需求邊界：使用者要求「系統改成會填入查表的帶入值，使用者可以再編輯」。
+
+任務目標：工作台依本次計算任務及餐飲類型，把算法 B 每日廚房使用時間 t 的適用查表值帶入欄位，讓使用者可直接修改。
+
+風險等級：`Medium`
+
+開發範圍：
+
+- 人數任務帶入 A-37 t；面積任務帶入 A-34～A-36 t。
+- T05 共用欄位僅在兩張來源表都有值且相同時預填；不一致或缺值時保留原各自來源表計算。
+- 餐飲類型切換時，若欄位仍是原查表值則更新；使用者已輸入不同值時保留該覆寫。
+- 欄位值與目前適用查表值相同時，計算仍採來源表值且不保存為案件覆寫；編輯成其他值才覆寫。
+- 更新 SPEC-001 與 SPEC-002 的有效契約，不變更公式、來源參數或案件資料架構。
+
+驗收標準：初始欄位顯示適用查表值且可編輯；選擇餐飲類型後帶入對應值；切換類型不覆蓋使用者已修改的值；手動值能覆寫計算；查表值不會被誤存為覆寫來源。
+
+驗證結果：source-level data flow review、`git diff --check` 通過。未執行測試套件、typecheck、build 或瀏覽器 UI 驗收；browser automation 啟動因 Windows error 5 退出，未操作既有案件分頁或寫入案件資料。待 browser automation 可用時確認初始帶入、類型切換、手動修改及計算效果。
+
+### DEV-031｜重複執行 dev:local 時重用同專案 runtime
+
+狀態：`完成 / PowerShell 5.1 Reuse Smoke Passed`
+
+節點類型：開發點
+
+父交付點：DEV-021
+
+是否計入產品交付完成：否
+
+原始需求邊界：使用者執行 `npm run dev:local` 遇到 Firebase Auth／Firestore port taken，要求修復。
+
+任務目標：讓本機啟動入口辨認本專案已啟動的 Firebase Emulator Suite，重用其服務並避免重複啟動造成連接埠錯誤。
+
+風險等級：`Low`
+
+開發範圍：
+
+- 依 Firebase CLI project-specific hub locator、存活 PID 與 Hub API 確認 `demo-grease-trap` 的 Auth／Firestore runtime。
+- 若本系統 Vite 頁面已在 3100 回應，列出既有 URL 並成功結束；否則重用 emulator 啟動 Vite。
+- 使用 ASCII 頁面標記，避免 Windows PowerShell 5.1 誤讀 UTF-8 中文字串。
+- 對未能確認為本專案的連接埠占用，列出 PID／程序名稱並停止啟動；不終止程序。
+- Test／E2E 維持原本獨立啟動與清理行為。
+
+驗收標準：同專案 runtime 不因重複呼叫而重啟；未知程序占用時不被終止，且錯誤訊息可識別 PID／程序名稱。
+
+Spec Impact Preflight：`No product contract impact`。只變更本機啟動器與 README 操作說明。
+
+驗證結果：PowerShell AST 語法解析、`git diff --check` 與 `npm run dev:local` 通過。啟動 smoke 在 Windows PowerShell 5.1 辨認同專案 Emulator，重用已回應 HTTP 200 的 `/cases`，exit code 0。未執行測試套件。
 
 ### DEV-030｜全系統「算法依據」用語統一
 

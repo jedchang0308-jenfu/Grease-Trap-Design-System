@@ -1,8 +1,8 @@
 # 文件地圖｜油脂截留器雙軌計算系統
 
-文件狀態：`Static Spark Production Deployed`
+文件狀態：`Static Spark Production Deployed；DEV-032 本機實作待 UI 驗證`
 
-權威版本：`4.0`
+權威版本：`4.2`
 
 最後更新：`2026-10-01`
 
@@ -78,6 +78,8 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 ## 目前狀態
 
+- DEV-032：算法 B t 欄位依任務與餐飲類型預填適用查表值，使用者可編輯；查表值不保存為覆寫；實作已完成，UI 尚待驗證。
+- DEV-031：本機 `dev:local` 已可重用同專案 Firebase Emulator；Windows PowerShell 5.1 的啟動 smoke 通過。未知 port owner 只回報 PID／程序名稱，不自動終止；未跑測試套件。
 - DEV-029：已完成本機實作與驗證；資料路徑、atomic transaction、`DELETING` recovery、routes、歷史報告 provenance 已落地。commit `2e1d261` 已發布 Rules／Hosting；canonical static smoke、asset provenance、production Auth／Firestore read-only smoke 與一次性授權 production history feature smoke 通過（版本 2 建立、歷史清單／唯讀明細／精簡與完整歷史報告、整案刪除後 direct URL 拒絕）。測試 fixture 已清理，未留下正式資料。
 - 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。

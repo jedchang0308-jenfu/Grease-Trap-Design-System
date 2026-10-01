@@ -51,7 +51,7 @@ npm run dev:local
 
 ### 已有本機 runtime 時
 
-`dev:local` 會嘗試建立 Auth `9099`、Firestore `8080` 與 Vite `3100`。同一專案已有 runtime 時不要重複執行；若這三個埠已有本系統服務，直接重用 `http://127.0.0.1:3100/cases` 即可。Firebase 顯示 `Port ... is not open`／`port taken` 代表埠號已被既有行程占用，不代表資料或程式碼損壞。
+`dev:local` 會建立 Auth `9099`、Firestore `8080` 與 Vite `3100`。若同專案的 Firebase Emulator Hub 已在執行，指令會重用 Auth／Firestore；本系統頁面也已在 `3100` 時，指令會回報既有網址並正常結束。若埠號由無法確認為本專案的程序占用，指令會列出 PID 與程序名稱，不會自動停止程序。
 
 唯讀檢查埠號與服務：
 

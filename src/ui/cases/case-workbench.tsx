@@ -187,8 +187,8 @@ const fieldHelp = {
   },
   actualUseMinutes: {
     description:
-      "算法 B 的 t：整日廚房累計使用時間，單位為 min/day。留空時使用下方顯示的來源表預設值。",
-    note: "它不是算法 A 的每餐／連續操作時間，兩者不會同步。填入後會影響 Q 計算與設備能力反推。",
+      "算法 B 的 t：整日廚房累計使用時間，單位為 min/day。系統會依餐飲類型帶入來源表值，並可直接編輯。",
+    note: "它不是算法 A 的每餐／連續操作時間，兩者不會同步。修改查表帶入值後，才會以本案值覆寫來源表並影響 Q 計算與設備能力反推。",
   },
   greaseDays: {
     description: "填寫兩次完整清除油脂之間的天數；本算法依據允許 7～14 day。",
@@ -324,6 +324,13 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
           ...previous,
           ...(data.dining_type ? { diningType: data.dining_type } : {}),
           ...(storedCurrentValues ?? {}),
+          actualUseMinutes:
+            storedCurrentValues?.actualUseMinutes ??
+            getCurrentUseTimeTableDefault(
+              data.task_code,
+              storedCurrentValues?.diningType ?? data.dining_type ?? "",
+            ) ??
+            "",
           ...(sharedDiningArea !== undefined
             ? { diningArea: sharedDiningArea }
             : {}),
@@ -739,7 +746,27 @@ function CurrentFields({
   onSharedDiningAreaChange,
 }: FieldProps) {
   const set = (key: string, value: string) =>
-    setValues((previous) => ({ ...previous, [key]: value }));
+    setValues((previous) => {
+      if (key !== "diningType") return { ...previous, [key]: value };
+
+      const previousDefault = getCurrentUseTimeTableDefault(
+        taskCode,
+        previous.diningType,
+      );
+      const currentUseTime = previous.actualUseMinutes.trim();
+      const followsTable =
+        !currentUseTime || currentUseTime === previousDefault;
+      return {
+        ...previous,
+        diningType: value,
+        ...(followsTable
+          ? {
+              actualUseMinutes:
+                getCurrentUseTimeTableDefault(taskCode, value) ?? "",
+            }
+          : {}),
+      };
+    });
   const reverse = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
   const area =
     taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
@@ -861,7 +888,15 @@ function CurrentFields({
             label="算法 B：每日廚房使用時間 t"
             unit="min/day"
             help={fieldHelp.actualUseMinutes}
-            sourceType="覆寫值"
+            sourceType={
+              isCurrentUseTimeOverride(
+                taskCode,
+                values.diningType,
+                values.actualUseMinutes,
+              )
+                ? "覆寫值"
+                : "來源表值"
+            }
             value={values.actualUseMinutes}
             onChange={(value) => set("actualUseMinutes", value)}
           />
@@ -920,7 +955,9 @@ function CurrentUseTimeSourceTable({ diningType }: { diningType: string }) {
           </tbody>
         </table>
       </div>
-      <p>填寫每日實際使用時間後，系統才會用本案值取代目前選用列的 t。</p>
+      <p>
+        系統會依計算任務帶入適用查表值；沒有可共用的來源值時欄位留白，仍可輸入本案實際使用時間。
+      </p>
     </details>
   );
 }
@@ -944,10 +981,16 @@ function CurrentUseTimeReference({
           <>
             <strong>{reference.heading}</strong>
             <span>{reference.lines.join("；")}</span>
-            <small>留空時，計算使用以上來源表 t；填入本案值後才會覆寫。</small>
+            <small>
+              {getCurrentUseTimeTableDefault(taskCode, diningType)
+                ? "欄位會帶入適用的來源表 t；可直接編輯為本案每日實際使用時間。"
+                : taskCode === "T05_DESIGN_TO_DINERS_AND_AREA"
+                  ? "兩張來源表沒有相同的共用 t 值，因此不預填；可輸入本案每日實際使用時間。"
+                  : "目前餐飲類型沒有適用的來源表 t 值；可輸入本案每日實際使用時間。"}
+            </small>
           </>
         ) : (
-          <span>先選餐飲類型後，這裡會顯示被覆寫的來源表 t 預設值。</span>
+          <span>先選餐飲類型後，這裡會顯示適用的來源表 t 預設值。</span>
         )}
       </div>
     </InputMatrixDetail>
@@ -957,11 +1000,14 @@ function CurrentUseTimeReference({
 function buildCurrentUseTimeReference(taskCode: string, diningType: string) {
   if (!isDiningType(diningType)) return null;
   const reverse = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
+  const diners =
+    taskCode === "T01_DINERS_TO_FLOW" || taskCode === "T02_DINERS_TO_DESIGN";
   const area =
     taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
+  if (!diners && !area && !reverse) return null;
   const lines: string[] = [];
 
-  if (!area || reverse) {
+  if (diners || reverse) {
     lines.push(`人數法 A-37：t=${currentDinerUseMinutes[diningType]} min/day`);
   }
 
@@ -980,6 +1026,40 @@ function buildCurrentUseTimeReference(taskCode: string, diningType: string) {
   };
 }
 
+function getCurrentUseTimeTableDefault(
+  taskCode: string,
+  diningType: string,
+): string | null {
+  if (!isDiningType(diningType)) return null;
+  const reverse = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
+  const diners =
+    taskCode === "T01_DINERS_TO_FLOW" || taskCode === "T02_DINERS_TO_DESIGN";
+  const area =
+    taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
+  if (!diners && !area && !reverse) return null;
+
+  if (reverse) {
+    const dinerValue = currentDinerUseMinutes[diningType];
+    const areaValue = currentAreaUseMinutes[diningType];
+    return areaValue && dinerValue === areaValue ? dinerValue : null;
+  }
+
+  return area
+    ? (currentAreaUseMinutes[diningType] ?? null)
+    : currentDinerUseMinutes[diningType];
+}
+
+function isCurrentUseTimeOverride(
+  taskCode: string,
+  diningType: string,
+  actualUseMinutes: string,
+) {
+  const value = actualUseMinutes.trim();
+  return Boolean(
+    value && value !== getCurrentUseTimeTableDefault(taskCode, diningType),
+  );
+}
+
 function CurrentUseTimeOverrideEffect({
   diningType,
   taskCode,
@@ -995,7 +1075,14 @@ function CurrentUseTimeOverrideEffect({
     actualUseMinutes,
   );
   return (
-    <InputMatrixDetail label="覆寫後代入" sourceType="覆寫值">
+    <InputMatrixDetail
+      label="計算採用值"
+      sourceType={
+        isCurrentUseTimeOverride(taskCode, diningType, actualUseMinutes)
+          ? "覆寫值"
+          : "來源表值"
+      }
+    >
       <div className={`current-t-reference ${effect.tone}`} aria-live="polite">
         <strong>{effect.heading}</strong>
         {effect.lines.map((line) => (
@@ -1027,11 +1114,18 @@ function buildCurrentUseTimeOverrideEffect(
     .map((line) => line.replace(/^(.+?)：t=(.+)$/, "$1 來源表 t=$2"))
     .join("；");
 
-  if (!overrideValue) {
+  if (!isCurrentUseTimeOverride(taskCode, diningType, overrideValue)) {
+    const tableDefault = getCurrentUseTimeTableDefault(taskCode, diningType);
     return {
-      heading: "目前未覆寫",
+      heading:
+        tableDefault && overrideValue ? "目前採用查表帶入值" : "目前未覆寫",
       lines: [`計算仍使用：${targetText}`],
-      note: "要改用本案每日實際使用時間時，請在上一列輸入 min/day。",
+      note:
+        tableDefault && overrideValue
+          ? "欄位目前帶入來源表預設值；可直接編輯，修改後才會覆寫。"
+          : tableDefault
+            ? "欄位留白時，計算仍使用來源表值；若有本案每日實際使用時間，可在上一列輸入 min/day。"
+            : "目前使用來源表值；若有本案每日實際使用時間，可在上一列輸入 min/day。",
       tone: "pending",
     };
   }
@@ -1524,6 +1618,13 @@ function withOptional(
 }
 
 function buildCurrentInput(taskCode: string, values: Record<string, string>) {
+  const actualUseMinutes = isCurrentUseTimeOverride(
+    taskCode,
+    values.diningType,
+    values.actualUseMinutes,
+  )
+    ? values.actualUseMinutes
+    : undefined;
   const base = withOptional(
     {
       diningType: values.diningType,
@@ -1531,7 +1632,7 @@ function buildCurrentInput(taskCode: string, values: Record<string, string>) {
       sedimentCleaningDays: values.sedimentCleaningDays,
     },
     "actualUseMinutes",
-    values.actualUseMinutes,
+    actualUseMinutes,
   );
   if (taskCode === "T05_DESIGN_TO_DINERS_AND_AREA")
     return withOptional(
@@ -1543,7 +1644,7 @@ function buildCurrentInput(taskCode: string, values: Record<string, string>) {
         evidenceSource: values.evidenceSource,
       },
       "actualUseMinutes",
-      values.actualUseMinutes,
+      actualUseMinutes,
     );
   if (taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN")
     return {
