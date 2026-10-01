@@ -34,7 +34,7 @@ export const ruleCatalog = {
     id: "RULE-CURRENT-QG@2020.1",
     code: "RULE-CURRENT-QG",
     version: "2020.1",
-    versionLabel: "2020.1",
+    versionLabel: "2020/07/10",
     methodFamily: "CURRENT_QG",
     status: "ACTIVE",
     checksum: currentRuleChecksum,
