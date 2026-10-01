@@ -71,12 +71,12 @@ export function basisForTrack(track: string): CalculationBasisDisplay {
   return (
     calculationBasisDisplay[track as CalculationTrack] ?? {
       sourceCode: "",
-      documentName: "計算依據",
+      documentName: "算法依據",
       systemNote: "",
-      shortLabel: "計算依據",
-      fullLabel: "計算依據",
+      shortLabel: "算法依據",
+      fullLabel: "算法依據",
       pdfHref: "",
-      resultLabel: "依本案計算依據計算",
+      resultLabel: "依本案算法依據計算",
     }
   );
 }
@@ -84,7 +84,7 @@ export function basisForTrack(track: string): CalculationBasisDisplay {
 export function modeDisplayFor(mode: string) {
   return (
     calculationModeDisplay[mode as CalculationMode] ?? {
-      label: "計算依據",
+      label: "算法依據",
       description: "依本案選定的資料來源計算。",
     }
   );

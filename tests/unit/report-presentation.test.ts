@@ -160,7 +160,7 @@ describe("report presentation model", () => {
       expect.objectContaining({ symbol: "n", label: "單餐期用餐人數" }),
       expect.objectContaining({ symbol: "q", unit: "L/(人·餐)" }),
       expect.objectContaining({ symbol: "t", unit: "h" }),
-      expect.objectContaining({ symbol: "k", role: "計算依據參數" }),
+      expect.objectContaining({ symbol: "k", role: "算法依據參數" }),
     ]);
   });
 

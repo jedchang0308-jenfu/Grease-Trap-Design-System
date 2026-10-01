@@ -191,11 +191,11 @@ const fieldHelp = {
     note: "它不是算法 A 的每餐／連續操作時間，兩者不會同步。填入後會影響 Q 計算與設備能力反推。",
   },
   greaseDays: {
-    description: "填寫兩次完整清除油脂之間的天數；本計算依據允許 7～14 day。",
+    description: "填寫兩次完整清除油脂之間的天數；本算法依據允許 7～14 day。",
     note: "清除間隔越長，所需油脂容量通常越大。",
   },
   sedimentDays: {
-    description: "填寫兩次完整清除殘渣之間的天數；本計算依據允許 7～30 day。",
+    description: "填寫兩次完整清除殘渣之間的天數；本算法依據允許 7～30 day。",
     note: "請依案件預定的實際維護週期填寫。",
   },
   legacyPeople: {

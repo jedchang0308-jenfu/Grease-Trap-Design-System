@@ -131,8 +131,7 @@ function missingAssessment(track: Track): TrackExecution {
       ],
       errors: [],
       ruleSetVersion: track === "CURRENT_QG" ? "2020.1" : "legacy.1",
-      releaseRelevance:
-        "此計算依據未計算；另一份計算依據有效時仍可完成報告草稿。",
+      releaseRelevance: `${calculationBasisDisplay[track].shortLabel}尚未完成計算；另一種算法依據有效時，仍可產生報告草稿。`,
     },
   };
 }
@@ -154,7 +153,7 @@ function executeCurrent(input?: CurrentCalculationInput): TrackExecution {
         missingFields: [],
         errors: [],
         ruleSetVersion: "2020.1",
-        releaseRelevance: `${calculationBasisDisplay.CURRENT_QG.shortLabel}計算依據有效。`,
+        releaseRelevance: `${calculationBasisDisplay.CURRENT_QG.shortLabel}已完成。`,
       },
       result,
     };
@@ -209,7 +208,7 @@ function executeLegacy(input?: LegacyCalculationInput): TrackExecution {
         missingFields: [],
         errors: [],
         ruleSetVersion: "legacy.1",
-        releaseRelevance: `${calculationBasisDisplay.LEGACY_QV.shortLabel}計算依據有效。`,
+        releaseRelevance: `${calculationBasisDisplay.LEGACY_QV.shortLabel}已完成。`,
       },
       result,
     };

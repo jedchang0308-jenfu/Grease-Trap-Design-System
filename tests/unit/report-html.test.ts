@@ -98,7 +98,8 @@ describe("report snapshot HTML", () => {
       "<thead><tr><th>項目</th><th>內容</th><th>項目</th><th>內容</th></tr></thead>",
     );
     expect(html).toContain('<th scope="row">本次計算任務</th>');
-    expect(html).toContain('<th scope="row">計算依據</th>');
+    expect(html).toContain('<th scope="row">算法依據</th>');
+    expect(html).not.toContain('<th scope="row">計算依據</th>');
   });
 
   it("keeps unavailable case metadata in the compact summary", () => {
@@ -171,7 +172,7 @@ describe("report snapshot HTML", () => {
       '<p class="step-line step-result step-primary-result"><span class="step-label">計算結果</span><strong>50 L/min</strong>',
     );
     expect(html).not.toContain('class="topic-outcome"');
-    expect(html).not.toContain("依本計算依據公式計算");
+    expect(html).not.toContain("依本算法公式計算");
     expect(html).not.toContain("4.1.1");
   });
 
@@ -196,7 +197,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain(
       'content: "頁次 " counter(page) "/" counter(pages);',
     );
-    expect(html).toContain("本次只完成一份計算依據");
+    expect(html).toContain("本次只完成一份算法依據");
     expect(html).toContain("<h2>1 案件資料</h2>");
     expect(html).toContain("<h2>2 本次輸入條件</h2>");
     expect(html).toContain("<h3>2.1 算法B-內政部給排水規範（附錄 5）</h3>");
@@ -224,7 +225,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("本次輸入條件");
     expect(html).toContain("本次設計結果");
     expect(html).toContain("本案條件");
-    expect(html).toContain("計算依據參數");
+    expect(html).toContain("算法依據參數");
     expect(html).toContain(
       ".input-table .number-cell { white-space: normal; overflow-wrap: anywhere; }",
     );
@@ -267,7 +268,7 @@ describe("report snapshot HTML", () => {
     );
     expect(html).not.toContain("讀法");
     expect(html).not.toContain("<dd>DUAL_COMPARISON</dd>");
-    expect(html).not.toContain("計算依據與追溯資料");
+    expect(html).not.toContain("算法依據與追溯資料");
     expect(html).not.toContain("內部責任流程");
     expect(html).not.toContain("版本與責任");
     expect(html).not.toContain("文件狀態與工程責任");

@@ -220,7 +220,7 @@ function formulaPurpose(formulaCode: string): string {
     "LEG-VOL-QH": "由有效容積換算每小時處理水量",
     "LEG-VOL-QM": "換算每分鐘設計處理水量",
   };
-  return labels[formulaCode] ?? "依本計算依據公式計算";
+  return labels[formulaCode] ?? "依本算法公式計算";
 }
 
 function formatStepResult(value: string, unit: string): string {
@@ -248,7 +248,7 @@ function roleBadge(role: string): string {
     role,
   )
     ? "role-case"
-    : ["工程選值", "法規表值", "計算依據參數", "覆寫值"].includes(role)
+    : ["工程選值", "法規表值", "算法依據參數", "覆寫值"].includes(role)
       ? "role-source"
       : "role-derived";
   return `<span class="role-badge ${className}">${escapeHtml(role)}</span>`;
@@ -405,7 +405,7 @@ function missingWorkflowBanner(snapshot: ReportSnapshotData): string {
   const missing = reportTracksForMode(snapshot.case.mode)
     .filter((track) => !snapshot.runs.some((run) => run.track === track))
     .map((track) => basisForTrack(track).shortLabel);
-  return `<div class="banner warning"><strong>本次只完成一份計算依據</strong><br>已完成：${escapeHtml(completed.join("、"))}。${missing.length ? `未完成：${escapeHtml(missing.join("、"))}；報告不會填入推測數字。` : ""}</div>`;
+  return `<div class="banner warning"><strong>本次只完成一份算法依據</strong><br>已完成：${escapeHtml(completed.join("、"))}。${missing.length ? `未完成：${escapeHtml(missing.join("、"))}；報告不會填入推測數字。` : ""}</div>`;
 }
 
 export function renderReportHtml(
@@ -492,7 +492,7 @@ export function renderReportHtml(
     { label: "客戶", value: snapshot.case.customer },
     { label: "設置地點", value: snapshot.case.location },
     { label: "本次計算任務", value: task },
-    { label: "計算依據", value: mode.label },
+    { label: "算法依據", value: mode.label },
   ];
   const summaryMarkup = summaryItems
     .reduce<string[]>((rows, item, index) => {

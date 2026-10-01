@@ -15,7 +15,7 @@ export type InputRole =
   | "覆寫值"
   | "法規表值"
   | "本案條件"
-  | "計算依據參數";
+  | "算法依據參數";
 export type FormulaValueRole = InputRole | "計算中間值";
 
 export interface ReportInputRow {
@@ -423,7 +423,7 @@ export function buildInputCompletenessBadges(
       {
         label: "尚未完成有效計算",
         tone: "warning",
-        detail: "請先完成至少一份計算依據。",
+        detail: "請先完成至少一份算法依據。",
       },
     ];
   }
@@ -432,7 +432,7 @@ export function buildInputCompletenessBadges(
     badges.push({
       label: "標準條件完成",
       tone: "success",
-      detail: "已完成本模式要求的計算依據。",
+      detail: "已完成本模式要求的算法依據。",
     });
   } else {
     badges.push({
@@ -610,14 +610,14 @@ export function buildDesignResults(
 const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
   "CUR-DIN-Q": [
     { symbol: "N", label: "每日用餐人數", unit: "人/日", role: "本案條件" },
-    { symbol: "Wm'", label: "每人用水量", unit: "L/人", role: "計算依據參數" },
+    { symbol: "Wm'", label: "每人用水量", unit: "L/人", role: "算法依據參數" },
     {
       symbol: "t",
       label: "每日使用時間",
       unit: "min/日",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-DIN-GU": [
     { symbol: "N", label: "每日用餐人數", unit: "人/日", role: "本案條件" },
@@ -625,10 +625,10 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "gu",
       label: "每人上游油脂量",
       unit: "g/人",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
     { symbol: "iu", label: "油脂清除週期", unit: "日", role: "本案條件" },
-    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "計算依據參數" },
+    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-DIN-GB": [
     { symbol: "N", label: "每日用餐人數", unit: "人/日", role: "本案條件" },
@@ -636,10 +636,10 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "gb",
       label: "每人下游油脂量",
       unit: "g/人",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
     { symbol: "ib", label: "殘渣清除週期", unit: "日", role: "本案條件" },
-    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "計算依據參數" },
+    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-DIN-G": [
     { symbol: "Gu", label: "上游油脂量", unit: "kg", role: "計算中間值" },
@@ -655,17 +655,17 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "Wm",
       label: "單位面積用水量",
       unit: "L/(m²·day)",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "n", label: "餐位利用率", unit: "", role: "計算依據參數" },
-    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "計算依據參數" },
+    { symbol: "n", label: "餐位利用率", unit: "", role: "算法依據參數" },
+    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "算法依據參數" },
     {
       symbol: "t",
       label: "每日使用時間",
       unit: "min/日",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-AREA-GU": [
     { symbol: "A", label: "全面積", unit: "m²", role: "計算中間值" },
@@ -673,12 +673,12 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "gu",
       label: "單位面積上游油脂量",
       unit: "g/(m²·day)",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "n", label: "餐位利用率", unit: "", role: "計算依據參數" },
-    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "計算依據參數" },
+    { symbol: "n", label: "餐位利用率", unit: "", role: "算法依據參數" },
+    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "算法依據參數" },
     { symbol: "iu", label: "油脂清除週期", unit: "日", role: "本案條件" },
-    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "計算依據參數" },
+    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-AREA-GB": [
     { symbol: "A", label: "全面積", unit: "m²", role: "計算中間值" },
@@ -686,12 +686,12 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "gb",
       label: "單位面積下游油脂量",
       unit: "g/(m²·day)",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "n", label: "餐位利用率", unit: "", role: "計算依據參數" },
-    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "計算依據參數" },
+    { symbol: "n", label: "餐位利用率", unit: "", role: "算法依據參數" },
+    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "算法依據參數" },
     { symbol: "ib", label: "殘渣清除週期", unit: "日", role: "本案條件" },
-    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "計算依據參數" },
+    { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-AREA-G": [
     { symbol: "Gu", label: "上游油脂量", unit: "kg", role: "計算中間值" },
@@ -708,13 +708,13 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "t",
       label: "每日使用時間",
       unit: "min/日",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "Wm'", label: "每人用水量", unit: "L/人", role: "計算依據參數" },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "Wm'", label: "每人用水量", unit: "L/人", role: "算法依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-REV-N-G": [
-    { symbol: "1000", label: "公斤換公克係數", unit: "", role: "計算依據參數" },
+    { symbol: "1000", label: "公斤換公克係數", unit: "", role: "算法依據參數" },
     {
       symbol: "Gcapacity",
       label: "設備油脂容納能力",
@@ -725,14 +725,14 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "gu",
       label: "每人上游油脂量",
       unit: "g/人",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
     { symbol: "iu", label: "油脂清除週期", unit: "日", role: "本案條件" },
     {
       symbol: "gb",
       label: "每人下游油脂量",
       unit: "g/人",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
     { symbol: "ib", label: "殘渣清除週期", unit: "日", role: "本案條件" },
   ],
@@ -757,7 +757,7 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       unit: "L/h",
       role: "計算中間值",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "LEG-DIN-Q": [
     { symbol: "n", label: "單餐期用餐人數", unit: "人/餐", role: "本案條件" },
@@ -765,20 +765,20 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "q",
       label: "每人每餐用水量",
       unit: "L/(人·餐)",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
     { symbol: "t", label: "餐期操作時間", unit: "h", role: "本案條件" },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "LEG-MEASURED-Q": [
     { symbol: "Qmeasured", label: "實測排水量", unit: "L", role: "本案條件" },
     { symbol: "t", label: "實測期間", unit: "h", role: "本案條件" },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "LEG-AREA-N": [
     { symbol: "A", label: "用餐營業面積", unit: "m²", role: "本案條件" },
-    { symbol: "d", label: "人員密度", unit: "人/m²", role: "計算依據參數" },
-    { symbol: "r", label: "翻桌率", unit: "次", role: "計算依據參數" },
+    { symbol: "d", label: "人員密度", unit: "人/m²", role: "算法依據參數" },
+    { symbol: "r", label: "翻桌率", unit: "次", role: "算法依據參數" },
   ],
   "LEG-VEFF": [
     {
@@ -787,14 +787,14 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       unit: "L/h",
       role: "計算中間值",
     },
-    { symbol: "6", label: "有效容積換算係數", unit: "", role: "計算依據參數" },
+    { symbol: "6", label: "有效容積換算係數", unit: "", role: "算法依據參數" },
   ],
   "LEG-VOL-QH": [
     {
       symbol: "6",
       label: "有效容積換算係數",
       unit: "1/h",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
     { symbol: "Veff", label: "設備有效容積", unit: "L", role: "本案條件" },
   ],
@@ -809,25 +809,25 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       symbol: "60",
       label: "每小時分鐘數",
       unit: "min/h",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
   ],
   "LEG-REV-N": [
-    { symbol: "6", label: "有效容積換算係數", unit: "", role: "計算依據參數" },
+    { symbol: "6", label: "有效容積換算係數", unit: "", role: "算法依據參數" },
     { symbol: "Veff", label: "設備有效容積", unit: "L", role: "本案條件" },
     { symbol: "t", label: "餐期操作時間", unit: "h", role: "本案條件" },
     {
       symbol: "q",
       label: "每人每餐用水量",
       unit: "L/(人·餐)",
-      role: "計算依據參數",
+      role: "算法依據參數",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "計算依據參數" },
+    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
   ],
   "LEG-REV-A": [
     { symbol: "n", label: "可支援用餐人數", unit: "人/餐", role: "計算中間值" },
-    { symbol: "d", label: "人員密度", unit: "人/m²", role: "計算依據參數" },
-    { symbol: "r", label: "翻桌率", unit: "次", role: "計算依據參數" },
+    { symbol: "d", label: "人員密度", unit: "人/m²", role: "算法依據參數" },
+    { symbol: "r", label: "翻桌率", unit: "次", role: "算法依據參數" },
   ],
 };
 
@@ -839,7 +839,7 @@ function definitionsForFormula(formulaCode: string): FormulaValueDefinition[] {
         symbol: "q",
         label: "每人每餐用水量",
         unit: "L/(人·餐)",
-        role: "計算依據參數",
+        role: "算法依據參數",
       },
       { symbol: "t", label: "餐期操作時間", unit: "h", role: "本案條件" },
     ];
