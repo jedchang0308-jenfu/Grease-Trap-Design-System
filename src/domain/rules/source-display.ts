@@ -8,6 +8,8 @@ export const calculationTrackOrder: readonly CalculationTrack[] = [
 
 export interface CalculationBasisDisplay {
   sourceCode: string;
+  documentName: string;
+  systemNote: string;
   shortLabel: string;
   fullLabel: string;
   pdfHref: string;
@@ -20,6 +22,8 @@ export const calculationBasisDisplay: Record<
 > = {
   LEGACY_QV: {
     sourceCode: "SRC-LEGACY-FULL",
+    documentName: "臺北市工務局衛工處設計說明",
+    systemNote: "本系統算法A",
     shortLabel: "算法A-臺北市工務局衛工處設計說明",
     fullLabel:
       "臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》",
@@ -29,6 +33,8 @@ export const calculationBasisDisplay: Record<
   },
   CURRENT_QG: {
     sourceCode: "SRC-CURRENT-2020",
+    documentName: "內政部給排水規範（附錄 5）",
+    systemNote: "本系統算法B",
     shortLabel: "算法B-內政部給排水規範（附錄 5）",
     fullLabel: "內政部《建築物給水排水設備設計技術規範》附錄 5",
     pdfHref:
@@ -65,6 +71,8 @@ export function basisForTrack(track: string): CalculationBasisDisplay {
   return (
     calculationBasisDisplay[track as CalculationTrack] ?? {
       sourceCode: "",
+      documentName: "計算依據",
+      systemNote: "",
       shortLabel: "計算依據",
       fullLabel: "計算依據",
       pdfHref: "",

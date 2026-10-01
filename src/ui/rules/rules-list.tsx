@@ -54,6 +54,7 @@ export function RulesList() {
                 <th>來源</th>
                 <th>文件</th>
                 <th>狀態</th>
+                <th>備註</th>
               </tr>
             </thead>
             <tbody>
@@ -62,7 +63,7 @@ export function RulesList() {
                 return (
                   <tr key={item.id}>
                     <td data-label="方法">
-                      <span className="case-title">{basis.shortLabel}</span>
+                      <span className="case-title">{basis.documentName}</span>
                     </td>
                     <td data-label="版本">{item.versionLabel}</td>
                     <td data-label="發布日期">{item.publicationDate}</td>
@@ -84,6 +85,7 @@ export function RulesList() {
                     <td data-label="狀態">
                       <StatusBadge status={item.status} />
                     </td>
+                    <td data-label="備註">{basis.systemNote}</td>
                   </tr>
                 );
               })}
