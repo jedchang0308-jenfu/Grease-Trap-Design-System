@@ -62,11 +62,7 @@ export function RulesList() {
                     <td data-label="方法">
                       <span className="case-title">{basis.shortLabel}</span>
                     </td>
-                    <td data-label="版本">
-                      <span title={`系統識別碼：${item.version}`}>
-                        {item.versionLabel}
-                      </span>
-                    </td>
+                    <td data-label="版本">{item.versionLabel}</td>
                     <td data-label="來源">{basis.fullLabel}</td>
                     <td data-label="文件">
                       {basis.pdfHref ? (
