@@ -45,7 +45,7 @@ export function RulesList() {
       ) : null}
       {!loading && !problem ? (
         <section className="panel">
-          <table className="case-table">
+          <table className="case-table rules-table">
             <thead>
               <tr>
                 <th>方法</th>

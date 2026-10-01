@@ -635,33 +635,33 @@ button.button {
 }
 
 @media (min-width: 901px) {
-  .case-table th:nth-child(1),
-  .case-table td:nth-child(1) {
+  .case-table:not(.rules-table) th:nth-child(1),
+  .case-table:not(.rules-table) td:nth-child(1) {
     width: 18%;
   }
 
-  .case-table th:nth-child(2),
-  .case-table td:nth-child(2) {
+  .case-table:not(.rules-table) th:nth-child(2),
+  .case-table:not(.rules-table) td:nth-child(2) {
     width: 14%;
   }
 
-  .case-table th:nth-child(3),
-  .case-table td:nth-child(3) {
+  .case-table:not(.rules-table) th:nth-child(3),
+  .case-table:not(.rules-table) td:nth-child(3) {
     width: 28%;
   }
 
-  .case-table th:nth-child(4),
-  .case-table td:nth-child(4) {
+  .case-table:not(.rules-table) th:nth-child(4),
+  .case-table:not(.rules-table) td:nth-child(4) {
     width: 11%;
   }
 
-  .case-table th:nth-child(5),
-  .case-table td:nth-child(5) {
+  .case-table:not(.rules-table) th:nth-child(5),
+  .case-table:not(.rules-table) td:nth-child(5) {
     width: 17%;
   }
 
-  .case-table th:nth-child(6),
-  .case-table td:nth-child(6) {
+  .case-table:not(.rules-table) th:nth-child(6),
+  .case-table:not(.rules-table) td:nth-child(6) {
     width: 12%;
     white-space: nowrap;
   }
@@ -672,6 +672,38 @@ button.button {
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.035em;
+}
+
+.rules-table {
+  width: fit-content;
+  max-width: 100%;
+  table-layout: auto;
+}
+
+.rules-table th,
+.rules-table td {
+  width: auto;
+}
+
+.rules-table th:nth-child(1),
+.rules-table td:nth-child(1),
+.rules-table th:nth-child(4),
+.rules-table td:nth-child(4) {
+  max-width: 240px;
+  overflow-wrap: anywhere;
+}
+
+.rules-table th:nth-child(2),
+.rules-table td:nth-child(2),
+.rules-table th:nth-child(3),
+.rules-table td:nth-child(3),
+.rules-table th:nth-child(5),
+.rules-table td:nth-child(5),
+.rules-table th:nth-child(6),
+.rules-table td:nth-child(6),
+.rules-table th:nth-child(7),
+.rules-table td:nth-child(7) {
+  white-space: nowrap;
 }
 
 .case-title {
