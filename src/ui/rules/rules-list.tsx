@@ -9,6 +9,7 @@ interface RuleSet {
   id: string;
   version: string;
   versionLabel: string;
+  publicationDate: string;
   methodFamily: string;
   status: string;
 }
@@ -49,6 +50,7 @@ export function RulesList() {
               <tr>
                 <th>方法</th>
                 <th>版本</th>
+                <th>發布日期</th>
                 <th>來源</th>
                 <th>文件</th>
                 <th>狀態</th>
@@ -63,6 +65,7 @@ export function RulesList() {
                       <span className="case-title">{basis.shortLabel}</span>
                     </td>
                     <td data-label="版本">{item.versionLabel}</td>
+                    <td data-label="發布日期">{item.publicationDate}</td>
                     <td data-label="來源">{basis.fullLabel}</td>
                     <td data-label="文件">
                       {basis.pdfHref ? (
