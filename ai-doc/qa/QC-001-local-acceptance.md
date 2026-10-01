@@ -92,3 +92,18 @@ E2E 已驗證自動匿名登入、建案、輸入編輯、雙軌計算、report 
 - `/cases`、`/cases/new`、任意 case ID 與 report URL 皆由 Hosting SPA rewrite 回應 200。
 - post-deploy browser smoke 的 console error、page error 與 T06／正式報告列印 fallback 驗證通過；disposable smoke case 已刪除。
 - rollback：Hosting 前一 version `ca30cb18c51ffbae`；Rules rollback 依 Firebase release history。
+
+## DEV-030｜「算法依據」用語更新
+
+| Gate | 結果 | 證據 |
+| --- | --- | --- |
+| format check | PASS | `npm run format:check` |
+| targeted lint | PASS | 受影響程式與報告測試檔；0 error／warning |
+| typecheck | PASS | `npm run typecheck` |
+| production build | PASS | Vite；160 modules；static `dist/` |
+| `git diff --check` | PASS | 無 whitespace error |
+| unit tests | Not run | 本次未執行測試套件 |
+| production static smoke | PASS | root、`/cases/1bf87a79-3724-4ced-88ec-4df79dd4414c/report`、`/rules` 均 HTTP 200；線上 bundle 含「算法依據」、不含「計算依據」 |
+| browser visual QC | Not verified | CUA Node process 連續兩次意外退出；沒有操作使用者既有分頁或寫入正式案件 |
+
+此次 Hosting-only 發布來源為 commit `5a9ad5c`，線上 bundle 為 `/assets/index-BYQ8Msmu.js`。這是文字更新，沒有修改 Firestore Rules 或 production data。因 browser visual QC 未取得畫面證據，本次只確認 production static delivery 與 bundle 內容，不宣稱瀏覽器畫面 QC 通過。

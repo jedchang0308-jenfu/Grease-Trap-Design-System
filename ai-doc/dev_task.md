@@ -1,6 +1,6 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-030 驗證中`
+文件狀態：`DEV-030 已部署；production static smoke 通過；browser UI 未充分驗證`
 
 版本：`5.43`
 
@@ -12,7 +12,8 @@
   - 摘要：報告、計算狀態、參數標籤、工作台提示及有效規格，將原「計算依據」統一為「算法依據」；不改變計算與資料契約。
   - 來源 ID：使用者要求「改成『算法依據』，其他地方比照辦理」
   - 父任務：DEV-028
-  - 下一步：完成檢查、正式發布及站台文案 smoke 後補紀錄。
+  - 下一步：若需視覺截圖驗收，待 browser automation 可用後，對報告 route 做唯讀 hard-reload 確認。
+  - 證據：commit `5a9ad5c`、format、typecheck、targeted lint、160 modules build、Hosting deploy；production root／report／rules route HTTP 200，bundle `/assets/index-BYQ8Msmu.js` 含「算法依據」且不含舊用語。UI screenshot 未驗證：CUA Node process 連續兩次意外退出；未操作使用者分頁、未寫入 production 資料；unit tests 未執行。
   - 計入交付：否
 
 - ✓ DEV-029 [交付點] [完成] [P1] [已發版] 案件歷史版本保留與唯讀查看
@@ -63,7 +64,7 @@
 
 ### DEV-030｜全系統「算法依據」用語統一
 
-狀態：`執行中`
+狀態：`已部署 / Local Gates Passed / Production Static Smoke Passed / Browser Visual QC Not Verified`
 
 節點類型：開發點
 
@@ -79,7 +80,11 @@
 
 風險等級：`Low`
 
-驗證狀態與正式發布證據於實作完成後補記。
+Spec Impact Preflight：`Intentional terminology update`。程式與有效 SPEC／ADR／QC 已同步；計算、公式、參數及資料契約不變。
+
+驗證結果：格式、型別、受影響檔案 lint、production build 與 `git diff --check` 通過。Unit tests 未執行。
+
+正式 Hosting 已部署；root、報告 route 與規則 route 均回應 HTTP 200，線上 JavaScript bundle 包含「算法依據」且不含舊用語。Browser screenshot QC 未充分驗證：CUA Node process 連續兩次意外退出；使用者既有分頁未操作，沒有新增或修改正式案件資料。
 
 ### DEV-029｜案件歷史版本保留與唯讀查看
 
