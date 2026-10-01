@@ -179,7 +179,7 @@ export function CasesList() {
                 <tr>
                   <th>案件</th>
                   <th>客戶／地點</th>
-                  <th>任務／模式</th>
+                  <th>計算任務／模式</th>
                   <th>狀態</th>
                   <th>最後更新</th>
                   <th>操作</th>
@@ -208,7 +208,7 @@ export function CasesList() {
                         {item.location.trim() || "未填地點"}
                       </span>
                     </td>
-                    <td data-label="任務／模式">
+                    <td data-label="計算任務／模式">
                       {taskLabels[item.taskCode] ?? item.taskCode}
                       <span className="case-meta">
                         {modeLabels[item.mode] ?? item.mode}

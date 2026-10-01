@@ -97,7 +97,7 @@ describe("report snapshot HTML", () => {
     expect(html).not.toContain(
       "<thead><tr><th>項目</th><th>內容</th><th>項目</th><th>內容</th></tr></thead>",
     );
-    expect(html).toContain('<th scope="row">需求目的</th>');
+    expect(html).toContain('<th scope="row">本次計算任務</th>');
     expect(html).toContain('<th scope="row">計算依據</th>');
   });
 
@@ -162,7 +162,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain(
       '<span class="step-index">步驟 2</span>換算每分鐘設計處理水量',
     );
-    expect(html).not.toContain("以下為參考資訊, 與此次計算目的無關");
+    expect(html).not.toContain("以下為參考計算");
     expect(html).not.toContain("step-relevance");
     expect(html).toContain(
       '<p class="step-line step-result"><span class="step-label">計算結果</span><strong>3,000 L/h</strong>',
@@ -253,7 +253,7 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("29.2 L/min");
     expect(html).not.toContain("每分鐘流量");
     expect(html).not.toContain("未取整");
-    expect(html).toContain("以下僅列本次需求目的的計算步驟");
+    expect(html).toContain("以下僅列本次計算任務的計算步驟");
     expect(html).not.toContain("kg/day");
     expect(html).not.toContain("給客戶的設計需求摘要");
     expect(html).not.toContain("設計需求摘要");
@@ -433,8 +433,10 @@ describe("report snapshot HTML", () => {
       includeReferenceCalculations: true,
     });
 
-    expect(html).toContain("<strong>需求目的｜由每日用餐人數換算流量</strong>");
-    expect(html).toContain("<h2>4 需求目的計算過程</h2>");
+    expect(html).toContain(
+      "<strong>本次計算任務｜由每日用餐人數換算流量</strong>",
+    );
+    expect(html).toContain("<h2>4 本次計算任務過程</h2>");
     expect(htmlWithReferences).toContain("<h2>4 完整計算過程</h2>");
     expect(html).not.toContain('class="result-purpose"');
     expect(html).not.toContain('class="topic-outcome"');
@@ -459,7 +461,7 @@ describe("report snapshot HTML", () => {
     );
     expect(htmlWithReferences).not.toContain("reference-details");
     expect(htmlWithReferences).toContain('class="reference-divider"');
-    expect(htmlWithReferences).toContain("以下為參考資訊, 與此次計算目的無關");
+    expect(htmlWithReferences).toContain("以下為參考計算");
     expect(htmlWithReferences).toContain(
       ".reference-divider::before, .reference-divider::after",
     );

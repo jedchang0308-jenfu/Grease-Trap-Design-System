@@ -2,9 +2,9 @@
 
 文件狀態：`Implemented Locally`
 
-版本：`2.5`
+版本：`2.6`
 
-日期：`2026-09-21`
+日期：`2026-10-01`
 
 權威範圍：功能語意、公式邊界、資料、交易、Auth、報告與驗收
 
@@ -27,7 +27,7 @@ In scope：
 
 - 案件清單、建立、搜尋、刪除、工作台與修訂。
 - `CURRENT_QG`、`LEGACY_QV`、`DUAL_COMPARISON`。
-- 六個客戶任務、正向／反向計算、完整性 assessment。
+- 六個計算任務、正向／反向計算、完整性 assessment。
 - 版本化 rules catalog、來源 metadata 與 checksum。
 - 報告草稿 snapshot、草稿與正式 HTML、隨站 Noto Sans TC、A4 print CSS、本機 PDF 產出。
 - Anonymous Auth、Firestore Web SDK、transaction 與 Rules。
@@ -43,9 +43,9 @@ Out of scope：
 
 ## 3. 穩定代碼
 
-任務：
+計算任務：
 
-| Code                            | 目的                   |
+| Code                            | 計算任務               |
 | ------------------------------- | ---------------------- |
 | `T01_DINERS_TO_FLOW`            | 人數換算流量           |
 | `T02_DINERS_TO_DESIGN`          | 人數換算設計需求       |

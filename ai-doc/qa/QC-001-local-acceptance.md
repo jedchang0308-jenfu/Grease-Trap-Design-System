@@ -44,7 +44,8 @@ Vite SPA、Anonymous Auth gate、Firestore client repository、strict Rules、�
 - 報告保存案件內 snapshot；正式報告與草稿使用同一 snapshot，不建立送審、覆核、核准或核發狀態。
 - 案件與正式報告直接共用 `GTC-YYMMDD-00`，沒有第二套前綴、轉換或流水號邏輯；版次沿用案件修訂號。
 - 報告 HTML 使用專案內建的 Noto Sans TC 字型檔；本機 renderer 或正式環境瀏覽器列印流程都等待字型與圖片完成載入。
-- 報告預覽的案件資料採緊湊標籤／值排列；案件、客戶、設置地點、需求目的與計算依據均保留。
+- 報告預覽的案件資料採緊湊標籤／值排列；案件、客戶、設置地點、本次計算任務與計算依據均保留。
+- 建案、案件清單及案件摘要均以「計算任務」稱呼使用者選擇的計算類型；報告使用「本次計算任務」與「參考計算」描述範圍。
 - 報告章節編號以實際文字呈現，主章、方法與公式步驟可讀為 `1`、`2.1`、`4.1.1` 等階層。
 - UI 使用「產生草稿 PDF」「產生正式報告」，正式報告為 primary action；舊 `ISSUED` 仍唯讀。
 - 本機 PDF helper 只掛載 Vite dev／preview middleware；正式 Hosting 使用瀏覽器列印 fallback，`dist/` 不含 server bundle、Admin SDK、session 或 Storage adapter。

@@ -96,7 +96,7 @@ export function NewCaseWizard() {
         hidden
       />
       <ol className="stepper" aria-label="建立案件步驟">
-        <li className={step === 1 ? "active" : ""}>1. 選擇任務</li>
+        <li className={step === 1 ? "active" : ""}>1. 選擇計算任務</li>
         <li className={step === 2 ? "active" : ""}>2. 計算模式</li>
         <li className={step === 3 ? "active" : ""}>3. 基本資料</li>
       </ol>
@@ -106,7 +106,7 @@ export function NewCaseWizard() {
       {step === 1 ? (
         <section className="panel">
           <h2>你要解決什麼問題？</h2>
-          <div className="choice-grid" role="radiogroup" aria-label="客戶任務">
+          <div className="choice-grid" role="radiogroup" aria-label="計算任務">
             {tasks.map(([value, label]) => (
               <label className="choice" key={value}>
                 <input

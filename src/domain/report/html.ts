@@ -387,7 +387,7 @@ function algorithmProcess(
       const isReference = !isPrimaryCalculationStep(taskCode, step.formulaCode);
       const divider =
         includeReferenceCalculations && isReference && !referenceDividerInserted
-          ? `<li class="reference-divider"><span>以下為參考資訊, 與此次計算目的無關</span></li>`
+          ? `<li class="reference-divider"><span>以下為參考計算</span></li>`
           : "";
       if (divider) referenceDividerInserted = true;
       return `${divider}${renderStep(step, index)}`;
@@ -436,11 +436,11 @@ export function renderReportHtml(
   );
   const calculationSectionTitle =
     hasReferenceCalculations && !includeReferenceCalculations
-      ? "需求目的計算過程"
+      ? "本次計算任務過程"
       : "完整計算過程";
   const calculationGuide = includeReferenceCalculations
     ? "採用值依規則取整；以下列出完整計算步驟。"
-    : "採用值依規則取整；以下僅列本次需求目的的計算步驟。";
+    : "採用值依規則取整；以下僅列本次計算任務的計算步驟。";
   const reportNumber = isFormal
     ? snapshot.reportNumber
     : REPORT_NUMBER_PLACEHOLDER;
@@ -491,7 +491,7 @@ export function renderReportHtml(
     { label: "案件", value: `${snapshot.case.caseNo} / ${versionLabel}` },
     { label: "客戶", value: snapshot.case.customer },
     { label: "設置地點", value: snapshot.case.location },
-    { label: "需求目的", value: task },
+    { label: "本次計算任務", value: task },
     { label: "計算依據", value: mode.label },
   ];
   const summaryMarkup = summaryItems
@@ -633,6 +633,6 @@ thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; t
 </style></head><body>
  <section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body">${coverDocumentMeta}${regeneratedHistory ? "<p>資料來源：歷史版本重新產生</p>" : ""}</div></div></section>
  <main class="report-body">${provenanceMarkup}<section class="overview"><h2>1 案件資料</h2><table class="summary-table"><tbody>${summaryMarkup}</tbody></table>${missingWorkflowBanner(snapshot)}<h2>2 本次輸入條件</h2>${inputOverview(visibleInputGroups, "2")}<div class="result-section"><h2>3 本次設計結果</h2>${outputOverview(snapshot, includeReferenceCalculations)}</div></section>
- <section class="${detailsClass}"><h2>4 ${calculationSectionTitle}</h2><p class="comparison-guide"><strong>需求目的｜${escapeHtml(task)}</strong><span>${calculationGuide}</span></p>${orderedRuns.map((run, index) => algorithmProcess(run, groupForTrack(run.track), methodChapterNumbers.get(run.track) ?? `4.${index + 1}`, snapshot.case.taskCode, includeReferenceCalculations)).join("")}</section><div class="screen-report-footer"><span></span>${screenFooterStatus}<span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
+ <section class="${detailsClass}"><h2>4 ${calculationSectionTitle}</h2><p class="comparison-guide"><strong>本次計算任務｜${escapeHtml(task)}</strong><span>${calculationGuide}</span></p>${orderedRuns.map((run, index) => algorithmProcess(run, groupForTrack(run.track), methodChapterNumbers.get(run.track) ?? `4.${index + 1}`, snapshot.case.taskCode, includeReferenceCalculations)).join("")}</section><div class="screen-report-footer"><span></span>${screenFooterStatus}<span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
 </body></html>`;
 }

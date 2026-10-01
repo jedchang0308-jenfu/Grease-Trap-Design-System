@@ -219,7 +219,7 @@ const fieldHelp = {
   },
   legacyVolume: {
     description:
-      "填寫油脂截留器可實際使用的有效容積，單位為 L；系統會依任務換算設計處理水量，或反推等效人數與面積。",
+      "填寫油脂截留器可實際使用的有效容積，單位為 L；系統會依計算任務換算設計處理水量，或反推等效人數與面積。",
     note: "請勿填外殼的名目容積。",
   },
   legacyVolumeSource: {
@@ -569,7 +569,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
       <section className="panel stack" aria-label="案件狀態與下一步">
         <dl className="summary-grid">
           <div>
-            <dt>任務</dt>
+            <dt>計算任務</dt>
             <dd>{taskLabels[item.task_code] ?? item.task_code}</dd>
           </div>
           <div>
