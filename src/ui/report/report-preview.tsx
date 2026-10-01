@@ -339,8 +339,8 @@ export function ReportPreview({
           <div className="report-settings-options" role="radiogroup">
             {(
               [
-                ["PURPOSE_ONLY", "精簡計算-只計算此次目的"],
-                ["FULL", "完整計算-連同參考資訊一同完整計算"],
+                ["PURPOSE_ONLY", "精準計算-只計算此次目的"],
+                ["FULL", "完整計算-連相關參考資訊皆計算"],
               ] as const
             ).map(([value, label]) => (
               <label className="report-setting-option" key={value}>
