@@ -11,6 +11,9 @@ const currentBase = {
   greaseCleaningDays: decimalValue,
   sedimentCleaningDays: decimalValue,
   actualUseMinutes: decimalValue.optional(),
+  selectionSourceType: z.string().optional(),
+  selectionBasis: z.string().optional(),
+  selectionEvidence: z.string().optional(),
 };
 
 export const currentInputSchema = z.discriminatedUnion("kind", [

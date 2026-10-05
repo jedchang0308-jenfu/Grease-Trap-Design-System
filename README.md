@@ -51,12 +51,13 @@ npm run dev:local
 
 ### 已有本機 runtime 時
 
-`dev:local` 會建立 Auth `9099`、Firestore `8080` 與 Vite `3100`。若同專案的 Firebase Emulator Hub 已在執行，指令會重用 Auth／Firestore；本系統頁面也已在 `3100` 時，指令會回報既有網址並正常結束。若埠號由無法確認為本專案的程序占用，指令會列出 PID 與程序名稱，不會自動停止程序。
+`dev:local` 預設使用 Auth `9099`、Firestore `8080`、Emulator UI `4000` 與 Vite `3100`。若同專案的 Firebase Emulator Hub 已在執行，指令會重用 Auth／Firestore；本系統頁面也已在 `3100` 時，指令會回報既有網址並正常結束。若 Emulator 埠被占用，啟動器會從預設埠往後尋找可用埠，並輸出實際配置；Vite 維持使用 `3100`。若無法確認 `3100` 上的服務屬於本專案，指令會列出 PID 與程序名稱並停止，不會自動停止任何程序。
 
 唯讀檢查埠號與服務：
 
 ```powershell
-netstat -ano | Select-String ':8080\s|:9099\s|:3100\s'
+netstat -ano | Select-String ':(8080|8081|9099|9100|3100|4000|4001|4400|4401|4500|4501)\s'
+# 若 Auth 使用替代埠，將 9099 換成啟動器輸出的實際埠號。
 Invoke-WebRequest http://127.0.0.1:9099/emulator/v1/projects/demo-grease-trap/config
 Invoke-WebRequest http://127.0.0.1:3100/
 ```

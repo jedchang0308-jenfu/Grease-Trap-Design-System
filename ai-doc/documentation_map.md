@@ -1,10 +1,10 @@
 # 文件地圖｜油脂截留器雙軌計算系統
 
-文件狀態：`Static Spark Production Deployed；DEV-032 本機實作待 UI 驗證`
+文件狀態：`Static Spark Production Deployed；DEV-037 雙算法選值依據統一呈現已實作／本次 UI QC 待補；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合視窗已實作／本次 UI QC 待補；DEV-034 A／B 用水量表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法比較介面本機 UI 驗證通過；DEV-031 本機埠衝突復原已驗證`
 
-權威版本：`4.2`
+權威版本：`4.24`
 
-最後更新：`2026-10-01`
+最後更新：`2026-10-06`
 
 ## 冷啟動順序
 
@@ -63,6 +63,9 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 | HD-17 | 刪除案件時永久刪除目前版本與全部歷史版本，不改成封存。 |
 | HD-18 | 歷史版本可用目前版型重新輸出 PDF，且須標示重新產生。   |
 | HD-19 | 報告與系統文案統一使用「算法依據」稱呼來源文件與算法 A／B。 |
+| HD-20 | 比較列說明用餐區面積可選同步；其他欄位仍各自輸入，不新增同步或換算行為，差異解釋放在欄位問號說明內。 |
+| HD-21 | 用餐區面積改為算法 A、B 兩欄並預設勾選同步；可取消同步獨立編輯。此決策僅適用用餐區面積，不改變其他欄位的獨立輸入行為。 |
+| HD-22 | 雙算法選值依據在同一展開區以 A／B 並列、相同欄位順序呈現；兩側選值理由與補充資料選填，算法 A 資料來源類型仍必填，算法 B 來源表及覆寫狀態由系統帶入。 |
 
 ## 權威順序
 
@@ -78,8 +81,13 @@ ADR-003、ADR-005、ADR-006、ADR-007 是歷史決策；ADR-008 的公開匿名�
 
 ## 目前狀態
 
+- DEV-037：算法 A、B 的本案計算方法、資料來源、採用參數、選值理由與補充資料在同一展開區按相同順序並列呈現；區內理由及補充資料選填，A 資料來源類型仍必填。理由留白不新增表單必填限制或缺少理由警示，既有工程輸入驗證不變；已填的理由與證據保存於輸入摘要並呈現在報告。本次工作台 UI QC 待補。
+- DEV-036：用餐區面積在算法 A、B 各有可編輯欄位，預設勾選同步並可取消；已保存的不同值會保留並以未勾選呈現。面積換算列以同行細項標籤標明算法 A 人員密度／翻桌率，並顯示算法 B 帶入的 n、n₀ 值；其他欄位維持獨立輸入，差異與查表說明保留在問號內，不另顯示關係標籤或欄位下方提示；本次 UI QC 待補。
+- DEV-035：算法 A q、密度／翻桌率及 k，算法 B Wm′／Wm、k 與每日 t 的查表內容已整合至對應問號彈窗；算法 A 安全係數類別與 exact k 說明均可查看 A／B／C 餐飲形式，類別彈窗已刪除重複補充段落；用水量與每日 t 的人數法／面積法均標示本案採用方法。查表問號實心深色、純說明問號淡色外框，尺寸與位置一致。當前工作區 typecheck 通過，工作台 UI QC 待補。
+- DEV-034：算法 A 臺北市 q 範圍表與算法 B 固定雙欄 Wm′（人數法）／Wm（面積法）參考表由「用水量參數」列問號開啟，並標示本案採用方法；比較表主欄仍只顯示當前任務適用值。本次入口整合尚待桌機與 390px UI QC。
 - DEV-032：算法 B t 欄位依任務與餐飲類型預填適用查表值，使用者可編輯；查表值不保存為覆寫；實作已完成，UI 尚待驗證。
-- DEV-031：本機 `dev:local` 已可重用同專案 Firebase Emulator；Windows PowerShell 5.1 的啟動 smoke 通過。未知 port owner 只回報 PID／程序名稱，不自動終止；未跑測試套件。
+- DEV-033：雙算法工作台以共同比較表按列呈現對應欄位；明確保留算法差異與單位；T01／T03／T05 桌機與 T01 390px 手機版 UI 驗證通過。
+- DEV-031：本機 `dev:local` 可重用同專案 Firebase Emulator；預設 Emulator 埠被占用時選取可用替代埠並同步 Vite 設定。既有 Windows PowerShell 5.1 重用 smoke 與本次 PowerShell 7.6.5 啟動／重用 smoke 通過；未知 Vite port owner 只回報 PID／程序名稱，不自動終止。runtime 按使用者要求維持運作，尚未做停止／埠釋放 smoke；未跑測試套件。
 - DEV-029：已完成本機實作與驗證；資料路徑、atomic transaction、`DELETING` recovery、routes、歷史報告 provenance 已落地。commit `2e1d261` 已發布 Rules／Hosting；canonical static smoke、asset provenance、production Auth／Firestore read-only smoke 與一次性授權 production history feature smoke 通過（版本 2 建立、歷史清單／唯讀明細／精簡與完整歷史報告、整案刪除後 direct URL 拒絕）。測試 fixture 已清理，未留下正式資料。
 - 基線 commit：`c5af308 chore: checkpoint public Firebase workflow`；release commit：`f0ccc1c refactor: ship static Firebase Spark SPA`。
 - DEV-021：純靜態 Spark 重構、本機 integration、production static build、三 viewport E2E 與 QC 已完成。

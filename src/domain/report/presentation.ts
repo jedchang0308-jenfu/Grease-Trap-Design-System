@@ -138,6 +138,24 @@ const currentInputFields: InputFieldDefinition[] = [
       "取代內政部附錄 5 流量 Q 公式中的 t（每日使用時間）；需保留案件依據。",
   },
   {
+    key: "selectionSourceType",
+    label: "算法依據來源",
+    unit: "",
+    role: "算法依據參數",
+  },
+  {
+    key: "selectionBasis",
+    label: "選值理由",
+    unit: "",
+    role: "工程選值",
+  },
+  {
+    key: "selectionEvidence",
+    label: "補充資料",
+    unit: "",
+    role: "工程選值",
+  },
+  {
     key: "greaseCleaningDays",
     label: "油脂清除週期",
     unit: "日",
@@ -227,7 +245,7 @@ const legacyInputFields: InputFieldDefinition[] = [
   },
   {
     key: "selectionBasis",
-    label: "選值原因",
+    label: "選值理由",
     unit: "",
     role: "工程選值",
   },
@@ -474,20 +492,16 @@ export function buildInputCompletenessBadges(
   }
 
   const completedLegacy = asRecord(payload.legacyInputs);
-  if (completed.includes("LEGACY_QV") && completedLegacy) {
-    badges.push(
-      hasSelectionReason(completedLegacy)
-        ? {
-            label: "工程選值已記錄",
-            tone: "info",
-            detail: "q、分類或 exact k 已保留選值說明。",
-          }
-        : {
-            label: "缺少選值理由",
-            tone: "warning",
-            detail: "請補上 q、分類或 exact k 的選值依據。",
-          },
-    );
+  if (
+    completed.includes("LEGACY_QV") &&
+    completedLegacy &&
+    hasSelectionReason(completedLegacy)
+  ) {
+    badges.push({
+      label: "工程選值已記錄",
+      tone: "info",
+      detail: "q、分類或 exact k 已保留選值說明。",
+    });
   }
 
   return badges;

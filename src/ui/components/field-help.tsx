@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef } from "react";
+import { useId, useRef, type ReactNode } from "react";
 
 export interface FieldHelpContent {
   description: string;
@@ -30,11 +30,13 @@ export function FieldLabelHelp({
 export function FieldHelpButton({
   ariaLabel,
   help,
+  reference,
   showText = true,
   title,
 }: {
   ariaLabel: string;
   help: FieldHelpContent;
+  reference?: ReactNode;
   showText?: boolean;
   title: string;
 }) {
@@ -46,9 +48,10 @@ export function FieldHelpButton({
     <>
       <button
         type="button"
-        className="field-help-trigger"
-        aria-label={ariaLabel}
+        className={`field-help-trigger${reference ? " has-reference" : ""}`}
+        aria-label={reference ? `${ariaLabel}與參考表` : ariaLabel}
         aria-haspopup="dialog"
+        title={reference ? `${ariaLabel}與參考表` : ariaLabel}
         onClick={() => dialog.current?.showModal()}
       >
         <span className="field-help-icon" aria-hidden="true">
@@ -58,22 +61,33 @@ export function FieldHelpButton({
       </button>
       <dialog
         ref={dialog}
-        className="field-help-dialog"
+        className={`field-help-dialog${reference ? " has-reference" : ""}`}
         aria-labelledby={titleId}
         aria-describedby={descriptionId}
         onCancel={() => dialog.current?.close()}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) {
+            dialog.current?.close();
+          }
+        }}
       >
         <div className="dialog-body">
-          <h2 id={titleId}>{title}說明</h2>
+          <h2 id={titleId}>
+            {title}
+            {reference ? "說明與參考表" : "說明"}
+          </h2>
           <p id={descriptionId}>{help.description}</p>
           {help.note ? <p className="field-help-note">{help.note}</p> : null}
+          {reference ? (
+            <div className="field-help-reference">{reference}</div>
+          ) : null}
           <div className="button-row end">
             <button
               type="button"
               className="button secondary"
               onClick={() => dialog.current?.close()}
             >
-              關閉說明
+              {reference ? "關閉" : "關閉說明"}
             </button>
           </div>
         </div>

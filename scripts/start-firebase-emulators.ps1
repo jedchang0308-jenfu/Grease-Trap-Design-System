@@ -23,6 +23,16 @@ function Get-PortListenerSummary([int]$Port) {
   }
 }
 
+function Get-AvailablePort([int]$PreferredPort, [int]$SearchLimit = 100) {
+  for ($port = $PreferredPort; $port -lt ($PreferredPort + $SearchLimit); $port++) {
+    if (@(Get-PortListenerSummary -Port $port).Count -eq 0) {
+      return $port
+    }
+  }
+
+  throw "No available port found in the range $PreferredPort-$($PreferredPort + $SearchLimit - 1). No process was stopped."
+}
+
 function Get-ExistingProjectEmulators([string]$ProjectId) {
   $locatorPath = Join-Path ([IO.Path]::GetTempPath()) "hub-$ProjectId.json"
   if (-not (Test-Path -LiteralPath $locatorPath)) {
@@ -111,11 +121,93 @@ if (-not $Test -and -not $E2E) {
     exit 0
   }
 
-  $portConflicts = @(
-    9099, 8080, 3100 | ForEach-Object { Get-PortListenerSummary -Port $_ }
-  )
-  if ($portConflicts.Count -gt 0) {
-    throw "Cannot start this project's local runtime because a required port is occupied by an unverified process: $($portConflicts -join ', '). No process was stopped."
+  $viteOwner = @(Get-PortListenerSummary -Port 3100)
+  if ($viteOwner.Count -gt 0) {
+    throw "Port 3100 is occupied by $($viteOwner -join ', '), and no matching project runtime was found. Stop only the verified owner or use its existing URL."
+  }
+
+  $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+  $runtimeDirectory = Join-Path ([IO.Path]::GetTempPath()) "grease-trap-dev-local-$PID-$([guid]::NewGuid().ToString('N'))"
+  New-Item -ItemType Directory -Path $runtimeDirectory | Out-Null
+
+  try {
+    $authPort = Get-AvailablePort -PreferredPort 9099
+    $firestorePort = Get-AvailablePort -PreferredPort 8080
+    $uiPort = Get-AvailablePort -PreferredPort 4000
+    $hubPort = Get-AvailablePort -PreferredPort 4400
+    $loggingPort = Get-AvailablePort -PreferredPort 4500
+
+    $firebaseConfig = Get-Content -Raw -LiteralPath (Join-Path $projectRoot "firebase.json") | ConvertFrom-Json
+    $firebaseConfig.firestore.rules = Join-Path $projectRoot $firebaseConfig.firestore.rules
+    $firebaseConfig.firestore.indexes = Join-Path $projectRoot $firebaseConfig.firestore.indexes
+    $firebaseConfig.emulators.auth.host = "127.0.0.1"
+    $firebaseConfig.emulators.auth.port = $authPort
+    $firebaseConfig.emulators.firestore.host = "127.0.0.1"
+    $firebaseConfig.emulators.firestore.port = $firestorePort
+    $firebaseConfig.emulators.ui.host = "127.0.0.1"
+    $firebaseConfig.emulators.ui.port = $uiPort
+
+    foreach ($emulatorName in @("hub", "logging")) {
+      if ($firebaseConfig.emulators.PSObject.Properties.Name -notcontains $emulatorName) {
+        $port = if ($emulatorName -eq "hub") { $hubPort } else { $loggingPort }
+        $firebaseConfig.emulators | Add-Member -NotePropertyName $emulatorName -NotePropertyValue ([PSCustomObject]@{
+          host = "127.0.0.1"
+          port = $port
+        })
+      }
+    }
+    $firebaseConfig.emulators.hub.host = "127.0.0.1"
+    $firebaseConfig.emulators.hub.port = $hubPort
+    $firebaseConfig.emulators.logging.host = "127.0.0.1"
+    $firebaseConfig.emulators.logging.port = $loggingPort
+
+    $runtimeConfigPath = Join-Path $runtimeDirectory "firebase.json"
+    $runtimeConfigJson = $firebaseConfig | ConvertTo-Json -Depth 30
+    [IO.File]::WriteAllText($runtimeConfigPath, $runtimeConfigJson, [Text.UTF8Encoding]::new($false))
+
+    $nodeCommand = Get-Command node -ErrorAction Stop
+    $nodePath = $nodeCommand.Source
+    $vitePath = Join-Path $projectRoot "node_modules/vite/bin/vite.js"
+    if (-not (Test-Path -LiteralPath $vitePath)) {
+      throw "Vite was not found at $vitePath. Run npm install in the project, then retry."
+    }
+
+    $launcherPath = Join-Path $runtimeDirectory "start-vite.cmd"
+    $launcherContents = @(
+      "@echo off"
+      "cd /d `"$projectRoot`""
+      "`"$nodePath`" `"$vitePath`" --host 0.0.0.0 --port 3100 --strictPort"
+    ) -join "`r`n"
+    [IO.File]::WriteAllText($launcherPath, $launcherContents, [Text.Encoding]::ASCII)
+
+    $env:VITE_FIREBASE_AUTH_EMULATOR_PORT = [string]$authPort
+    $env:VITE_FIREBASE_FIRESTORE_EMULATOR_PORT = [string]$firestorePort
+    if ($authPort -ne 9099 -or $firestorePort -ne 8080 -or $uiPort -ne 4000 -or $hubPort -ne 4400 -or $loggingPort -ne 4500) {
+      Write-Host "Using available local ports: Auth $authPort, Firestore $firestorePort, UI $uiPort, Hub $hubPort, logging $loggingPort."
+    }
+
+    Write-Host "Local URL: http://127.0.0.1:3100/cases"
+    $previousXdgConfigHome = $env:XDG_CONFIG_HOME
+    $env:XDG_CONFIG_HOME = Join-Path $runtimeDirectory "firebase-cli-config"
+    & npx.cmd --no-install firebase emulators:exec `
+      --config $runtimeConfigPath `
+      --project $projectId `
+      --only auth,firestore `
+      "`"$launcherPath`""
+
+    if ($LASTEXITCODE -ne 0) {
+      throw "Firebase emulator command failed with exit code $LASTEXITCODE"
+    }
+    exit 0
+  } finally {
+    if (Test-Path -LiteralPath $runtimeDirectory) {
+      Remove-Item -LiteralPath $runtimeDirectory -Recurse -Force
+    }
+    if ($null -eq $previousXdgConfigHome) {
+      Remove-Item Env:XDG_CONFIG_HOME -ErrorAction SilentlyContinue
+    } else {
+      $env:XDG_CONFIG_HOME = $previousXdgConfigHome
+    }
   }
 }
 

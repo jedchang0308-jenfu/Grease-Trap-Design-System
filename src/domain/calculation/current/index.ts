@@ -26,6 +26,9 @@ export interface CurrentBaseInput {
   greaseCleaningDays: Decimal.Value;
   sedimentCleaningDays: Decimal.Value;
   actualUseMinutes?: Decimal.Value;
+  selectionSourceType?: string;
+  selectionBasis?: string;
+  selectionEvidence?: string;
 }
 
 export interface CurrentByDinersInput extends CurrentBaseInput {
