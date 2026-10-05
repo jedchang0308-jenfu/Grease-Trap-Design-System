@@ -1,8 +1,8 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-037 雙算法選值依據統一呈現已實作／本次 UI QC 待補；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合覆蓋視窗已實作／本次 UI QC 待補；DEV-034 用水量參考表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法輸入逐列比較已完成本機 UI 驗證；DEV-032 查表值預填已實作；DEV-031 本機啟動重用與埠衝突復原已完成；DEV-030 已部署`
+文件狀態：`DEV-037 雙算法選值依據統一呈現已部署正式 Hosting／本次互動 UI QC 待補；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合覆蓋視窗已實作／本次 UI QC 待補；DEV-034 用水量參考表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法輸入逐列比較已完成本機 UI 驗證；DEV-032 查表值預填已實作；DEV-031 本機啟動重用與埠衝突復原已完成；DEV-030 已部署`
 
-版本：`5.67`
+版本：`5.68`
 
 最後更新：`2026-10-06`
 
@@ -13,7 +13,7 @@
   - 來源 ID：使用者指出 A、B 選值依據位於不同位置造成邏輯不一致，並要求依共同版型修改。
   - 父任務：DEV-036
   - 下一步：桌機與 390px 窄版檢視 A／B 區塊次序、任務方法、B 時間表值與採用值、欄位保存／報告呈現及水平溢出。
-  - 證據：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build` 通過；未執行測試套件或工作台 UI QC。
+  - 證據：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build` 通過；commit `e6b96e3` 已部署正式 Hosting。正式首頁與 `/cases` 為 HTTP 200，bundle 確認選填文案存在且舊缺少理由警示不存在；未執行測試套件或互動 UI QC。
   - 計入交付：否
 
 - ◐ DEV-036 [開發點] [實作完成／本次 UI QC 待補] [P2] [本輪可執行] 雙算法比較列呈現面積同步選項
@@ -125,7 +125,7 @@
 
 ### DEV-037｜雙算法選值依據統一呈現
 
-狀態：`實作完成／本次 UI QC 待補`
+狀態：`正式 Hosting 已部署／互動 UI QC 待補`
 
 節點類型：開發點
 
@@ -157,7 +157,7 @@
 
 Spec Impact Preflight：`Presentation and input-metadata contract update`。更新 SPEC-002 §6；current input schema 增加 optional source/reason/evidence metadata，供保存及報告追溯，不參與工程公式。
 
-驗證結果：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build` 通過；build 有 Vite 設定相容性及 chunk 大小警告。未執行測試套件或工作台 UI QC；待以桌機與 390px 窄版檢視版面及輸入／報告追溯行為。
+驗證結果：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build` 通過；build 有 Vite 設定相容性及 chunk 大小警告。commit `e6b96e3` 已部署至 `jenfu-grease-trap-calculator` Hosting；唯讀正式站確認首頁及 `/cases` HTTP 200，bundle `/assets/index-B1ITKz0x.js` HTTP 200、含「選值理由（選填）」且不含「缺少選值理由」。未執行測試套件或工作台互動 UI QC；桌機與 390px 窄版及保存／報告追溯行為仍待驗證。
 
 ### DEV-036｜雙算法比較列呈現面積同步選項
 
