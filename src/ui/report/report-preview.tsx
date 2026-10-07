@@ -297,19 +297,6 @@ export function ReportPreview({
 
   return (
     <div className="page report-preview-page">
-      <header className="page-header no-print">
-        <div>
-          <h1>{historical ? "歷史報告重新產生預覽" : "報告草稿預覽"}</h1>
-        </div>
-        <div className="actions">
-          <Link
-            to={historical ? `/cases/${caseId}/history` : `/cases/${caseId}`}
-          >
-            {historical ? "返回版本清單" : "返回案件"}
-          </Link>
-        </div>
-      </header>
-
       {problem ? (
         <div className="no-print">
           <RuntimeError
@@ -334,8 +321,21 @@ export function ReportPreview({
       ) : null}
 
       <section className="panel report-controls no-print" aria-label="報告操作">
+        <header className="report-controls-heading">
+          <h1>{historical ? "歷史報告重新產生預覽" : "報告草稿預覽"}</h1>
+          <Link
+            className="report-return-link"
+            to={historical ? `/cases/${caseId}/history` : `/cases/${caseId}`}
+          >
+            <span aria-hidden="true">←</span>
+            {historical ? "返回版本清單" : "返回案件"}
+          </Link>
+        </header>
         <fieldset className="report-settings-row">
-          <legend>報告設定</legend>
+          <legend className="report-settings-legend">報告設定</legend>
+          <span className="report-settings-label" aria-hidden="true">
+            報告設定
+          </span>
           <div className="report-settings-options" role="radiogroup">
             {(
               [

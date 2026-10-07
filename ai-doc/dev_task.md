@@ -1,19 +1,19 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-037 雙算法選值依據統一呈現已部署正式 Hosting／本次互動 UI QC 待補；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合覆蓋視窗已實作／本次 UI QC 待補；DEV-034 用水量參考表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法輸入逐列比較已完成本機 UI 驗證；DEV-032 查表值預填已實作；DEV-031 本機啟動重用與埠衝突復原已完成；DEV-030 已部署`
+文件狀態：`DEV-037 原選值依據修改已部署；本輪報告 A／B 對照表與美化預覽工具列已實作、必要靜態檢查通過／正式 Hosting 部署因 Firebase 憑證失效暫停，互動 UI QC 待補；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合覆蓋視窗已實作／本次 UI QC 待補；DEV-034 用水量參考表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法輸入逐列比較已完成本機 UI 驗證；DEV-032 查表值預填已實作；DEV-031 本機啟動重用與埠衝突復原已完成；DEV-030 已部署`
 
-版本：`5.68`
+版本：`5.72`
 
-最後更新：`2026-10-06`
+最後更新：`2026-10-07`
 
 ## 總任務清單
 
-- ◐ DEV-037 [開發點] [實作完成／本次 UI QC 待補] [P2] [本輪可執行] 雙算法選值依據統一呈現
-  - 摘要：算法 A、B 在同一展開區依相同順序呈現本案方法、資料來源、採用參數、選值理由與補充資料；A、B 的理由與補充證據均選填，資料來源類型仍必填。
+- ◐ DEV-037 [開發點] [報告對照表與緊湊預覽工具列實作完成／靜態檢查通過／正式部署待 Firebase 重新登入／互動 UI QC 待補] [P2] [本輪可執行] 雙算法選值依據統一呈現
+  - 摘要：算法 A、B 的選值依據同區對照；報告第 2 章沿用輸入設定頁的雙欄比較表，從已保存快照呈現欄位及採用值，預覽頁將標題、設定與操作整合為緊湊工具列。
   - 來源 ID：使用者指出 A、B 選值依據位於不同位置造成邏輯不一致，並要求依共同版型修改。
   - 父任務：DEV-036
-  - 下一步：桌機與 390px 窄版檢視 A／B 區塊次序、任務方法、B 時間表值與採用值、欄位保存／報告呈現及水平溢出。
-  - 證據：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build` 通過；commit `e6b96e3` 已部署正式 Hosting。正式首頁與 `/cases` 為 HTTP 200，bundle 確認選填文案存在且舊缺少理由警示不存在；未執行測試套件或互動 UI QC。
+  - 下一步：重新驗證 Firebase CLI 帳戶後，僅部署 Hosting 至 `jenfu-grease-trap-calculator`；確認正式資產與報告頁，再補互動 UI QC。
+  - 證據：原選值依據版本 commit `e6b96e3` 已部署。報告表格與工具列的 `npm run typecheck`、修改檔 ESLint、修改檔及開發文件 Prettier、161 modules production build、`git diff --check` 均通過；build 有 Vite config 相容性與大 chunk 警告。未執行測試套件或完整互動 UI QC。正式 Hosting 部署已嘗試，但 Firebase CLI 回報登入憑證失效，需 `firebase login --reauth`；沙盒外部署重試仍未取得有效憑證，未發布任何變更。
   - 計入交付：否
 
 - ◐ DEV-036 [開發點] [實作完成／本次 UI QC 待補] [P2] [本輪可執行] 雙算法比較列呈現面積同步選項
@@ -125,7 +125,7 @@
 
 ### DEV-037｜雙算法選值依據統一呈現
 
-狀態：`正式 Hosting 已部署／互動 UI QC 待補`
+狀態：`原選值依據修改已部署／本輪報告對照表實作完成、尚未部署／互動 UI QC 待補`
 
 節點類型：開發點
 
@@ -135,7 +135,7 @@
 
 原始需求邊界：使用者指出算法 A、B 的選值依據分置於不同位置，使閱讀邏輯不一致，並要求依統一的對照方式修改。
 
-任務目標：讓使用者在同一區域依固定順序查看算法 A、B 的本案計算方法、資料來源、採用參數與選值理由。
+任務目標：讓使用者在輸入設定與報告中都能依相同欄名和順序閱讀算法 A、B 的資料；報告值以本次已保存計算快照為準。
 
 風險等級：`Medium`
 
@@ -146,6 +146,11 @@
 - 算法 B 明確呈現本案採用的人數法／面積法、餐飲類型、附錄 5 來源表參數、每日 t 的來源表值與計算採用值及覆寫狀態；允許補充理由和證據。
 - 算法 B 的選值來源、理由與證據以 optional metadata 隨輸入保存並列入報告輸入摘要；計算公式與查表／覆寫行為不變。
 - 所有新增欄位顯示可見標籤；補充資料收合為選填區塊；不在其他位置重複顯示選值摘要。
+- 雙算法報告第 2 章沿用輸入設定頁的 A／B 對照表樣式、表頭與任務適用列順序；T01、T03、T05 依任務呈現對應欄位，避免把兩軌欄位併成兩份清單後留下空白格。
+- 報告只讀已保存 snapshot 的輸入與計算步驟代入值；需要補列來源表值時，僅在規則代碼、版本與 checksum 完全相符時使用對應版次。未完成、不適用、快照未記錄及選填未填寫均在儲存格明示。
+- 報告的 A／B 表格與輸入設定頁共用比較項目標籤；不變更公式、計算資料或已保存 snapshot schema，也不讀取工作台未保存編輯值。
+- 報告預覽標題、報告設定與保存／PDF 操作整合為桌機緊湊卡片式工具列；以使用者標記的 1242 × 668 畫面區域 261.6px 為基準，桌機工具列控制區目標不超過 105px（至少減少 60%），較窄畫面依序換列或堆疊且不可水平溢出；正式 PDF 維持唯一主要按鈕。
+- 工具列以單一淺色卡片承載；標題與返回連結、報告設定、保存／輸出按鈕各自成組，選中設定具清楚但克制的底色與邊界，操作群組以細分隔線區分；不增加額外操作或改變按鈕層級。
 
 驗收標準：
 
@@ -154,10 +159,22 @@
 - B 時間列能分開呈現來源表 t、計算採用 t 與目前使用來源表／使用者調整狀態；T05 來源值不一致時明示兩種方法各自採用來源值。
 - 「本案選值依據」區中 A、B 的選值理由與補充證據選填；A 的資料來源類型仍必填。理由留白不新增表單必填限制或顯示缺少理由警示；既有工程輸入驗證不變。已填文字與舊案件來源／理由／證據均可保存、載入並列入輸入摘要。
 - 開始計算、查表、餐飲類型切換及 t 覆寫計算行為不因新增依據欄位而改變。
+- 雙算法報告第 2 章與輸入設定頁維持相同 A／B 欄位、共用比較列名稱及任務適用順序；表格各儲存格沒有未說明的空白或破折號。
+- 報告參數只來自保存的輸入快照、保存的計算步驟代入值，或 checksum 一致的規則版本；變更工作台但未保存時不影響既有報告。
+- 1242px 桌機畫面以同一卡片呈現報告標題、設定與操作；標題／返回位於左上、設定位於左下、操作群組靠右跨列。相較參考畫面標記的 261.6px 區域，卡片高度至少減少 60%。1024px 與 390px 版面保持可讀且無水平溢出。
+- 主要背景、標題、返回連結、選項與操作按鈕形成清楚視覺群組；所選報告範圍容易辨識，正式 PDF 仍是唯一主要按鈕。
+- 草稿預覽、草稿 PDF 與正式 PDF 使用相同表格內容與呈現，不改變正式報告資料契約。
 
-Spec Impact Preflight：`Presentation and input-metadata contract update`。更新 SPEC-002 §6；current input schema 增加 optional source/reason/evidence metadata，供保存及報告追溯，不參與工程公式。
+Spec Impact Preflight：`Presentation contract update`。更新 SPEC-002 §8，明定雙算法報告採用輸入設定頁的對照表結構並依保存快照取值；不改公式、snapshot schema 或輸出資料契約。
 
-驗證結果：`npm run typecheck`、`npm run lint`、`npm run format:check`、`npm run build` 通過；build 有 Vite 設定相容性及 chunk 大小警告。commit `e6b96e3` 已部署至 `jenfu-grease-trap-calculator` Hosting；唯讀正式站確認首頁及 `/cases` HTTP 200，bundle `/assets/index-B1ITKz0x.js` HTTP 200、含「選值理由（選填）」且不含「缺少選值理由」。未執行測試套件或工作台互動 UI QC；桌機與 390px 窄版及保存／報告追溯行為仍待驗證。
+驗證結果：工具列在隔離瀏覽器排版畫面以 1242、1024、390px 寬度檢視；桌機與 1024px 控制卡高 75px，對照使用者原標記的 261.6px 高區域約減少 71%；390px 高 185px；三種寬度均無水平溢出。`npm run typecheck`、修改檔 ESLint、修改檔及開發文件 Prettier、161 modules production build、`git diff --check` 通過。Build 有 Vite config 相容性及 bundle 大小警告。完整 `dev:local` 因 Windows 沙盒禁止綁定本機模擬器埠而未能啟動，案件資料載入後的互動 UI QC 尚未完成；未執行測試套件。Firebase CLI 部署嘗試因登入憑證失效而停止，未發布；需 `firebase login --reauth` 後重試。既有選值依據功能的正式 release 不代表本輪報告修改已發布。
+
+變更紀錄：
+
+- 2026-10-07：依使用者要求，報告雙算法輸入條件改沿用輸入設定頁 A／B 對照表；共用列標籤，依已保存快照與計算步驟顯示值，並明確呈現未完成、不適用、未收錄及選填空值狀態。未執行 typecheck、build、UI QC 或部署。
+- 2026-10-07：依使用者要求，將報告標題、設定與保存／PDF 操作整合為緊湊工具列；隔離 CSS 版面檢視顯示 1242px 桌機標記區域高度約減少 76%，1024px 與 390px 無水平溢出。完整本機模擬器受埠綁定權限限制未能啟動；案件頁互動 QC、typecheck、build 與部署待辦。
+- 2026-10-07：依使用者回饋美化工具列，加入淺色卡片、標題／返回連結、選中選項與輸出群組的層次；隔離 CSS 檢視確認桌機控制卡 75px、對照原標記區域約減少 71%，各寬度無水平溢出。完整案件互動 QC 與部署仍待辦。
+- 2026-10-07：依使用者要求執行正式部署；typecheck、修改檔 lint／format、production build 通過。Firebase CLI 回報憑證失效，沙盒外重試亦無有效登入，因此 Hosting 尚未發布；需重新登入後續行。
 
 ### DEV-036｜雙算法比較列呈現面積同步選項
 
@@ -466,24 +483,24 @@ Spec Impact Preflight：`Intentional terminology update`。程式與有效 SPEC�
 
 驗證結果：
 
-| Gate | 狀態 |
-| --- | --- |
-| unit tests | Passed: 11 files / 51 tests |
-| Firestore Rules／repository integration | Passed: 1 file / 7 tests |
-| format check | Passed |
-| lint | Passed |
-| typecheck | Passed |
-| production static build | Passed: 160 modules |
-| production Rules deploy | Passed: `firestore.rules` compiled and released to `jenfu-grease-trap-calculator` |
-| production Hosting deploy | Passed: `https://jenfu-grease-trap-calculator.web.app`; published asset matches local `dist` hash |
-| production static smoke | Passed: canonical `/` and SPA `/cases/production-smoke-route` returned 200; title and asset hash matched |
-| production authenticated read-only smoke | Passed: anonymous Auth succeeded; `/cases` loaded 9 records; all 9 existing `/history` routes loaded and correctly showed `尚無歷史版本`; current production report route loaded expected headings/results; Playwright console reported 0 errors／warnings |
+| Gate                                             | 狀態                                                                                                                                                                                                                                                                                                      |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| unit tests                                       | Passed: 11 files / 51 tests                                                                                                                                                                                                                                                                               |
+| Firestore Rules／repository integration          | Passed: 1 file / 7 tests                                                                                                                                                                                                                                                                                  |
+| format check                                     | Passed                                                                                                                                                                                                                                                                                                    |
+| lint                                             | Passed                                                                                                                                                                                                                                                                                                    |
+| typecheck                                        | Passed                                                                                                                                                                                                                                                                                                    |
+| production static build                          | Passed: 160 modules                                                                                                                                                                                                                                                                                       |
+| production Rules deploy                          | Passed: `firestore.rules` compiled and released to `jenfu-grease-trap-calculator`                                                                                                                                                                                                                         |
+| production Hosting deploy                        | Passed: `https://jenfu-grease-trap-calculator.web.app`; published asset matches local `dist` hash                                                                                                                                                                                                         |
+| production static smoke                          | Passed: canonical `/` and SPA `/cases/production-smoke-route` returned 200; title and asset hash matched                                                                                                                                                                                                  |
+| production authenticated read-only smoke         | Passed: anonymous Auth succeeded; `/cases` loaded 9 records; all 9 existing `/history` routes loaded and correctly showed `尚無歷史版本`; current production report route loaded expected headings/results; Playwright console reported 0 errors／warnings                                                |
 | production archived-history detail／report smoke | Passed: explicit one-time disposable fixture created through UI; version 1 archived when version 2 was created; history list／read-only detail／history report regeneration passed in compact and complete modes; deletion removed head + archive and both direct routes then showed `找不到這筆共享案件` |
-| production smoke transport note | Two late Firestore Listen `ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT` console entries appeared after 172s／208s idle connection timeouts; no page error, runtime error, failed user operation, or data-integrity symptom was observed |
-| production report-setting label smoke | Passed: fresh cache-busted production route displayed `精準計算-只計算此次目的` and `完整計算-連相關參考資訊皆計算`; calculation/report output unchanged |
-| Playwright E2E | Passed: desktop-1440、tablet-1024、mobile-390；含歷史清單、唯讀明細、歷史報告重新產生預覽 |
-| `git diff --check` | Passed |
-| task-owned runtime cleanup | Passed: 8180／9199／3210 released; temp config removed |
+| production smoke transport note                  | Two late Firestore Listen `ERR_QUIC_PROTOCOL_ERROR.QUIC_NETWORK_IDLE_TIMEOUT` console entries appeared after 172s／208s idle connection timeouts; no page error, runtime error, failed user operation, or data-integrity symptom was observed                                                             |
+| production report-setting label smoke            | Passed: fresh cache-busted production route displayed `精準計算-只計算此次目的` and `完整計算-連相關參考資訊皆計算`; calculation/report output unchanged                                                                                                                                                  |
+| Playwright E2E                                   | Passed: desktop-1440、tablet-1024、mobile-390；含歷史清單、唯讀明細、歷史報告重新產生預覽                                                                                                                                                                                                                 |
+| `git diff --check`                               | Passed                                                                                                                                                                                                                                                                                                    |
+| task-owned runtime cleanup                       | Passed: 8180／9199／3210 released; temp config removed                                                                                                                                                                                                                                                    |
 
 Spec Impact Preflight：`Intentional replacement`。SPEC-003 定義預計取代 SPEC-001「建立新版本只更新單一案件 aggregate 並清除舊資料」的未來契約；在產品尚未實作前，SPEC-001 仍描述目前行為。ADR-012 鎖定新資料與交易架構；ADR-009 的 Spark、Anonymous Auth 與 client-only 邊界維持不變。
 

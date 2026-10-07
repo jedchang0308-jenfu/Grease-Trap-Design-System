@@ -55,6 +55,8 @@ export interface LegacyReverseInput extends LegacyBase {
 export interface LegacyVolumeToFlowInput {
   effectiveVolumeL: Decimal.Value;
   evidenceSource: string;
+  selectionBasis?: string;
+  selectionEvidence?: string;
 }
 
 export interface LegacyResult {
@@ -76,7 +78,6 @@ export interface LegacyResult {
 function validateSafetyFactor(
   value: Decimal.Value,
   safetyClass?: "A" | "B" | "C",
-  reason?: string,
 ) {
   const factor = decimal(value, "safetyFactor");
   const allowed =
@@ -89,11 +90,6 @@ function validateSafetyFactor(
           : ["1.2", "1.3", "1.4", "1.5"];
   if (!allowed.some((candidate) => factor.eq(candidate)))
     throw new DomainInputError("安全係數不在來源允許值內。", ["safetyFactor"]);
-  if ((safetyClass === "B" || safetyClass === "C") && !reason?.trim()) {
-    throw new DomainInputError("B／C 類必須填寫 exact k 選擇理由。", [
-      "selectionReason",
-    ]);
-  }
   return factor;
 }
 
@@ -144,11 +140,7 @@ function buildForwardResult(
 export function calculateLegacyByDiners(
   input: LegacyByDinersInput,
 ): LegacyResult {
-  const k = validateSafetyFactor(
-    input.safetyFactor,
-    input.safetyClass,
-    input.selectionReason,
-  );
+  const k = validateSafetyFactor(input.safetyFactor, input.safetyClass);
   const defaultQ = decimal(input.qLitersPerPersonMeal, "qLitersPerPersonMeal");
   const defaultT = decimal(input.operationHours, "operationHours");
   const steps: CalculationStep[] = [];
@@ -217,11 +209,7 @@ export function calculateLegacyMeasured(
 ): LegacyResult {
   const measured = decimal(input.measuredWastewaterL, "measuredWastewaterL");
   const hours = decimal(input.operationHours, "operationHours");
-  const k = validateSafetyFactor(
-    input.safetyFactor,
-    undefined,
-    input.selectionReason,
-  );
+  const k = validateSafetyFactor(input.safetyFactor);
   const qHour = measured.div(hours).mul(k);
   const steps: CalculationStep[] = [];
   step(
@@ -279,11 +267,7 @@ export function reverseLegacyByEffectiveVolume(
   const volume = decimal(input.effectiveVolumeL, "effectiveVolumeL");
   const q = decimal(input.qLitersPerPersonMeal, "qLitersPerPersonMeal");
   const t = decimal(input.operationHours, "operationHours");
-  const k = validateSafetyFactor(
-    input.safetyFactor,
-    input.safetyClass,
-    input.selectionReason,
-  );
+  const k = validateSafetyFactor(input.safetyFactor, input.safetyClass);
   const density = decimal(input.dinerDensity, "dinerDensity");
   const turnover = decimal(input.turnover, "turnover");
   const rawPeople = volume.mul(6).mul(t).div(q.mul(k));

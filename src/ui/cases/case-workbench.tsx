@@ -17,6 +17,7 @@ import {
 } from "@/application/cases/repository";
 import { toProblem } from "@/application/problem";
 import { resolveN0 } from "@/domain/calculation/current";
+import { comparisonInputTableLabels } from "@/domain/shared/comparison-input-table";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
@@ -394,13 +395,28 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
             ? { diningArea: currentDiningArea }
             : {}),
         }));
-      if (storedLegacyValues || legacyDiningArea !== undefined)
+      if (
+        storedLegacyValues ||
+        legacyDiningArea !== undefined ||
+        data.mode === "DUAL_COMPARISON"
+      )
         setLegacy((previous) => ({
           ...previous,
           ...(storedLegacyValues ?? {}),
-          selectionBasis: storedLegacyValues?.selectionBasis?.trim()
-            ? storedLegacyValues.selectionBasis
-            : (storedLegacyValues?.selectionReason ?? previous.selectionBasis),
+          ...(data.mode === "DUAL_COMPARISON"
+            ? {
+                selectionReason: "",
+                selectionSourceType:
+                  storedLegacyValues?.selectionSourceType?.trim() ?? "",
+                selectionBasis:
+                  legacyComparisonSelectionBasis(storedLegacyValues),
+              }
+            : {
+                selectionBasis: storedLegacyValues?.selectionBasis?.trim()
+                  ? storedLegacyValues.selectionBasis
+                  : (storedLegacyValues?.selectionReason ??
+                    previous.selectionBasis),
+              }),
           ...(legacyDiningArea !== undefined
             ? { areaM2: legacyDiningArea }
             : {}),
@@ -451,7 +467,7 @@ export function CaseWorkbench({ caseId }: { caseId: string }) {
             : undefined,
         legacyInputs:
           item.mode !== "CURRENT_QG"
-            ? buildLegacyInput(item.task_code, legacy)
+            ? buildLegacyInput(item.task_code, legacy, item.mode)
             : undefined,
       });
       await load();
@@ -1182,23 +1198,6 @@ function getCurrentUseTimeMethods(taskCode: string) {
   };
 }
 
-function getLegacyComparisonMethod(taskCode: string) {
-  if (taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW") return "有效容積換算";
-  if (taskCode === "T05_DESIGN_TO_DINERS_AND_AREA") return "依設備有效容積反推";
-  if (taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN")
-    return "面積法";
-  return "人數法";
-}
-
-function getCurrentComparisonMethod(taskCode: string) {
-  const { usesDinerMethod, usesAreaMethod } =
-    getCurrentUseTimeMethods(taskCode);
-  if (usesDinerMethod && usesAreaMethod) return "人數法與面積法";
-  if (usesDinerMethod) return "人數法";
-  if (usesAreaMethod) return "面積法";
-  return "不適用";
-}
-
 function buildCurrentUseTimeReference(taskCode: string, diningType: string) {
   if (!isDiningType(diningType)) return null;
   const { usesDinerMethod, usesAreaMethod } =
@@ -1407,98 +1406,6 @@ function DualComparisonFields({
       unit: reverseTask ? "A-36 查表" : undefined,
     },
   ];
-  const legacySelectionParameters = volumeToFlow
-    ? [
-        {
-          label: "設備有效容積",
-          value: legacy.effectiveVolumeL,
-          unit: "L",
-        },
-      ]
-    : [
-        ...(taskCode === "T01_DINERS_TO_FLOW" ||
-        taskCode === "T02_DINERS_TO_DESIGN"
-          ? [{ label: "用餐人數", value: legacy.people, unit: "人/餐" }]
-          : []),
-        ...(areaTask
-          ? [{ label: "用餐營業面積", value: legacy.areaM2, unit: "m²" }]
-          : []),
-        ...(reverseTask
-          ? [
-              {
-                label: "設備有效容積",
-                value: legacy.effectiveVolumeL,
-                unit: "L",
-              },
-            ]
-          : []),
-        {
-          label: "用水量 q",
-          value: legacy.qLitersPerPersonMeal,
-          unit: "L/(人·餐)",
-        },
-        { label: "使用時間 t", value: legacy.operationHours, unit: "h" },
-        { label: "安全係數類別", value: `${legacy.safetyClass} 類` },
-        { label: "安全係數 k", value: legacy.safetyFactor },
-        ...(areaTask || reverseTask
-          ? [
-              {
-                label: "人員密度",
-                value: legacy.dinerDensity,
-                unit: "人/m²",
-              },
-              { label: "翻桌率", value: legacy.turnover, unit: "次" },
-            ]
-          : []),
-      ];
-  const currentTimeReference = buildCurrentUseTimeReference(
-    taskCode,
-    current.diningType,
-  );
-  const currentTimeTableDefault = getCurrentUseTimeTableDefault(
-    taskCode,
-    current.diningType,
-  );
-  const currentTimeIsOverridden = isCurrentUseTimeOverride(
-    taskCode,
-    current.diningType,
-    current.actualUseMinutes,
-  );
-  const currentAdoptedTime =
-    current.actualUseMinutes.trim() ||
-    currentTimeTableDefault ||
-    (reverseTask && currentTimeReference ? "各自依適用表值" : undefined);
-  const currentTimeHasMissingMethodValue =
-    currentTimeReference?.lines.some((line) =>
-      line.includes("此餐飲類型無來源表 t 值"),
-    ) ?? false;
-  const currentTimeSelectionStatus = currentTimeIsOverridden
-    ? "使用者調整"
-    : currentTimeTableDefault
-      ? "使用來源表值"
-      : reverseTask && currentTimeReference
-        ? currentTimeHasMissingMethodValue
-          ? "部分方法無來源表值"
-          : "人數法與面積法各依來源表值"
-        : "尚未判定";
-  const currentSelectionParameters = [
-    ...waterFactors,
-    ...(areaTask || reverseTask ? areaConversionParameters : []),
-    ...kFactors,
-    {
-      label: "每日使用時間 t 來源表",
-      value: currentTimeReference?.lines.join("；") ?? factorFallback,
-    },
-    {
-      label: "每日使用時間 t 計算採用",
-      value: currentAdoptedTime,
-      unit: currentAdoptedTime === "各自依適用表值" ? undefined : "min/day",
-    },
-    {
-      label: "每日使用時間 t 狀態",
-      value: currentTimeSelectionStatus,
-    },
-  ];
   const diningAreaSyncNote = diningAreaSyncEnabled
     ? "已勾選同步：修改任一側的用餐區面積，另一側會同步更新。"
     : "未勾選同步：算法 A、B 分開保存。重新勾選時以最後修改的一側同步；進入本頁後尚未修改時，以算法 A 的值同步至算法 B。";
@@ -1540,7 +1447,7 @@ function DualComparisonFields({
         <table className="comparison-input-table">
           <thead>
             <tr>
-              <th scope="col">比較項目</th>
+              <th scope="col">{comparisonInputTableLabels.item}</th>
               <th scope="col">
                 {calculationBasisDisplay.LEGACY_QV.shortLabel}
               </th>
@@ -1553,7 +1460,7 @@ function DualComparisonFields({
             {!volumeToFlow ? (
               <>
                 <ComparisonRow
-                  label="餐飲分類"
+                  label={comparisonInputTableLabels.diningCategory}
                   legacy={
                     <ComparisonSelectInput
                       id="comparison-safety-class"
@@ -1610,7 +1517,7 @@ function DualComparisonFields({
 
                 {!areaTask && !reverseTask ? (
                   <ComparisonRow
-                    label="用餐人數"
+                    label={comparisonInputTableLabels.people}
                     legacy={
                       <ComparisonNumberInput
                         id="comparison-legacy-people"
@@ -1661,7 +1568,7 @@ function DualComparisonFields({
                       )}
                     />
                     <ComparisonRow
-                      label="廚房面積"
+                      label={comparisonInputTableLabels.kitchenArea}
                       legacy={
                         <ComparisonStaticCell>
                           此算法不另計廚房作業區面積
@@ -1687,7 +1594,7 @@ function DualComparisonFields({
                 {reverseTask ? (
                   <>
                     <ComparisonRow
-                      label="設備有效容積"
+                      label={comparisonInputTableLabels.effectiveVolume}
                       legacy={
                         <ComparisonNumberInput
                           id="comparison-legacy-volume"
@@ -1708,7 +1615,7 @@ function DualComparisonFields({
                       }
                     />
                     <ComparisonRow
-                      label="設備設計流量 Q"
+                      label={comparisonInputTableLabels.designFlowCapacity}
                       legacy={
                         <ComparisonStaticCell>
                           算法 A 不以 Q 能力作為反推輸入
@@ -1729,7 +1636,7 @@ function DualComparisonFields({
                       }
                     />
                     <ComparisonRow
-                      label="設備油脂能力 G"
+                      label={comparisonInputTableLabels.greaseCapacity}
                       legacy={
                         <ComparisonStaticCell>
                           算法 A 不使用 G 能力輸入
@@ -1750,7 +1657,7 @@ function DualComparisonFields({
                       }
                     />
                     <ComparisonRow
-                      label="能力資料來源／證據"
+                      label={comparisonInputTableLabels.equipmentEvidence}
                       legacy={
                         <ComparisonStaticCell>
                           依上列設備資料
@@ -1773,7 +1680,7 @@ function DualComparisonFields({
                 ) : null}
 
                 <ComparisonRow
-                  label="用水量參數"
+                  label={comparisonInputTableLabels.waterParameter}
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-q"
@@ -1811,7 +1718,7 @@ function DualComparisonFields({
                 />
 
                 <ComparisonRow
-                  label="使用時間 t"
+                  label={comparisonInputTableLabels.useTime}
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-hours"
@@ -1847,7 +1754,7 @@ function DualComparisonFields({
 
                 {(areaTask || reverseTask) && !volumeToFlow ? (
                   <ComparisonRow
-                    label="面積換算參數"
+                    label={comparisonInputTableLabels.areaParameters}
                     legacy={
                       <div className="comparison-control-stack">
                         <div className="comparison-subfield">
@@ -1908,7 +1815,7 @@ function DualComparisonFields({
                 ) : null}
 
                 <ComparisonRow
-                  label="安全係數 k"
+                  label={comparisonInputTableLabels.safetyFactor}
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-k"
@@ -1949,7 +1856,7 @@ function DualComparisonFields({
                 />
 
                 <ComparisonRow
-                  label="油脂清除週期"
+                  label={comparisonInputTableLabels.greaseCleaningPeriod}
                   legacy={
                     <ComparisonStaticCell>
                       此算法未使用此週期
@@ -1972,7 +1879,7 @@ function DualComparisonFields({
                   }
                 />
                 <ComparisonRow
-                  label="殘渣清除週期"
+                  label={comparisonInputTableLabels.sedimentCleaningPeriod}
                   legacy={
                     <ComparisonStaticCell>
                       此算法未使用此週期
@@ -1998,7 +1905,7 @@ function DualComparisonFields({
             ) : (
               <>
                 <ComparisonRow
-                  label="設備有效容積"
+                  label={comparisonInputTableLabels.effectiveVolume}
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-volume-only"
@@ -2018,86 +1925,52 @@ function DualComparisonFields({
                 />
               </>
             )}
-          </tbody>
-        </table>
-      </div>
-
-      <details className="comparison-details" open>
-        <summary>本案選值依據</summary>
-        <p className="comparison-basis-intro">
-          依相同順序查看兩種算法的計算方法、資料來源、本案參數與選值理由。
-        </p>
-        <div className="comparison-details-grid comparison-basis-grid">
-          <section className="comparison-basis-track">
-            <h3>{calculationBasisDisplay.LEGACY_QV.shortLabel}</h3>
-            <div className="comparison-basis-field">
-              <span className="comparison-basis-label">本案計算方法</span>
-              <p className="comparison-basis-readonly">
-                {getLegacyComparisonMethod(taskCode)}
-              </p>
-            </div>
-            <div className="comparison-basis-field">
-              <label
-                className="comparison-basis-label"
-                htmlFor={
-                  volumeToFlow
-                    ? "comparison-legacy-volume-source"
-                    : "comparison-selection-source"
-                }
-              >
-                資料來源
-              </label>
-              {volumeToFlow ? (
-                <ComparisonTextInput
-                  id="comparison-legacy-volume-source"
-                  label="算法 A 有效容積資料來源／證據"
-                  value={legacy.evidenceSource}
-                  onChange={(value) => setLegacyField("evidenceSource", value)}
-                  help={fieldHelp.legacyVolumeSource}
-                  required
-                />
-              ) : (
-                <div className="comparison-basis-control-main">
-                  <select
-                    id="comparison-selection-source"
-                    aria-label="算法 A 資料來源類型"
-                    value={legacy.selectionSourceType}
-                    onChange={(event) =>
-                      setLegacyField("selectionSourceType", event.target.value)
+            {volumeToFlow ? (
+              <ComparisonRow
+                label={comparisonInputTableLabels.equipmentEvidence}
+                legacy={
+                  <ComparisonTextInput
+                    id="comparison-legacy-volume-source"
+                    label="算法 A 有效容積資料來源／證據"
+                    value={legacy.evidenceSource}
+                    onChange={(value) =>
+                      setLegacyField("evidenceSource", value)
                     }
+                    help={fieldHelp.legacyVolumeSource}
                     required
-                  >
-                    <option value="來源表範圍選值">來源表範圍選值</option>
-                    <option value="客戶提供資料">客戶提供資料</option>
-                    <option value="實測/現場紀錄">實測/現場紀錄</option>
-                    <option value="工程保守判斷">工程保守判斷</option>
-                  </select>
-                  <FieldHelpButton
-                    ariaLabel="算法 A 資料來源類型說明"
-                    help={fieldHelp.selectionSourceType}
-                    showText={false}
-                    title="資料來源"
                   />
-                </div>
-              )}
-            </div>
-            <div className="comparison-basis-field">
-              <span className="comparison-basis-label">本案採用參數</span>
-              <ComparisonBasisValueList values={legacySelectionParameters} />
-            </div>
-            {!volumeToFlow ? (
-              <ComparisonBasisTextarea
-                id="comparison-selection-basis"
-                label="選值理由（選填）"
-                value={legacy.selectionBasis}
-                onChange={(value) => setLegacyField("selectionBasis", value)}
-                help={fieldHelp.selectionBasis}
-                placeholder="可補充餐飲分類、參考表或採用這組參數的理由"
+                }
+                current={
+                  <ComparisonStaticCell>此任務未使用</ComparisonStaticCell>
+                }
               />
             ) : null}
-            <details className="comparison-basis-evidence">
-              <summary>補充資料（選填）</summary>
-              {!volumeToFlow ? (
+            <ComparisonRow
+              label={comparisonInputTableLabels.selectionBasis}
+              legacy={
+                <ComparisonBasisTextarea
+                  id="comparison-selection-basis"
+                  label="取值依據"
+                  value={legacy.selectionBasis}
+                  onChange={(value) => setLegacyField("selectionBasis", value)}
+                  help={fieldHelp.selectionBasis}
+                  placeholder="可補充資料來源、餐飲分類或參數取值依據"
+                />
+              }
+              current={
+                <ComparisonBasisTextarea
+                  id="comparison-current-selection-basis"
+                  label="取值依據"
+                  value={current.selectionBasis}
+                  onChange={(value) => setCurrentField("selectionBasis", value)}
+                  help={fieldHelp.selectionBasis}
+                  placeholder="可補充資料來源、餐飲類型或參數取值依據"
+                />
+              }
+            />
+            <ComparisonRow
+              label={comparisonInputTableLabels.supplementaryData}
+              legacy={
                 <ComparisonBasisTextarea
                   id="comparison-selection-evidence"
                   label="文件或紀錄"
@@ -2108,60 +1981,23 @@ function DualComparisonFields({
                   help={fieldHelp.selectionEvidence}
                   placeholder="文件名稱、頁次、量測或確認紀錄"
                 />
-              ) : (
-                <p className="comparison-basis-readonly">
-                  {legacy.evidenceSource ||
-                    "請填寫設備有效容積的資料來源／證據。"}
-                </p>
-              )}
-            </details>
-          </section>
-          <section className="comparison-basis-track">
-            <h3>{calculationBasisDisplay.CURRENT_QG.shortLabel}</h3>
-            <div className="comparison-basis-field">
-              <span className="comparison-basis-label">本案計算方法</span>
-              <p className="comparison-basis-readonly">
-                {getCurrentComparisonMethod(taskCode)}
-                {diningType
-                  ? `・${diningLabels[diningType]}`
-                  : "・請先選擇餐飲類型"}
-              </p>
-            </div>
-            <div className="comparison-basis-field">
-              <span className="comparison-basis-label">資料來源</span>
-              <p className="comparison-basis-readonly">
-                內政部給排水規範（附錄 5）
-                <small>依上列計算方法與餐飲類型套用來源表</small>
-              </p>
-            </div>
-            <div className="comparison-basis-field">
-              <span className="comparison-basis-label">本案採用參數</span>
-              <ComparisonBasisValueList values={currentSelectionParameters} />
-            </div>
-            <ComparisonBasisTextarea
-              id="comparison-current-selection-basis"
-              label="選值理由（選填）"
-              value={current.selectionBasis}
-              onChange={(value) => setCurrentField("selectionBasis", value)}
-              help={fieldHelp.selectionBasis}
-              placeholder="可補充餐飲類型、查表值或覆寫時間的採用理由"
+              }
+              current={
+                <ComparisonBasisTextarea
+                  id="comparison-current-selection-evidence"
+                  label="文件或紀錄"
+                  value={current.selectionEvidence}
+                  onChange={(value) =>
+                    setCurrentField("selectionEvidence", value)
+                  }
+                  help={fieldHelp.selectionEvidence}
+                  placeholder="文件名稱、頁次、量測或確認紀錄"
+                />
+              }
             />
-            <details className="comparison-basis-evidence">
-              <summary>補充資料（選填）</summary>
-              <ComparisonBasisTextarea
-                id="comparison-current-selection-evidence"
-                label="文件或紀錄"
-                value={current.selectionEvidence}
-                onChange={(value) =>
-                  setCurrentField("selectionEvidence", value)
-                }
-                help={fieldHelp.selectionEvidence}
-                placeholder="文件名稱、頁次、量測或確認紀錄"
-              />
-            </details>
-          </section>
-        </div>
-      </details>
+          </tbody>
+        </table>
+      </div>
     </fieldset>
   );
 }
@@ -2354,7 +2190,7 @@ function LegacyFields({
       </SelectField>
       <TextField
         id="selection-basis"
-        label="選值理由（選填）"
+        label="取值說明（選填）"
         help={fieldHelp.selectionBasis}
         sourceType="工程選值"
         value={values.selectionBasis}
@@ -2686,7 +2522,7 @@ function ComparisonDiningAreaRow({
   return (
     <tr>
       <th scope="row">
-        <span>用餐區面積</span>
+        <span>{comparisonInputTableLabels.diningArea}</span>
         <label className="comparison-area-sync-toggle">
           <input
             type="checkbox"
@@ -2808,26 +2644,6 @@ function ComparisonTextInput({
         />
       </div>
     </div>
-  );
-}
-
-function ComparisonBasisValueList({
-  values,
-}: {
-  values: Array<{ label: string; value: string | undefined; unit?: string }>;
-}) {
-  return (
-    <dl className="comparison-basis-values">
-      {values.map(({ label, value, unit }) => (
-        <div key={label}>
-          <dt>{label}</dt>
-          <dd>
-            {value?.trim() || "尚無可用值"}
-            {value?.trim() && unit ? <span>{unit}</span> : null}
-          </dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 
@@ -3292,20 +3108,52 @@ function buildSelectionReason(values: Record<string, string>) {
   return parts.join("；") || values.selectionReason;
 }
 
-function buildLegacyInput(taskCode: string, values: Record<string, string>) {
+function legacyComparisonSelectionBasis(
+  values: Record<string, string> | undefined,
+) {
+  if (!values) return "";
+  const basis = values.selectionBasis?.trim() ?? "";
+  const sourceType = values.selectionSourceType?.trim() ?? "";
+  if (basis) {
+    return sourceType && !basis.includes(sourceType)
+      ? `取值來源類型：${sourceType}；${basis}`
+      : basis;
+  }
+  const reason = values.selectionReason?.trim() ?? "";
+  if (reason) return reason;
+  return sourceType ? `取值來源類型：${sourceType}` : "";
+}
+
+function buildLegacyInput(
+  taskCode: string,
+  values: Record<string, string>,
+  mode = "LEGACY_QV",
+) {
   if (taskCode === "T06_EFFECTIVE_VOLUME_TO_FLOW")
     return {
-      kind: "VOLUME_TO_FLOW",
+      kind: "VOLUME_TO_FLOW" as const,
       effectiveVolumeL: values.effectiveVolumeL,
       evidenceSource: values.evidenceSource,
+      ...(values.selectionBasis?.trim()
+        ? { selectionBasis: values.selectionBasis }
+        : {}),
+      ...(values.selectionEvidence?.trim()
+        ? { selectionEvidence: values.selectionEvidence }
+        : {}),
     };
   const base = {
     qLitersPerPersonMeal: values.qLitersPerPersonMeal,
     operationHours: values.operationHours,
     safetyFactor: values.safetyFactor,
     safetyClass: values.safetyClass,
-    selectionReason: buildSelectionReason(values),
-    selectionSourceType: values.selectionSourceType,
+    ...(mode === "DUAL_COMPARISON"
+      ? values.selectionBasis?.trim()
+        ? { selectionReason: values.selectionBasis }
+        : {}
+      : {
+          selectionReason: buildSelectionReason(values),
+          selectionSourceType: values.selectionSourceType,
+        }),
     selectionBasis: values.selectionBasis,
     selectionEvidence: values.selectionEvidence,
   };

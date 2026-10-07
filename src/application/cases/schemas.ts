@@ -89,6 +89,8 @@ export const legacyInputSchema = z.discriminatedUnion("kind", [
     kind: z.literal("VOLUME_TO_FLOW"),
     effectiveVolumeL: decimalValue,
     evidenceSource: z.string().trim().min(1),
+    selectionBasis: z.string().optional(),
+    selectionEvidence: z.string().optional(),
   }),
 ]);
 

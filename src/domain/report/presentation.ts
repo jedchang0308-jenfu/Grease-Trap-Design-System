@@ -145,7 +145,7 @@ const currentInputFields: InputFieldDefinition[] = [
   },
   {
     key: "selectionBasis",
-    label: "選值理由",
+    label: "取值依據",
     unit: "",
     role: "工程選值",
   },
@@ -245,13 +245,13 @@ const legacyInputFields: InputFieldDefinition[] = [
   },
   {
     key: "selectionBasis",
-    label: "選值理由",
+    label: "取值依據",
     unit: "",
     role: "工程選值",
   },
   {
     key: "selectionEvidence",
-    label: "證據備註",
+    label: "補充資料",
     unit: "",
     role: "工程選值",
   },

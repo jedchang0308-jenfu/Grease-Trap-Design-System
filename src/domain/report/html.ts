@@ -12,6 +12,14 @@ import {
   type ReportInputGroup,
   type ReportOutputCell,
 } from "./presentation";
+import { comparisonInputTableLabels } from "@/domain/shared/comparison-input-table";
+import { currentRuleChecksum } from "@/domain/rules/catalog";
+import {
+  currentAreaFactors,
+  currentDinerFactors,
+  currentSeatUtilization,
+  type DiningType,
+} from "@/domain/rules/seed-data";
 import {
   REPORT_NUMBER_PLACEHOLDER,
   type ReportDocumentKind,
@@ -272,10 +280,479 @@ function inputRows(
     .join("")}</tbody></table>`;
 }
 
+interface ComparisonInputLine {
+  label?: string;
+  value: string;
+  unit?: string;
+}
+
+interface ComparisonInputCell {
+  lines: ComparisonInputLine[];
+  sourceNote?: string;
+}
+
+interface ComparisonInputRow {
+  label: string;
+  algorithmA: ComparisonInputCell | string;
+  algorithmB: ComparisonInputCell | string;
+}
+
+function reportInputCell(
+  group: ReportInputGroup | undefined,
+  labels: string | string[],
+  missingValue = "尚未輸入",
+): ComparisonInputCell | string {
+  if (!group) return "尚未完成";
+  const acceptedLabels = Array.isArray(labels) ? labels : [labels];
+  const row = group.rows.find((candidate) =>
+    acceptedLabels.includes(candidate.label),
+  );
+  return row
+    ? {
+        lines: [{ value: row.value, unit: row.unit }],
+        ...(row.sourceNote ? { sourceNote: row.sourceNote } : {}),
+      }
+    : missingValue;
+}
+
+function reportStaticCell(
+  group: ReportInputGroup | undefined,
+  value: string,
+): ComparisonInputCell | string {
+  return group ? { lines: [{ value }] } : "尚未完成";
+}
+
+function optionalMetadataCell(
+  group: ReportInputGroup | undefined,
+  sourceLabel: string,
+  missingBasis: string,
+): ComparisonInputCell | string {
+  if (!group) return "尚未完成";
+  const source = group.rows.find((row) => row.label === sourceLabel)?.value;
+  const basis = group.rows.find((row) => row.label === "取值依據")?.value;
+  const legacyReason = group.rows.find(
+    (row) => row.label === "參數選擇理由",
+  )?.value;
+  return {
+    lines: [
+      ...(source ? [{ label: "資料來源類型", value: source }] : []),
+      {
+        label: "取值依據",
+        value: basis ?? legacyReason ?? missingBasis,
+      },
+    ],
+  };
+}
+
+function formulaInputCell(
+  run: SnapshotRun | undefined,
+  symbols: string | string[],
+): ComparisonInputCell | undefined {
+  const acceptedSymbols = Array.isArray(symbols) ? symbols : [symbols];
+  for (const step of run?.steps ?? []) {
+    const value = formulaValues(step).find((item) =>
+      acceptedSymbols.includes(item.symbol),
+    );
+    if (value) {
+      return {
+        lines: [{ value: value.value, unit: value.unit }],
+        ...(step.sourceRef
+          ? { sourceNote: `本次計算代入值｜${step.sourceRef}` }
+          : {}),
+      };
+    }
+  }
+  return undefined;
+}
+
+function comparisonRows(
+  groups: ReportInputGroup[],
+  snapshot: ReportSnapshotData,
+): ComparisonInputRow[] {
+  const algorithmA = groups.find((group) => group.track === "LEGACY_QV");
+  const algorithmB = groups.find((group) => group.track === "CURRENT_QG");
+  const runA = snapshot.runs.find((run) => run.track === "LEGACY_QV");
+  const runB = snapshot.runs.find((run) => run.track === "CURRENT_QG");
+  const taskCode = snapshot.case.taskCode;
+  const areaTask =
+    taskCode === "T03_AREA_TO_FLOW" || taskCode === "T04_AREA_TO_DESIGN";
+  const reverseTask = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
+  const currentInputs =
+    snapshot.inputs !== null &&
+    typeof snapshot.inputs === "object" &&
+    !Array.isArray(snapshot.inputs)
+      ? (snapshot.inputs as Record<string, unknown>).currentInputs
+      : undefined;
+  const currentInputRecord =
+    currentInputs !== null &&
+    typeof currentInputs === "object" &&
+    !Array.isArray(currentInputs)
+      ? (currentInputs as Record<string, unknown>)
+      : undefined;
+  const rawDiningType = String(currentInputRecord?.diningType ?? "");
+  const diningType = Object.prototype.hasOwnProperty.call(
+    currentDinerFactors,
+    rawDiningType,
+  )
+    ? (rawDiningType as DiningType)
+    : undefined;
+  const currentRuleAvailable =
+    runB?.ruleSet.code === "RULE-CURRENT-QG" &&
+    runB.ruleSet.version === "2020.1" &&
+    runB.ruleSet.checksum === currentRuleChecksum;
+  const dinerFactors =
+    currentRuleAvailable && diningType
+      ? currentDinerFactors[diningType]
+      : undefined;
+  const areaFactors =
+    currentRuleAvailable && diningType
+      ? currentAreaFactors[diningType]
+      : undefined;
+  const inputRows: ComparisonInputRow[] = [];
+  const addRow = (
+    label: string,
+    a: ComparisonInputCell | string,
+    b: ComparisonInputCell | string,
+  ) => inputRows.push({ label, algorithmA: a, algorithmB: b });
+  const addGroupValueRow = (
+    label: string,
+    algorithmALabel: string | string[],
+    algorithmBLabel: string | string[],
+    missingValue = "尚未輸入",
+  ) =>
+    addRow(
+      label,
+      reportInputCell(algorithmA, algorithmALabel, missingValue),
+      reportInputCell(algorithmB, algorithmBLabel, missingValue),
+    );
+
+  addGroupValueRow(
+    comparisonInputTableLabels.diningCategory,
+    "餐飲安全分類",
+    "餐飲類型",
+    "尚未選擇餐飲分類",
+  );
+
+  if (areaTask) {
+    addGroupValueRow(
+      comparisonInputTableLabels.diningArea,
+      ["用餐營業面積", "用餐區面積"],
+      "用餐區面積",
+    );
+    addRow(
+      comparisonInputTableLabels.kitchenArea,
+      reportStaticCell(algorithmA, "此算法不另計廚房作業區面積"),
+      reportInputCell(algorithmB, "廚房面積"),
+    );
+  } else if (reverseTask) {
+    addRow(
+      comparisonInputTableLabels.effectiveVolume,
+      reportInputCell(algorithmA, "設備有效容積"),
+      reportStaticCell(algorithmB, "依 Q 與 G 設計能力反推"),
+    );
+    addRow(
+      comparisonInputTableLabels.designFlowCapacity,
+      reportStaticCell(algorithmA, "不以 Q 能力作為反推輸入"),
+      reportInputCell(algorithmB, "設備設計處理水量能力"),
+    );
+    addRow(
+      comparisonInputTableLabels.greaseCapacity,
+      reportStaticCell(algorithmA, "不使用 G 能力輸入"),
+      reportInputCell(algorithmB, "設備油脂容納能力"),
+    );
+    addRow(
+      comparisonInputTableLabels.equipmentEvidence,
+      reportStaticCell(algorithmA, "依上列設備資料"),
+      reportInputCell(algorithmB, "能力資料來源"),
+    );
+  } else {
+    addGroupValueRow(
+      comparisonInputTableLabels.people,
+      "單餐期用餐人數",
+      "每日用餐人數",
+    );
+  }
+
+  const algorithmBWaterLines: ComparisonInputLine[] = [];
+  const addWaterFormula = (symbol: string, label: string) => {
+    const formulaCell = formulaInputCell(runB, symbol);
+    const item = formulaCell?.lines[0];
+    if (item) {
+      algorithmBWaterLines.push({ ...item, label });
+      return formulaCell.sourceNote;
+    }
+    return undefined;
+  };
+  const waterSourceNotes: string[] = [];
+  if (areaTask) {
+    const note = addWaterFormula("Wm", "Wm");
+    if (note) waterSourceNotes.push(note);
+    else if (areaFactors?.Wm)
+      algorithmBWaterLines.push({
+        label: "Wm",
+        value: areaFactors.Wm,
+        unit: "L/(m²·day)",
+      });
+  } else if (reverseTask) {
+    const dinerNote = addWaterFormula("Wm'", "Wm′");
+    if (dinerNote) waterSourceNotes.push(dinerNote);
+    else if (dinerFactors?.WmPrime)
+      algorithmBWaterLines.push({
+        label: "Wm′",
+        value: dinerFactors.WmPrime,
+        unit: "L/人",
+      });
+    if (areaFactors?.Wm)
+      algorithmBWaterLines.push({
+        label: "Wm",
+        value: areaFactors.Wm,
+        unit: "L/(m²·day)",
+      });
+    else if (currentRuleAvailable)
+      algorithmBWaterLines.push({
+        label: "Wm（面積法）",
+        value: "不適用此餐飲類型",
+      });
+  } else {
+    const note = addWaterFormula("Wm'", "Wm′");
+    if (note) waterSourceNotes.push(note);
+    else if (dinerFactors?.WmPrime)
+      algorithmBWaterLines.push({
+        label: "Wm′",
+        value: dinerFactors.WmPrime,
+        unit: "L/人",
+      });
+  }
+  const currentRuleNote =
+    algorithmB && currentRuleAvailable ? "內政部附錄 5 來源表" : undefined;
+  const waterSourceNote = waterSourceNotes[0] ?? currentRuleNote;
+  addRow(
+    comparisonInputTableLabels.waterParameter,
+    reportInputCell(algorithmA, "每人每餐用水量 q"),
+    !algorithmB
+      ? "尚未完成"
+      : algorithmBWaterLines.length
+        ? {
+            lines: algorithmBWaterLines,
+            ...(waterSourceNote ? { sourceNote: waterSourceNote } : {}),
+          }
+        : "本次快照未收錄參數值",
+  );
+
+  const legacyTime = reportInputCell(algorithmA, "餐期操作時間");
+  const adoptedLegacyTime =
+    legacyTime === "尚未輸入"
+      ? (formulaInputCell(runA, "t") ?? "本次快照未收錄時間值")
+      : legacyTime;
+  const currentTimeInput = reportInputCell(
+    algorithmB,
+    "每日實際使用時間",
+    "尚未記錄",
+  );
+  const currentTime =
+    currentTimeInput === "尚未記錄"
+      ? formulaInputCell(runB, "t")
+      : currentTimeInput;
+  const currentReverseAreaTime =
+    reverseTask && currentTimeInput === "尚未記錄" && areaFactors?.t
+      ? areaFactors.t
+      : undefined;
+  const currentReverseTimeSourceNote =
+    currentTime && typeof currentTime !== "string"
+      ? (currentTime.sourceNote ?? currentRuleNote)
+      : currentRuleNote;
+  addRow(
+    comparisonInputTableLabels.useTime,
+    adoptedLegacyTime,
+    !algorithmB
+      ? "尚未完成"
+      : reverseTask && currentReverseAreaTime
+        ? {
+            lines: [
+              ...(currentTime && typeof currentTime !== "string"
+                ? currentTime.lines.map((line) => ({
+                    ...line,
+                    label: "人數法 t（計算使用）",
+                  }))
+                : []),
+              {
+                label: "面積法 t（計算使用）",
+                value: currentReverseAreaTime,
+                unit: "min/day",
+              },
+            ],
+            ...(currentReverseTimeSourceNote
+              ? { sourceNote: currentReverseTimeSourceNote }
+              : {}),
+          }
+        : (currentTime ?? "本次快照未收錄時間值"),
+  );
+
+  if (areaTask || reverseTask) {
+    const legacyDensity = algorithmA?.rows.find(
+      (row) => row.label === "人員密度",
+    );
+    const legacyTurnover = algorithmA?.rows.find(
+      (row) => row.label === "翻桌率",
+    );
+    const legacyAreaParameters: ComparisonInputCell | string = algorithmA
+      ? {
+          lines: [
+            ...(legacyDensity
+              ? [
+                  {
+                    label: "人員密度",
+                    value: legacyDensity.value,
+                    unit: legacyDensity.unit,
+                  },
+                ]
+              : []),
+            ...(legacyTurnover
+              ? [
+                  {
+                    label: "翻桌率",
+                    value: legacyTurnover.value,
+                    unit: legacyTurnover.unit,
+                  },
+                ]
+              : []),
+            ...(!legacyDensity && !legacyTurnover
+              ? [{ value: "本次快照未收錄參數值" }]
+              : []),
+          ],
+        }
+      : "尚未完成";
+    const nValue = formulaInputCell(runB, "n")?.lines[0];
+    const n0Value = formulaInputCell(runB, "n0")?.lines[0];
+    const currentAreaLines: ComparisonInputLine[] = [];
+    if (nValue) currentAreaLines.push({ ...nValue, label: "n（餐位利用率）" });
+    else if (reverseTask && diningType && currentSeatUtilization[diningType])
+      currentAreaLines.push({
+        label: "n（餐位利用率）",
+        value: currentSeatUtilization[diningType]!,
+      });
+    else if (reverseTask && currentRuleAvailable)
+      currentAreaLines.push({
+        label: "n（餐位利用率）",
+        value: "不適用此餐飲類型",
+      });
+    if (n0Value)
+      currentAreaLines.push({ ...n0Value, label: "n₀（補正餐位利用率）" });
+    else if (reverseTask)
+      currentAreaLines.push({
+        label: "n₀（補正餐位利用率）",
+        value: "依候選面積查表",
+        unit: "A-36 查表",
+      });
+    const currentAreaSourceNote = reverseTask
+      ? currentRuleNote
+      : formulaInputCell(runB, "n")?.sourceNote;
+    const currentAreaCell: ComparisonInputCell | string = !algorithmB
+      ? "尚未完成"
+      : currentAreaLines.length
+        ? {
+            lines: currentAreaLines,
+            ...(currentAreaSourceNote
+              ? { sourceNote: currentAreaSourceNote }
+              : {}),
+          }
+        : "本次快照未收錄參數值";
+    addRow(
+      comparisonInputTableLabels.areaParameters,
+      legacyAreaParameters,
+      currentAreaCell,
+    );
+  }
+
+  const currentSafetyLines: ComparisonInputLine[] = [];
+  const currentSafetyFormula = formulaInputCell(runB, "k");
+  const currentSafetySourceNote =
+    currentSafetyFormula?.sourceNote ?? currentRuleNote;
+  if (reverseTask) {
+    const dinerK = currentSafetyFormula?.lines[0] ?? dinerFactors?.k;
+    const areaK = areaFactors?.k;
+    if (dinerK)
+      currentSafetyLines.push({
+        label: "人數法 k",
+        value: typeof dinerK === "string" ? dinerK : dinerK.value,
+      });
+    if (areaK) currentSafetyLines.push({ label: "面積法 k", value: areaK });
+    else if (currentRuleAvailable)
+      currentSafetyLines.push({
+        label: "面積法 k",
+        value: "不適用此餐飲類型",
+      });
+  } else if (currentSafetyFormula?.lines[0]) {
+    currentSafetyLines.push(currentSafetyFormula.lines[0]);
+  } else {
+    const factor = areaTask ? areaFactors?.k : dinerFactors?.k;
+    if (factor) currentSafetyLines.push({ value: factor });
+  }
+  addRow(
+    comparisonInputTableLabels.safetyFactor,
+    reportInputCell(algorithmA, "安全係數 k"),
+    !algorithmB
+      ? "尚未完成"
+      : currentSafetyLines.length
+        ? {
+            lines: currentSafetyLines,
+            ...(currentSafetySourceNote
+              ? { sourceNote: currentSafetySourceNote }
+              : {}),
+          }
+        : "本次快照未收錄參數值",
+  );
+
+  addRow(
+    comparisonInputTableLabels.greaseCleaningPeriod,
+    reportStaticCell(algorithmA, "此算法未使用此週期"),
+    reportInputCell(algorithmB, "油脂清除週期", "本次報告未納入參考條件"),
+  );
+  addRow(
+    comparisonInputTableLabels.sedimentCleaningPeriod,
+    reportStaticCell(algorithmA, "此算法未使用此週期"),
+    reportInputCell(algorithmB, "殘渣清除週期", "本次報告未納入參考條件"),
+  );
+  addRow(
+    comparisonInputTableLabels.selectionBasis,
+    optionalMetadataCell(algorithmA, "選值來源類型", "未填寫（選填）"),
+    optionalMetadataCell(algorithmB, "算法依據來源", "未填寫（選填）"),
+  );
+  addGroupValueRow(
+    comparisonInputTableLabels.supplementaryData,
+    "補充資料",
+    "補充資料",
+    "未填寫（選填）",
+  );
+  return inputRows;
+}
+
+function comparisonCellMarkup(cell: ComparisonInputCell | string): string {
+  if (typeof cell === "string")
+    return `<span class="comparison-report-note">${escapeHtml(cell)}</span>`;
+  const linesMarkup = cell.lines
+    .map(
+      (line) =>
+        `<span class="comparison-report-line">${line.label ? `<span class="comparison-report-label">${escapeHtml(line.label)}</span>` : ""}<strong>${escapeHtml(line.value)}</strong>${line.unit ? ` <span class="unit">${escapeHtml(line.unit)}</span>` : ""}</span>`,
+    )
+    .join("");
+  return `${linesMarkup}${cell.sourceNote ? `<span class="comparison-report-source">${escapeHtml(cell.sourceNote)}</span>` : ""}`;
+}
+
 function inputOverview(
   groups: ReportInputGroup[],
   chapterNumber: string,
+  snapshot: ReportSnapshotData,
 ): string {
+  if (snapshot.case.mode === "DUAL_COMPARISON") {
+    const rows = comparisonRows(groups, snapshot);
+    return `<div class="comparison-table-wrap"><table class="comparison-input-table"><thead><tr><th scope="col">${comparisonInputTableLabels.item}</th><th scope="col">${escapeHtml(basisForTrack("LEGACY_QV").shortLabel)}</th><th scope="col">${escapeHtml(basisForTrack("CURRENT_QG").shortLabel)}</th></tr></thead><tbody>${rows
+      .map(
+        (row) =>
+          `<tr><th scope="row">${escapeHtml(row.label)}</th><td>${comparisonCellMarkup(row.algorithmA)}</td><td>${comparisonCellMarkup(row.algorithmB)}</td></tr>`,
+      )
+      .join("")}</tbody></table></div>`;
+  }
   if (!groups.length) {
     return `<div class="empty-note">本次快照沒有可列出的輸入條件；報告不以 0 或推測值補齊。</div>`;
   }
@@ -563,6 +1040,19 @@ h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
 .input-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3mm; }
 .input-group { padding: 0; break-inside: avoid; }
 .input-groups > .input-group:only-child { grid-column: 1 / -1; }
+.comparison-table-wrap { width: 100%; max-width: 100%; overflow: hidden; margin: 3mm 0 5mm; border: 1px solid #D9E1E7; border-radius: 1.3mm; background: #fff; }
+.comparison-input-table { width: 100%; table-layout: fixed; border-collapse: collapse; background: #fff; font-size: 8.2pt; }
+.comparison-input-table th, .comparison-input-table td { padding: 1.6mm 2mm; border: 0; border-bottom: 1px solid #D9E1E7; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.comparison-input-table thead th { color: #435C56; background: #F2F5F5; font-size: 8pt; font-weight: 700; }
+.comparison-input-table thead th:first-child, .comparison-input-table tbody th { width: 24%; }
+.comparison-input-table tbody th { color: #111; background: #FBFCFD; font-weight: 700; }
+.comparison-input-table tbody td + td { border-left: 1px solid #D9E1E7; }
+.comparison-input-table tbody tr:last-child > * { border-bottom: 0; }
+.comparison-report-line { display: block; margin: .3mm 0; }
+.comparison-report-line strong { color: #173B63; font-weight: 700; }
+.comparison-report-label { margin-right: 1.2mm; color: #435C56; font-size: 7.5pt; font-weight: 700; }
+.comparison-report-source { display: block; margin-top: .7mm; color: #555; font-size: 7.3pt; font-weight: 400; }
+.comparison-report-note { color: #555; font-size: 8pt; font-weight: 400; }
 .group-source { margin: 0 0 1mm; color: #555; font-size: 8pt; font-weight: 400; }
 table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 th, td { border: 1px solid #7f7f7f; padding: 1.6mm 2mm; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
@@ -632,7 +1122,7 @@ thead th { background: #F2F2F2; color: #111; font-size: 8pt; font-weight: 700; t
 @media print { html, body { background: #fff; } .cover-page, .report-body { box-shadow: none; } .screen-report-header, .screen-report-footer { display: none; } }
 </style></head><body>
  <section class="cover-page"><div class="cover-brand">${logoMarkup("jenfu-logo cover-logo")}<div class="cover-company-cn">鉦富機械有限公司</div></div><h1 class="cover-title">${escapeHtml(reportTitle)}</h1><div class="cover-spacer"></div><div class="cover-meta"><div class="cover-meta-strip"></div><div class="cover-meta-body">${coverDocumentMeta}${regeneratedHistory ? "<p>資料來源：歷史版本重新產生</p>" : ""}</div></div></section>
- <main class="report-body">${provenanceMarkup}<section class="overview"><h2>1 案件資料</h2><table class="summary-table"><tbody>${summaryMarkup}</tbody></table>${missingWorkflowBanner(snapshot)}<h2>2 本次輸入條件</h2>${inputOverview(visibleInputGroups, "2")}<div class="result-section"><h2>3 本次設計結果</h2>${outputOverview(snapshot, includeReferenceCalculations)}</div></section>
+ <main class="report-body">${provenanceMarkup}<section class="overview"><h2>1 案件資料</h2><table class="summary-table"><tbody>${summaryMarkup}</tbody></table>${missingWorkflowBanner(snapshot)}<h2>2 本次輸入條件</h2>${inputOverview(visibleInputGroups, "2", snapshot)}<div class="result-section"><h2>3 本次設計結果</h2>${outputOverview(snapshot, includeReferenceCalculations)}</div></section>
  <section class="${detailsClass}"><h2>4 ${calculationSectionTitle}</h2><p class="comparison-guide"><strong>本次計算任務｜${escapeHtml(task)}</strong><span>${calculationGuide}</span></p>${orderedRuns.map((run, index) => algorithmProcess(run, groupForTrack(run.track), methodChapterNumbers.get(run.track) ?? `4.${index + 1}`, snapshot.case.taskCode, includeReferenceCalculations)).join("")}</section><div class="screen-report-footer"><span></span>${screenFooterStatus}<span class="screen-footer-brand">${logoMarkup("screen-footer-logo")}鉦富機械有限公司</span></div></main>
 </body></html>`;
 }
