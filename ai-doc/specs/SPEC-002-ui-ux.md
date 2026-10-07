@@ -1,8 +1,8 @@
 # SPEC-002｜油脂截留器雙軌計算系統 UI／UX 契約
 
-文件狀態：`Implemented Locally`
+文件狀態：`Implemented / Production Deployed；資料載入後報告 UI QC 待有效案件`
 
-版本：`2.16`
+版本：`2.17`
 
 日期：`2026-10-07`
 

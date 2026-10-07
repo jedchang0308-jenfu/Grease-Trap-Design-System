@@ -1,19 +1,19 @@
 # DEV 任務總表｜油脂截留器雙軌計算系統
 
-文件狀態：`DEV-037 原選值依據修改已部署；本輪報告 A／B 對照表與美化預覽工具列已實作、必要靜態檢查通過／正式 Hosting 部署因 Firebase 憑證失效暫停，互動 UI QC 待補；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合覆蓋視窗已實作／本次 UI QC 待補；DEV-034 用水量參考表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法輸入逐列比較已完成本機 UI 驗證；DEV-032 查表值預填已實作；DEV-031 本機啟動重用與埠衝突復原已完成；DEV-030 已部署`
+文件狀態：`DEV-037 原選值依據修改及本輪報告 A／B 對照表與美化預覽工具列已部署正式 Hosting；資產／路由 smoke 通過，指定案件 ID 在正式站不存在，因此資料載入後的報告 UI QC 待有效案件；DEV-036 用餐區面積雙欄與選擇性同步已實作／本次 UI QC 待補；DEV-035 查表說明整合覆蓋視窗已實作／本次 UI QC 待補；DEV-034 用水量參考表入口整合已實作／本次 UI QC 待補；DEV-033 雙算法輸入逐列比較已完成本機 UI 驗證；DEV-032 查表值預填已實作；DEV-031 本機啟動重用與埠衝突復原已完成；DEV-030 已部署`
 
-版本：`5.72`
+版本：`5.73`
 
 最後更新：`2026-10-07`
 
 ## 總任務清單
 
-- ◐ DEV-037 [開發點] [報告對照表與緊湊預覽工具列實作完成／靜態檢查通過／正式部署待 Firebase 重新登入／互動 UI QC 待補] [P2] [本輪可執行] 雙算法選值依據統一呈現
+- ◐ DEV-037 [開發點] [報告對照表與緊湊預覽工具列已部署／正式資產 smoke 通過／資料載入 UI QC 待有效案件] [P2] [本輪可執行] 雙算法選值依據統一呈現
   - 摘要：算法 A、B 的選值依據同區對照；報告第 2 章沿用輸入設定頁的雙欄比較表，從已保存快照呈現欄位及採用值，預覽頁將標題、設定與操作整合為緊湊工具列。
   - 來源 ID：使用者指出 A、B 選值依據位於不同位置造成邏輯不一致，並要求依共同版型修改。
   - 父任務：DEV-036
-  - 下一步：重新驗證 Firebase CLI 帳戶後，僅部署 Hosting 至 `jenfu-grease-trap-calculator`；確認正式資產與報告頁，再補互動 UI QC。
-  - 證據：原選值依據版本 commit `e6b96e3` 已部署。報告表格與工具列的 `npm run typecheck`、修改檔 ESLint、修改檔及開發文件 Prettier、161 modules production build、`git diff --check` 均通過；build 有 Vite config 相容性與大 chunk 警告。未執行測試套件或完整互動 UI QC。正式 Hosting 部署已嘗試，但 Firebase CLI 回報登入憑證失效，需 `firebase login --reauth`；沙盒外部署重試仍未取得有效憑證，未發布任何變更。
+  - 下一步：如需資料載入後的正式報告 UI QC，請提供正式 Firebase 專案中可讀的測試案件 ID；本次使用的案件 ID 在正式站不存在，未查閱其他案件或寫入資料。
+  - 證據：本輪 source commit `3ef2b9d` 已部署至 `jenfu-grease-trap-calculator` Hosting（2026-10-07 live channel release）。部署範圍僅 Hosting，未部署 Rules、未寫入正式案件。正式首頁與 `/cases/01d94ca5-5431-4ae1-bf0e-03482b718610/report` 均 HTTP 200；線上 JS `index-BwLi2miJ.js` 與 CSS `index-BnkbXJrt.css` SHA-256 均與本機 `dist` 相同；JS 含報告比較表內容，CSS 含緊湊工具列選擇器。指定案件在 production 回報「找不到這筆共享案件」，所以未能檢視資料載入後的報告；隔離版面檢視仍確認桌機卡片 75px、390px 185px 且無水平溢出。`npm run typecheck`、修改檔 ESLint／Prettier、161 modules build、`git diff --check` 通過；build 有 Vite config 相容性及 bundle 大小警告。未執行測試套件。回復參照：已確認部署的 commit `e6b96e3`。
   - 計入交付：否
 
 - ◐ DEV-036 [開發點] [實作完成／本次 UI QC 待補] [P2] [本輪可執行] 雙算法比較列呈現面積同步選項
@@ -125,7 +125,7 @@
 
 ### DEV-037｜雙算法選值依據統一呈現
 
-狀態：`原選值依據修改已部署／本輪報告對照表實作完成、尚未部署／互動 UI QC 待補`
+狀態：`原選值依據修改及本輪報告對照表／緊湊工具列已部署／正式資產與路由 smoke 通過／資料載入 UI QC 待有效案件`
 
 節點類型：開發點
 
@@ -167,7 +167,7 @@
 
 Spec Impact Preflight：`Presentation contract update`。更新 SPEC-002 §8，明定雙算法報告採用輸入設定頁的對照表結構並依保存快照取值；不改公式、snapshot schema 或輸出資料契約。
 
-驗證結果：工具列在隔離瀏覽器排版畫面以 1242、1024、390px 寬度檢視；桌機與 1024px 控制卡高 75px，對照使用者原標記的 261.6px 高區域約減少 71%；390px 高 185px；三種寬度均無水平溢出。`npm run typecheck`、修改檔 ESLint、修改檔及開發文件 Prettier、161 modules production build、`git diff --check` 通過。Build 有 Vite config 相容性及 bundle 大小警告。完整 `dev:local` 因 Windows 沙盒禁止綁定本機模擬器埠而未能啟動，案件資料載入後的互動 UI QC 尚未完成；未執行測試套件。Firebase CLI 部署嘗試因登入憑證失效而停止，未發布；需 `firebase login --reauth` 後重試。既有選值依據功能的正式 release 不代表本輪報告修改已發布。
+驗證結果：工具列在隔離瀏覽器排版畫面以 1242、1024、390px 寬度檢視；桌機與 1024px 控制卡高 75px，對照使用者原標記的 261.6px 高區域約減少 71%；390px 高 185px；三種寬度均無水平溢出。`npm run typecheck`、修改檔 ESLint、修改檔及開發文件 Prettier、161 modules production build、`git diff --check` 通過。Build 有 Vite config 相容性及 bundle 大小警告。Firebase Hosting 已發布 commit `3ef2b9d`；正式首頁與指定報告 route HTTP 200，線上 JS／CSS SHA-256 與本機 build 完全相同，資產含報告比較表及緊湊工具列。指定案件 ID 在正式站不存在，故資料載入後的報告畫面尚未驗證；未讀取其他正式案件、未寫入資料。未執行測試套件。
 
 變更紀錄：
 
@@ -175,6 +175,7 @@ Spec Impact Preflight：`Presentation contract update`。更新 SPEC-002 §8，�
 - 2026-10-07：依使用者要求，將報告標題、設定與保存／PDF 操作整合為緊湊工具列；隔離 CSS 版面檢視顯示 1242px 桌機標記區域高度約減少 76%，1024px 與 390px 無水平溢出。完整本機模擬器受埠綁定權限限制未能啟動；案件頁互動 QC、typecheck、build 與部署待辦。
 - 2026-10-07：依使用者回饋美化工具列，加入淺色卡片、標題／返回連結、選中選項與輸出群組的層次；隔離 CSS 檢視確認桌機控制卡 75px、對照原標記區域約減少 71%，各寬度無水平溢出。完整案件互動 QC 與部署仍待辦。
 - 2026-10-07：依使用者要求執行正式部署；typecheck、修改檔 lint／format、production build 通過。Firebase CLI 回報憑證失效，沙盒外重試亦無有效登入，因此 Hosting 尚未發布；需重新登入後續行。
+- 2026-10-07：使用者完成 Firebase 重新登入後，commit `3ef2b9d` 已部署至正式 Hosting。首頁與指定報告 route HTTP 200，線上 JS／CSS 與本機 build SHA-256 相同；指定案件 ID 不存在於正式站，資料載入後 UI QC 待有效案件。
 
 ### DEV-036｜雙算法比較列呈現面積同步選項
 
