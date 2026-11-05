@@ -1063,6 +1063,15 @@ button.button {
   min-width: 0;
 }
 
+.comparison-control-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #435c56;
+  font-size: 0.78rem;
+  font-weight: 720;
+  line-height: 1.4;
+}
+
 .comparison-control-main {
   display: flex;
   align-items: center;

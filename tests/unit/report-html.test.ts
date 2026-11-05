@@ -50,7 +50,7 @@ function snapshot(): ReportSnapshotData {
         id: "run",
         track: "CURRENT_QG",
         methodCode: "CURRENT_BY_DINERS",
-        semantics: "內政部給排水規範（附錄 5）計算結果",
+        semantics: "建築給水排水設備規範（附錄第 5 點）計算結果",
         inputHash: "a".repeat(64),
         raw: { qLpm: "29.1667", gKg: "2.01" },
         adopted: { qLpm: "29.2", gKg: "2.1" },
@@ -158,10 +158,10 @@ describe("report snapshot HTML", () => {
     expect(html).not.toContain("Qminute=Qhour/60");
     expect(html).not.toContain('class="result-purpose"');
     expect(html).toContain(
-      '<span class="step-index">步驟 1</span>由有效容積換算每小時處理水量',
+      '<span class="step-index">步驟 1</span>依有效容積換算每小時流量 Q',
     );
     expect(html).toContain(
-      '<span class="step-index">步驟 2</span>換算每分鐘設計處理水量',
+      '<span class="step-index">步驟 2</span>換算每分鐘流量 Q',
     );
     expect(html).not.toContain("以下為參考計算");
     expect(html).not.toContain("step-relevance");
@@ -200,24 +200,32 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("本次只完成一份算法依據");
     expect(html).toContain("<h2>1 案件資料</h2>");
     expect(html).toContain("<h2>2 本次輸入條件</h2>");
-    expect(html).toContain("<h3>2.1 算法B-內政部給排水規範（附錄 5）</h3>");
+    const inputTable = html.match(
+      /<table class="comparison-input-table">.*?<\/table>/s,
+    )?.[0];
+    expect(inputTable).toContain(
+      '<thead><tr><th scope="col">比較項目</th><th scope="col">算法 A（容積法）</th><th scope="col">算法 B（性能法）</th></tr></thead>',
+    );
+    expect(inputTable).toContain(
+      '<tr><th scope="row">用餐人數</th><td><span class="comparison-report-note">尚未完成</span></td><td><span class="comparison-report-line"><span class="comparison-report-label">每日用餐人數</span><strong>100</strong> <span class="unit">人/日</span></span></td></tr>',
+    );
     expect(html).toContain("<h2>3 本次設計結果</h2>");
     expect(html).toContain("<h2>4 完整計算過程</h2>");
-    expect(html).toContain("<h3>4.1 使用算法B-內政部給排水規範（附錄 5）</h3>");
+    expect(html).toContain("<h3>4.1 使用算法 B（性能法）</h3>");
     expect(html).not.toContain('class="result-purpose"');
     expect(html).toContain(
-      '<span class="step-index">步驟 1</span>計算設計處理水量（尖峰每分鐘）',
+      '<span class="step-index">步驟 1</span>計算流量 Q（每分鐘）',
     );
     expect(html).not.toContain("4.1.1");
-    expect(html).toContain("算法B-內政部給排水規範（附錄 5）");
-    expect(html).toContain("算法A-臺北市工務局衛工處設計說明");
+    expect(html).toContain("算法 B（性能法）");
+    expect(html).toContain("算法 A（容積法）");
     expect(html).toContain("未完成");
-    expect(html).toContain("設計處理水量");
+    expect(html).toContain("計算流量 Q");
     expect(html).toContain(
-      '<td class="output-cell-final"><strong class="output-value">29.2</strong>',
+      '<td class="output-cell-final"><span class="comparison-report-label">計算流量 Q</span><strong class="output-value">29.2</strong>',
     );
     expect(html).toContain(
-      '<td class="output-cell-final"><strong class="output-value">2.1</strong>',
+      '<td class="output-cell-final"><span class="comparison-report-label">截留油脂及沉積殘留物量 G</span><strong class="output-value">2.1</strong>',
     );
     expect(html).toContain(
       '<td><span class="cell-state not-completed">未完成</span></td>',
@@ -242,15 +250,15 @@ describe("report snapshot HTML", () => {
     expect(html).toContain("每日用餐人數");
     expect(html).toContain("100");
     expect(html).toContain("人/日");
-    expect(html).toContain("油脂清除週期");
+    expect(html).toContain("預定油脂清除週期");
     expect(html).toContain("未完成");
-    expect(html).toContain("此依據無法計算");
+    expect(html).toContain("此算法未直接計算");
     expect(html).toContain("完整計算過程");
-    expect(html).toContain("計算設計處理水量（尖峰每分鐘）");
+    expect(html).toContain("計算流量 Q（每分鐘）");
     expect(html).toContain("公式");
     expect(html).toContain("代入內容");
     expect(html).toContain("數值算式");
-    expect(html).toContain("每人用水量");
+    expect(html).toContain("每用餐人使用水量");
     expect(html).toContain("29.2 L/min");
     expect(html).not.toContain("每分鐘流量");
     expect(html).not.toContain("未取整");
@@ -293,15 +301,29 @@ describe("report snapshot HTML", () => {
     });
 
     expect(html).toContain(
-      '<tr><th>設計處理水量</th><td><span class="cell-state not-completed">未完成</span></td><td class="output-cell-final"><strong class="output-value">29.2</strong>',
+      '<tr><th>計算流量 Q</th><td><span class="cell-state not-completed">未完成</span></td><td class="output-cell-final"><span class="comparison-report-label">計算流量 Q</span><strong class="output-value">29.2</strong>',
     );
-    expect(html).not.toContain("<tr><th>清除週期油脂量</th>");
+    expect(html).not.toContain("<tr><th>截留油脂及沉積殘留物量 G</th>");
     expect(htmlWithReferences).toContain(
-      '<tr><th>清除週期油脂量</th><td><span class="cell-state not-completed">未完成</span></td><td><strong class="output-value">2.1</strong>',
+      '<tr><th>截留油脂及沉積殘留物量 G</th><td><span class="cell-state not-completed">未完成</span></td><td><span class="comparison-report-label">截留油脂及沉積殘留物量 G</span><strong class="output-value">2.1</strong>',
     );
     expect(htmlWithReferences).not.toContain(
-      '<tr><th>清除週期油脂量</th><td class="output-cell-final">',
+      '<tr><th>截留油脂及沉積殘留物量 G</th><td class="output-cell-final">',
     );
+  });
+
+  it("keeps numbered input sections for a single-algorithm report", () => {
+    const data = snapshot();
+    data.case.mode = "CURRENT_QG";
+
+    const html = renderReportHtml(data);
+
+    expect(html).toContain("<h3>2.1 算法 B（性能法）</h3>");
+    expect(html).toContain(
+      '<tr><td>每日用餐人數</td><td class="number-cell">100 <span class="unit">人/日</span>',
+    );
+    expect(html).toContain("<h3>4.1 使用算法 B（性能法）</h3>");
+    expect(html).not.toContain('<table class="comparison-input-table">');
   });
 
   it("renders the full calculation process for each completed method", () => {
@@ -323,7 +345,7 @@ describe("report snapshot HTML", () => {
       id: "legacy-run",
       track: "LEGACY_QV",
       methodCode: "LEGACY_BY_DINERS",
-      semantics: "臺北市工務局衛工處設計說明計算結果：有效容積 Veff",
+      semantics: "臺北市衛工處設計說明計算結果：有效容積 Veff",
       inputHash: "d".repeat(64),
       raw: { qLph: "1068.75", effectiveVolumeL: "178.125" },
       adopted: { qLph: "1068.8", effectiveVolumeL: "178.2" },
@@ -360,15 +382,43 @@ describe("report snapshot HTML", () => {
     });
 
     const html = renderReportHtml(data);
-    expect(html).toContain("<h3>2.1 算法A-臺北市工務局衛工處設計說明</h3>");
-    expect(html).toContain("<h3>2.2 算法B-內政部給排水規範（附錄 5）</h3>");
-    expect(html).toContain("<h3>4.1 使用算法A-臺北市工務局衛工處設計說明</h3>");
-    expect(html).toContain("<h3>4.2 使用算法B-內政部給排水規範（附錄 5）</h3>");
+    const inputTable = html.match(
+      /<table class="comparison-input-table">.*?<\/table>/s,
+    )?.[0];
+    expect(inputTable).toContain(
+      '<thead><tr><th scope="col">比較項目</th><th scope="col">算法 A（容積法）</th><th scope="col">算法 B（性能法）</th></tr></thead>',
+    );
+    expect(inputTable).toContain(
+      '<tr><th scope="row">用餐人數</th><td><span class="comparison-report-line"><span class="comparison-report-label">每餐用餐人數 n</span><strong>95</strong> <span class="unit">人/餐</span></span></td><td><span class="comparison-report-line"><span class="comparison-report-label">每日用餐人數</span><strong>100</strong> <span class="unit">人/日</span></span></td></tr>',
+    );
+    expect(inputTable).toContain(
+      '<tr><th scope="row">水量計算參數</th><td><span class="comparison-report-line"><span class="comparison-report-label">每人每餐產生污水量 q</span><strong>30</strong> <span class="unit">L/(人·餐)</span>',
+    );
+    expect(inputTable).toContain(
+      '<span class="comparison-report-label">每餐廚房污水持續流出時間 t</span><strong>4</strong> <span class="unit">h</span>',
+    );
+    expect(inputTable).toContain(
+      '<span class="comparison-report-label">每日廚房使用時間 t</span><strong>600</strong> <span class="unit">min/日</span>',
+    );
+    expect(inputTable).toContain(
+      '<span class="comparison-report-label">安全係數 k</span><strong>1.5</strong> <span class="unit">無單位</span>',
+    );
+    expect(inputTable).toContain(
+      '<span class="comparison-report-label">平均流量係數 k</span><strong>3.5</strong> <span class="unit">無單位</span>',
+    );
+    expect(
+      renderReportHtml(data, "FORMAL").match(
+        /<table class="comparison-input-table">.*?<\/table>/s,
+      )?.[0],
+    ).toBe(inputTable);
+    expect(html).toContain("計算流量 Q（換算為 L/min）");
+    expect(html).toContain("<h3>4.1 使用算法 A（容積法）</h3>");
+    expect(html).toContain("<h3>4.2 使用算法 B（性能法）</h3>");
     expect(html).not.toContain('class="result-purpose"');
     expect(html).not.toContain("4.2.2");
-    expect(html).toContain("使用算法A-臺北市工務局衛工處設計說明");
-    expect(html).toContain("計算設計處理水量（每小時）");
-    expect(html).toContain("計算設備所需有效容積");
+    expect(html).toContain("使用算法 A（容積法）");
+    expect(html).toContain("計算流量 Q（每小時）");
+    expect(html).toContain("計算所需除油室有效容積 V");
     expect(html).toContain("1068.75÷6");
     expect(html).not.toContain("下表顯示本次採用值");
     expect(html).toContain(
@@ -376,13 +426,13 @@ describe("report snapshot HTML", () => {
     );
     expect(html).toContain("每分鐘流量");
     expect(html).toContain("17.8125 L/min");
-    expect(html).not.toContain("原始設計處理水量");
+    expect(html).not.toContain("原始計算流量 Q");
     expect(html).toContain("1,068.75");
     expect(html).toContain("L/h");
-    expect(html).toContain("單餐期用餐人數");
-    expect(html).toContain("每人每餐用水量 q");
-    expect(html).toContain("設備所需有效容積");
-    expect(html).toContain("此依據無法計算");
+    expect(html).toContain("每餐用餐人數");
+    expect(html).toContain("每人每餐產生污水量");
+    expect(html).toContain("所需除油室有效容積 V");
+    expect(html).toContain("此算法未直接計算");
     expect(html).toContain(">計算結果</span><strong>178.125 L</strong>");
   });
 
@@ -434,31 +484,31 @@ describe("report snapshot HTML", () => {
       includeReferenceCalculations: true,
     });
 
-    expect(html).toContain(
-      "<strong>本次計算任務｜由每日用餐人數換算流量</strong>",
-    );
+    expect(html).toContain("<strong>本次計算任務｜由用餐人數計算流量</strong>");
     expect(html).toContain("<h2>4 本次計算任務過程</h2>");
     expect(htmlWithReferences).toContain("<h2>4 完整計算過程</h2>");
     expect(html).not.toContain('class="result-purpose"');
     expect(html).not.toContain('class="topic-outcome"');
     expect(html).toContain(
-      '<span class="step-index">步驟 1</span>計算設計處理水量（尖峰每分鐘）',
+      '<span class="step-index">步驟 1</span>計算流量 Q（每分鐘）',
     );
-    expect(html).not.toContain("計算上游清除週期油脂量");
-    expect(html).not.toContain("計算下游清除週期油脂量");
-    expect(html).not.toContain("合計清除週期油脂量");
-    expect(html).not.toContain("<td>油脂清除週期</td>");
-    expect(html).not.toContain("<td>殘渣清除週期</td>");
-    expect(htmlWithReferences).toContain("<td>油脂清除週期</td>");
-    expect(htmlWithReferences).toContain("<td>殘渣清除週期</td>");
-    expect(html).not.toContain("<tr><th>清除週期油脂量</th>");
-    expect(htmlWithReferences).toContain("<tr><th>清除週期油脂量</th>");
+    expect(html).not.toContain("計算截留油脂量 Gu");
+    expect(html).not.toContain("計算沉積殘留物量 Gb");
+    expect(html).not.toContain("合計截留油脂及沉積殘留物量 G");
+    expect(html).not.toContain("<td>預定油脂清除週期</td>");
+    expect(html).not.toContain("<td>預定沉積殘留物清除週期</td>");
+    expect(htmlWithReferences).toContain("<td>預定油脂清除週期</td>");
+    expect(htmlWithReferences).toContain("<td>預定沉積殘留物清除週期</td>");
+    expect(html).not.toContain("<tr><th>截留油脂及沉積殘留物量 G</th>");
+    expect(htmlWithReferences).toContain(
+      "<tr><th>截留油脂及沉積殘留物量 G</th>",
+    );
     expect(htmlWithReferences).toContain("以下列出完整計算步驟");
     expect(htmlWithReferences).toContain(
-      '<li class="algorithm-step is-reference"><p class="step-purpose"><span class="step-index">步驟 2</span>計算上游清除週期油脂量',
+      '<li class="algorithm-step is-reference"><p class="step-purpose"><span class="step-index">步驟 2</span>計算截留油脂量 Gu',
     );
     expect(htmlWithReferences).toContain(
-      '<span class="step-index">步驟 4</span>合計清除週期油脂量',
+      '<span class="step-index">步驟 4</span>合計截留油脂及沉積殘留物量 G',
     );
     expect(htmlWithReferences).not.toContain("reference-details");
     expect(htmlWithReferences).toContain('class="reference-divider"');
@@ -477,14 +527,14 @@ describe("report snapshot HTML", () => {
     expect(htmlWithReferences).toContain(
       '<p class="step-line step-result"><span class="step-label">計算結果</span><strong>1.05 kg</strong>',
     );
-    expect(
-      htmlWithReferences.indexOf("計算設計處理水量（尖峰每分鐘）"),
-    ).toBeLessThan(htmlWithReferences.indexOf("計算上游清除週期油脂量"));
-    expect(htmlWithReferences.indexOf("計算上游清除週期油脂量")).toBeLessThan(
-      htmlWithReferences.indexOf("計算下游清除週期油脂量"),
+    expect(htmlWithReferences.indexOf("計算流量 Q（每分鐘）")).toBeLessThan(
+      htmlWithReferences.indexOf("計算截留油脂量 Gu"),
     );
-    expect(htmlWithReferences.indexOf("計算下游清除週期油脂量")).toBeLessThan(
-      htmlWithReferences.indexOf("合計清除週期油脂量"),
+    expect(htmlWithReferences.indexOf("計算截留油脂量 Gu")).toBeLessThan(
+      htmlWithReferences.indexOf("計算沉積殘留物量 Gb"),
+    );
+    expect(htmlWithReferences.indexOf("計算沉積殘留物量 Gb")).toBeLessThan(
+      htmlWithReferences.indexOf("合計截留油脂及沉積殘留物量 G"),
     );
     expect(html).not.toMatch(/4\.1\.\d/);
     expect(html).not.toContain("每分鐘流量");
@@ -519,11 +569,11 @@ describe("report snapshot HTML", () => {
       includeReferenceCalculations: true,
     });
 
-    expect(purposeOnlyHtml).not.toContain("計算上游清除週期油脂量");
+    expect(purposeOnlyHtml).not.toContain("計算截留油脂量 Gu");
     expect(html).not.toContain("reference-details");
     expect(html).toContain('class="reference-divider"');
     expect(html).toContain(
-      '<span class="step-index">步驟 2</span>計算上游清除週期油脂量',
+      '<span class="step-index">步驟 2</span>計算截留油脂量 Gu',
     );
   });
 
@@ -602,10 +652,22 @@ describe("report snapshot HTML", () => {
 
     expect(html).not.toContain('class="result-purpose"');
     expect(html).not.toContain("參考計算");
+    expect(html).toContain(
+      '<span class="comparison-report-label">n（餐位利用率）</span><strong>8</strong> <span class="unit">人/(餐位·日)</span>',
+    );
+    expect(html).toContain(
+      '<span class="comparison-report-label">n₀（補正餐位利用率）</span><strong>5</strong> <span class="unit">人/(餐位·日)</span>',
+    );
+    expect(html).toContain(
+      '<td class="symbol">n</td><td>餐位利用率</td><td class="number-cell">8</td><td>人/(餐位·日)</td>',
+    );
+    expect(html).toContain(
+      '<td class="symbol">n</td><td>每餐用餐人數</td><td class="number-cell">600</td><td>人/餐</td>',
+    );
     expect(html).toContain(">計算結果</span><strong>600 人</strong>");
     expect(html).not.toContain('class="result-purpose"');
     expect(html).toContain(
-      '<span class="step-index">步驟 2</span>計算設計處理水量（尖峰每分鐘）',
+      '<span class="step-index">步驟 2</span>計算流量 Q（每分鐘）',
     );
     expect(html).not.toMatch(/4\.[12]\.\d/);
   });

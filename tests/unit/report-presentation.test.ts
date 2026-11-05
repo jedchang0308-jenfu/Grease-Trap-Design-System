@@ -97,20 +97,20 @@ describe("report presentation model", () => {
     );
 
     expect(
-      groups[1].rows.find((row) => row.label === "每日實際使用時間"),
+      groups[1].rows.find((row) => row.label === "每日廚房使用時間 t"),
     ).toMatchObject({
-      role: "覆寫值",
+      role: "本案調整值",
       sourceNote:
-        "取代內政部附錄 5 流量 Q 公式中的 t（每日使用時間）；需保留案件依據。",
+        "取代給排水設計技術規範附錄第 5 點 流量 Q 公式中的 t（每日廚房使用時間）；需保留案件依據。",
     });
     expect(
-      groups[0].rows.find((row) => row.label === "選值原因"),
+      groups[0].rows.find((row) => row.label === "取值依據"),
     ).toMatchObject({
       value: "依餐飲型態選用",
       role: "工程選值",
     });
     expect(badges.map((badge) => badge.label)).toEqual([
-      "使用特殊條件完成",
+      "已完成計算（含本案調整或實測條件）",
       "工程選值已記錄",
     ]);
     expect(groups.map((group) => group.track)).toEqual([
@@ -125,9 +125,9 @@ describe("report presentation model", () => {
       "DUAL_COMPARISON",
     );
     const rows = model.rows;
-    const normalizedFlow = rows.find((row) => row.label === "設計處理水量");
-    const grease = rows.find((row) => row.label === "清除週期油脂量");
-    const volume = rows.find((row) => row.label === "設備所需有效容積");
+    const normalizedFlow = rows.find((row) => row.label === "計算流量 Q");
+    const grease = rows.find((row) => row.label === "截留油脂及沉積殘留物量 G");
+    const volume = rows.find((row) => row.label === "所需除油室有效容積 V");
 
     expect(normalizedFlow?.cells.CURRENT_QG).toMatchObject({
       state: "VALUE",
@@ -141,7 +141,7 @@ describe("report presentation model", () => {
     });
     expect(grease?.cells.LEGACY_QV.state).toBe("NOT_APPLICABLE");
     expect(volume?.cells.CURRENT_QG.state).toBe("NOT_APPLICABLE");
-    expect(rows.some((row) => row.label === "原始設計處理水量")).toBe(false);
+    expect(rows.some((row) => row.label === "原始計算流量 Q")).toBe(false);
     expect(model.tracks).toEqual(["LEGACY_QV", "CURRENT_QG"]);
   });
 
@@ -157,7 +157,7 @@ describe("report presentation model", () => {
     });
 
     expect(values).toEqual([
-      expect.objectContaining({ symbol: "n", label: "單餐期用餐人數" }),
+      expect.objectContaining({ symbol: "n", label: "每餐用餐人數" }),
       expect.objectContaining({ symbol: "q", unit: "L/(人·餐)" }),
       expect.objectContaining({ symbol: "t", unit: "h" }),
       expect.objectContaining({ symbol: "k", role: "算法依據參數" }),
@@ -188,16 +188,19 @@ describe("report presentation model", () => {
 
     expect(groups[0].rows).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: "設備有效容積", value: "500" }),
         expect.objectContaining({
-          label: "有效容積資料來源",
+          label: "設備除油室有效容積 V",
+          value: "500",
+        }),
+        expect.objectContaining({
+          label: "有效容積資料來源／證據",
           value: "設備圖面 A-01",
         }),
       ]),
     );
     expect(model.rows).toHaveLength(1);
     expect(model.rows[0]).toMatchObject({
-      label: "設計處理水量",
+      label: "計算流量 Q",
       cells: { LEGACY_QV: { state: "VALUE", value: "50", unit: "L/min" } },
     });
   });

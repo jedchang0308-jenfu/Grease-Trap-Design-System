@@ -22,24 +22,24 @@ export const calculationBasisDisplay: Record<
 > = {
   LEGACY_QV: {
     sourceCode: "SRC-LEGACY-FULL",
-    documentName: "臺北市工務局衛工處設計說明",
-    systemNote: "本系統算法A",
-    shortLabel: "算法A-臺北市工務局衛工處設計說明",
+    documentName: "臺北市衛工處設計說明",
+    systemNote: "本系統算法 A（容積法）",
+    shortLabel: "算法 A（容積法）",
     fullLabel:
       "臺北市政府工務局衛生下水道工程處《油脂截留器使用維護及設計說明》",
     pdfHref:
       "/rule-sources/SRC-LEGACY-FULL-taipei-grease-interceptor-design.pdf",
-    resultLabel: "依臺北市工務局衛工處設計說明計算",
+    resultLabel: "依臺北市衛工處設計說明計算",
   },
   CURRENT_QG: {
     sourceCode: "SRC-CURRENT-2020",
-    documentName: "內政部給排水規範（附錄 5）",
-    systemNote: "本系統算法B",
-    shortLabel: "算法B-內政部給排水規範（附錄 5）",
-    fullLabel: "內政部《建築物給水排水設備設計技術規範》附錄 5",
+    documentName: "建築物給水排水設備設計技術規範（附錄第 5 點）",
+    systemNote: "本系統算法 B（性能法）",
+    shortLabel: "算法 B（性能法）",
+    fullLabel: "內政部《建築物給水排水設備設計技術規範》附錄第 5 點",
     pdfHref:
       "/rule-sources/SRC-CURRENT-2020-building-water-drainage-appendix-5.pdf",
-    resultLabel: "依內政部給排水規範（附錄 5）計算",
+    resultLabel: "依給排水設計技術規範（附錄第 5 點）計算",
   },
 };
 
@@ -56,8 +56,8 @@ export const calculationModeDisplay: Record<
     description: calculationBasisDisplay.CURRENT_QG.resultLabel,
   },
   DUAL_COMPARISON: {
-    label: "不同計算法一起對照",
-    description: "同時呈現兩份資料來源的計算結果。",
+    label: "算法 A／B 比較",
+    description: "各算法分別計算後並列，保留各自定義、單位與適用條件。",
   },
 };
 

@@ -66,17 +66,57 @@ describe("legacy Q/V source regression", () => {
     expect(area.raw.effectiveVolumeL).toBe("500");
   });
 
-  it("requires an exact B/C safety factor reason", () => {
-    expect(() =>
-      calculateLegacyByDiners({
+  it.each([
+    ["B", "1.3", "780", "130"],
+    ["B", "1.4", "840", "140"],
+    ["C", "1.2", "720", "120"],
+    ["C", "1.3", "780", "130"],
+  ] as const)(
+    "accepts the explicit %s factor %s with an optional reason",
+    (safetyClass, safetyFactor, qLph, effectiveVolumeL) => {
+      const input = {
         people: "100",
         qLitersPerPersonMeal: "30",
         operationHours: "5",
-        safetyFactor: "1.3",
-        safetyClass: "B",
-      }),
-    ).toThrow(/理由/);
-  });
+        safetyFactor,
+        safetyClass,
+      };
+      const result = calculateLegacyByDiners(input);
+
+      expect(result.raw).toEqual({ qLph, effectiveVolumeL });
+      expect(result.adopted).toEqual({ qLph, effectiveVolumeL });
+      expect(
+        calculateLegacyByDiners({
+          ...input,
+          selectionReason: "依本案餐飲條件選定來源允許值。",
+        }),
+      ).toEqual(result);
+    },
+  );
+
+  it.each([
+    ["A", "1.3"],
+    ["B", "1.2"],
+    ["B", "1.35"],
+    ["C", "1.4"],
+    ["C", "1.25"],
+    ["B", ""],
+    ["C", ""],
+  ] as const)(
+    "rejects a missing or non-source %s factor %s even with a reason",
+    (safetyClass, safetyFactor) => {
+      expect(() =>
+        calculateLegacyByDiners({
+          people: "100",
+          qLitersPerPersonMeal: "30",
+          operationHours: "5",
+          safetyFactor,
+          safetyClass,
+          selectionReason: "已填理由仍不得使用來源未允許的係數。",
+        }),
+      ).toThrow(/safetyFactor|安全係數/);
+    },
+  );
 
   it("rounds reverse results down", () => {
     const result = reverseLegacyByEffectiveVolume({

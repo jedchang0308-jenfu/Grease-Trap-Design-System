@@ -332,15 +332,15 @@ export function ReportPreview({
           </Link>
         </header>
         <fieldset className="report-settings-row">
-          <legend className="report-settings-legend">報告設定</legend>
+          <legend className="report-settings-legend">報告範圍</legend>
           <span className="report-settings-label" aria-hidden="true">
-            報告設定
+            報告範圍
           </span>
           <div className="report-settings-options" role="radiogroup">
             {(
               [
-                ["PURPOSE_ONLY", "精準計算-只計算本次計算任務"],
-                ["FULL", "完整計算-包含參考計算"],
+                ["PURPOSE_ONLY", "僅本次計算任務"],
+                ["FULL", "包含參考計算"],
               ] as const
             ).map(([value, label]) => (
               <label className="report-setting-option" key={value}>

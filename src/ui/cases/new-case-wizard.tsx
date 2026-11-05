@@ -10,15 +10,18 @@ import {
 import { RuntimeError, type UiProblem } from "@/ui/components/runtime-error";
 
 const tasks = [
-  ["T01_DINERS_TO_FLOW", "我知道每日用餐人數，要換算流量。"],
-  ["T02_DINERS_TO_DESIGN", "我知道每日用餐人數，要規劃設計需求。"],
+  ["T01_DINERS_TO_FLOW", "我知道用餐人數，要計算流量。"],
+  ["T02_DINERS_TO_DESIGN", "我知道用餐人數，要規劃設計需求。"],
   ["T03_AREA_TO_FLOW", "我知道廚房與用餐區面積，要換算流量。"],
   ["T04_AREA_TO_DESIGN", "我知道廚房與用餐區面積，要規劃設計需求。"],
   [
     "T05_DESIGN_TO_DINERS_AND_AREA",
-    "我知道設備能力／有效容積，要反推等效人數及面積。",
+    "我知道設備能力／有效容積，要反推等效人數及面積上限。",
   ],
-  ["T06_EFFECTIVE_VOLUME_TO_FLOW", "我知道設備有效容積，要換算設計處理水量。"],
+  [
+    "T06_EFFECTIVE_VOLUME_TO_FLOW",
+    "我知道設備除油室有效容積，要依算法 A 換算流量。",
+  ],
 ] as const;
 
 const modes = [
@@ -97,7 +100,7 @@ export function NewCaseWizard() {
       />
       <ol className="stepper" aria-label="建立案件步驟">
         <li className={step === 1 ? "active" : ""}>1. 選擇計算任務</li>
-        <li className={step === 2 ? "active" : ""}>2. 計算模式</li>
+        <li className={step === 2 ? "active" : ""}>2. 計算方法</li>
         <li className={step === 3 ? "active" : ""}>3. 基本資料</li>
       </ol>
 
@@ -139,8 +142,8 @@ export function NewCaseWizard() {
 
       {step === 2 ? (
         <section className="panel">
-          <h2>選擇計算模式</h2>
-          <div className="choice-grid" role="radiogroup" aria-label="計算模式">
+          <h2>選擇計算方法</h2>
+          <div className="choice-grid" role="radiogroup" aria-label="計算方法">
             {availableModes.map(([value, label]) => (
               <label className="choice" key={value}>
                 <input

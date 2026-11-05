@@ -114,7 +114,7 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
     "true",
   );
   await page.getByRole("button", { name: "下一步" }).click();
-  await page.getByText("不同計算法一起對照", { exact: true }).click();
+  await page.getByText("算法 A／B 比較", { exact: true }).click();
   await page.getByRole("button", { name: "填寫基本資料" }).click();
 
   const title = `E2E 共享雙軌案件 ${testInfo.project.name} ${Date.now()}`;
@@ -134,7 +134,9 @@ test("anonymous shared SPA completes the dual-track report-draft workflow", asyn
   expect(caseId).toMatch(/^[0-9a-f-]{36}$/i);
 
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
-  await page.getByLabel("餐飲類型", { exact: true }).selectOption("CHINESE");
+  await page
+    .getByLabel("算法 B 餐飲種類", { exact: true })
+    .selectOption("CHINESE");
   await page.getByRole("spinbutton", { name: "每日用餐人數" }).fill("120");
   await page.getByRole("button", { name: "開始計算" }).click();
   await expect(page.getByRole("link", { name: "預覽報告草稿" })).toBeVisible({
