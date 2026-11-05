@@ -17,7 +17,10 @@ import {
 } from "@/application/cases/repository";
 import { toProblem } from "@/application/problem";
 import { resolveN0 } from "@/domain/calculation/current";
-import { comparisonInputTableLabels } from "@/domain/shared/comparison-input-table";
+import {
+  calculationDisplayUnits,
+  comparisonInputTableLabels,
+} from "@/domain/shared/comparison-input-table";
 import {
   calculationBasisDisplay,
   calculationModeDisplay,
@@ -136,8 +139,8 @@ const taskLabels: Record<string, string> = {
   T02_DINERS_TO_DESIGN: "人數規劃設計需求",
   T03_AREA_TO_FLOW: "面積換算流量",
   T04_AREA_TO_DESIGN: "面積規劃設計需求",
-  T05_DESIGN_TO_DINERS_AND_AREA: "設備能力反推人數及面積",
-  T06_EFFECTIVE_VOLUME_TO_FLOW: "有效容積換算設計處理水量",
+  T05_DESIGN_TO_DINERS_AND_AREA: "設備能力反推等效人數及面積上限",
+  T06_EFFECTIVE_VOLUME_TO_FLOW: "依有效容積換算流量（算法 A）",
 };
 
 type VisibleInputSourceType =
@@ -146,7 +149,7 @@ type VisibleInputSourceType =
   | "設備資料"
   | "實測資料"
   | "來源表值"
-  | "覆寫值";
+  | "本案調整值";
 
 const legacyWaterReferenceRows = [
   { category: "觀光飯店", q: "70～120", turnover: "3", density: "0.5" },
@@ -194,18 +197,18 @@ const legacySafetyCategoryForms = {
 const fieldHelp = {
   diningType: {
     description:
-      "系統會依內政部給排水規範（附錄 5）選取用水、使用時間與油脂參數。請選擇最接近實際營業型態的類型。",
+      "系統會依給排水設計技術規範（附錄第 5 點）選取用水、每日廚房使用時間、油脂與沉積殘留物參數。請選擇最接近實際營業型態的種類。",
     note: "這個欄位不會自動代選；不確定時，請先向案件資料提供者確認。",
   },
   currentPeople: {
     description:
-      "填寫一天預估服務的總用餐人數，單位為人/day；系統依內政部給排水規範（附錄 5）計算設計需求。",
+      "填寫一天預估服務的總用餐人數，單位為人/日；系統依給排水設計技術規範（附錄第 5 點）計算設計需求。",
     note: "請勿填單一餐期人數或同一時間在店人數。",
   },
   kitchenArea: {
     description:
       "填寫烹調、備餐與洗滌作業區面積，單位為 m²，不包含顧客用餐區。",
-    note: "內政部給排水規範（附錄 5）的面積計算會將廚房面積與用餐區面積相加，兩者都要分別填寫。",
+    note: "給排水設計技術規範（附錄第 5 點）的面積計算會將廚房面積與用餐區面積相加，兩者都要分別填寫。",
   },
   currentDiningArea: {
     description: "填寫顧客座席與實際用餐區面積，單位為 m²，不包含廚房作業區。",
@@ -213,39 +216,41 @@ const fieldHelp = {
   },
   qCapacity: {
     description:
-      "填寫設備可承受的設計流量能力，單位為 L/min；系統會用來反推可支持的等效人數與面積。",
+      "填寫同一設備型號資料記載的流量能力 Q，單位為 L/min，作為反推等效人數與面積的輸入；採 CNS 試驗資料時，對照報告的流入水流量 Qw。",
     note: "請勿填入 L/h，或把槽體容積 L 當成流量。",
   },
   gCapacity: {
     description:
-      "填寫設備的油脂容納或處理能力，單位為 kg；系統會與 Q 設計能力一起判定反推上限。",
+      "填寫同一設備型號資料記載的油脂截留量，單位為 kg；採 CNS 試驗資料時，對照報告的油脂截留量 Gi2。此設備數值用於對照計算所得的油脂及沉積殘留物需求 G，並與流量能力 Q 一起反推上限。",
   },
   capacitySource: {
-    description: "記錄設備流量與油脂能力數值的來源，讓反推結果可追溯。",
-    note: "例如：型錄頁次、規格書版本、設備圖面或實測紀錄。",
+    description:
+      "記錄設備流量與油脂截留量的資料來源、型號及適用標準，讓反推結果可追溯。",
+    note: "例如：同一型號的試驗報告、型錄或規格書頁次與版本；輸入資料不代表系統已查證試驗合格。",
   },
   actualUseMinutes: {
     description:
-      "算法 B 的 t：整日廚房累計使用時間，單位為 min/day。系統會依餐飲類型帶入來源表值，並可直接編輯。",
-    note: "它不是算法 A 的每餐／連續操作時間，兩者不會同步。修改查表帶入值後，才會以本案值覆寫來源表並影響 Q 計算與設備能力反推。",
+      "算法 B 的 t：整日廚房累計使用時間，單位為 min/日。系統會依餐飲種類帶入來源表值，並可直接編輯。",
+    note: "算法 A 使用每餐廚房污水持續流出時間，兩者分別取值。修改查表帶入值後，僅在本案以調整值代入 Q 計算與設備能力反推。",
   },
   greaseDays: {
-    description: "填寫兩次完整清除油脂之間的天數；本算法依據允許 7～14 day。",
-    note: "清除間隔越長，所需油脂容量通常越大。",
+    description: "填寫兩次完整清除油脂之間的天數；本算法依據允許 7～14 日。",
+    note: "預定油脂清除週期越長，計算所得截留油脂量通常越大。",
   },
   sedimentDays: {
-    description: "填寫兩次完整清除殘渣之間的天數；本算法依據允許 7～30 day。",
+    description:
+      "填寫兩次完整清除沉積殘留物之間的預定天數；本算法依據允許 7～30 日。",
     note: "請依案件預定的實際維護週期填寫。",
   },
   legacyPeople: {
     description:
-      "填寫單一餐期的用餐人數，單位為人/餐；系統依臺北市工務局衛工處設計說明計算設計需求。",
-    note: "這裡不是填每日總用餐人數。",
+      "填寫每餐用餐人數 n，單位為人/餐；依臺北市衛工處設計說明，n 與污水持續流出時間 t 應採相同計算期間。",
+    note: "連續供餐須依來源案例確認計算期間；不直接沿用算法 B 的每日用餐人數。",
   },
   legacyArea: {
     description:
       "填寫顧客座席與實際用餐營業區面積，單位為 m²，不包含廚房作業區。",
-    note: "算法 A 會搭配人員密度與翻桌率換算用餐人數；雙算法比較時可選擇同步或分開輸入。",
+    note: "算法 A 會搭配人數密度與回轉率換算用餐人數；雙算法比較時可選擇同步或分開輸入。",
   },
   legacyDensity: {
     description:
@@ -254,52 +259,55 @@ const fieldHelp = {
   },
   legacyTurnover: {
     description: "填寫單一餐期或設計期間內，同一座位平均被使用的次數。",
-    note: "翻桌率會直接放大由面積換算的用餐人數。",
+    note: "回轉率會直接放大由面積換算的用餐人數。",
   },
   legacyVolume: {
     description:
-      "填寫油脂截留器可實際使用的有效容積，單位為 L；系統會依計算任務換算設計處理水量，或反推等效人數與面積。",
-    note: "請勿填外殼的名目容積。",
+      "填寫設備正常水位下可供除油的有效容積，單位為 L；算法 A 以除油室有效容積進行換算或反推，所得流量為依該算法換算的計算值。",
+    note: "請依設備資料確認有效容積，勿以整槽幾何容積或名目容積代替。",
   },
   legacyVolumeSource: {
-    description: "記錄有效容積數值的來源，讓設計處理水量換算結果可追溯。",
+    description: "記錄有效容積數值的來源，讓依算法 A 換算的流量 Q 可追溯。",
     note: "例如：設備圖面、規格書、型錄頁次或現場量測紀錄。",
   },
   legacyQ: {
-    description: "填寫每人每餐用水量 q，單位為 L/(人·餐)。優先採用實測值。",
+    description:
+      "填寫每人每餐產生污水量 q，單位為 L/(人·餐)，優先採用實測值；來源參考表以每人每餐用水量列示，無實測資料時依該來源取值。",
     note: "沒有實測時，須從來源提供的範圍選定明確數值，不可直接取範圍平均。",
   },
   legacyHours: {
-    description: "算法 A 的 t：單一餐期或連續操作期間的有效時間，單位為 h。",
-    note: "它不是算法 B 的每日累計使用時間，兩者不會同步。系統會用此值計算每小時流量。",
+    description:
+      "算法 A 的 t：每餐廚房污水持續流出時間，單位為 h；連續供餐應依來源案例確認 n 與 t 的計算期間一致。",
+    note: "算法 B 的 t 為每日廚房使用時間；兩者分別取值，算法 A 以本欄計算每小時計算流量 Q。",
   },
   safetyClass: {
     description:
-      "依臺北市工務局衛工處設計說明的餐飲分類選擇 A、B 或 C 類，作為安全係數 k 的選值依據。",
+      "依臺北市衛工處設計說明的餐飲分類選擇 A、B 或 C 類，作為安全係數 k 的選值依據。",
   },
   currentWaterFactors: {
-    description: "算法 B 依餐飲類型帶入人數法或面積法的用水量參數。",
-    note: "表格列出各餐飲類型的適用數值；目前採用的餐飲類型會標記在表中。",
+    description: "算法 B 依餐飲種類帶入人數法或面積法的用水量參數。",
+    note: "表格列出各餐飲種類的適用數值；目前採用的餐飲種類會標記在表中。",
   },
   currentSafetyFactors: {
-    description: "算法 B 依餐飲類型查取安全係數 k。",
-    note: "面積法不適用的餐飲類型會標示為不適用。",
+    description: "算法 B 依餐飲種類查取平均流量係數 k。",
+    note: "面積法不適用的餐飲種類會標示為不適用。",
   },
   legacyK: {
     description: "填寫採用的安全係數：A=1.5、B=1.3 或 1.4、C=1.2 或 1.3。",
-    note: "B、C 類不可只靠類別自動猜值，請確認 exact k 並留下選擇理由。",
+    note: "B、C 類不可只靠類別自動猜值，請確認安全係數 k，可於取值依據補充理由。",
   },
   legacyReason: {
-    description: "說明 q、餐飲類別與 exact k 的選用依據，讓報告數字可追溯。",
-    note: "例如：餐飲型態、來源表格、實測紀錄或工程判斷。",
+    description:
+      "說明 q、餐飲類別與選定的安全係數 k 的選用依據，讓報告數字可追溯。",
+    note: "例如：餐飲分類、來源表格、實測紀錄或工程判斷。",
   },
   selectionSourceType: {
-    description: "選擇 q、餐飲分類或 exact k 的主要依據來源類型。",
+    description: "選擇 q、餐飲分類或選定的安全係數 k 的主要依據來源類型。",
     note: "這會進入報告條件摘要，讓日後能判斷數字憑什麼來。",
   },
   selectionBasis: {
-    description: "用一句話說明為什麼採用本案這組算法參數或餐飲類型。",
-    note: "可記錄查表分類、採用參數或覆寫時間的理由。",
+    description: "用一句話說明為什麼採用本案這組算法參數或餐飲種類。",
+    note: "可記錄查表分類、採用參數或調整本案使用時間的理由。",
   },
   selectionEvidence: {
     description: "填寫支持本案選值的文件、頁次、實測或確認紀錄。",
@@ -891,7 +899,7 @@ function CurrentFields({
     <InputMatrix>
       <SelectField
         id="current-dining"
-        label="餐飲類型"
+        label="餐飲種類"
         help={fieldHelp.diningType}
         sourceType="工程選值"
         value={values.diningType}
@@ -908,7 +916,7 @@ function CurrentFields({
         required
       >
         <option value="" disabled>
-          請選擇餐飲類型
+          請選擇餐飲種類
         </option>
         {diningOptions.map(([value, label]) => (
           <option value={value} key={value}>
@@ -920,7 +928,7 @@ function CurrentFields({
         <NumberField
           id="current-people"
           label="每日用餐人數"
-          unit="人/day"
+          unit="人/日"
           help={fieldHelp.currentPeople}
           sourceType="案件資料"
           value={values.people}
@@ -953,7 +961,7 @@ function CurrentFields({
         <>
           <NumberField
             id="q-capacity"
-            label="Q 設計能力"
+            label="設備流量能力 Q"
             unit="L/min"
             help={fieldHelp.qCapacity}
             sourceType="設備資料"
@@ -962,7 +970,7 @@ function CurrentFields({
           />
           <NumberField
             id="g-capacity"
-            label="G 設計能力"
+            label="設備油脂截留量 G"
             unit="kg"
             help={fieldHelp.gCapacity}
             sourceType="設備資料"
@@ -982,8 +990,8 @@ function CurrentFields({
       ) : null}
       <NumberField
         id="grease-days"
-        label="油脂清除週期"
-        unit="day"
+        label="預定油脂清除週期"
+        unit="日"
         help={fieldHelp.greaseDays}
         sourceType="案件資料"
         min="7"
@@ -993,8 +1001,8 @@ function CurrentFields({
       />
       <NumberField
         id="sediment-days"
-        label="殘渣清除週期"
-        unit="day"
+        label="預定沉積殘留物清除週期"
+        unit="日"
         help={fieldHelp.sedimentDays}
         sourceType="案件資料"
         min="7"
@@ -1003,7 +1011,7 @@ function CurrentFields({
         onChange={(value) => set("sedimentCleaningDays", value)}
       />
       <details className="input-matrix-details">
-        <summary>特殊條件 / 有資料再填</summary>
+        <summary>本案使用時間（有資料再調整）</summary>
         <InputMatrix nested>
           <CurrentUseTimeReference
             diningType={values.diningType}
@@ -1012,7 +1020,7 @@ function CurrentFields({
           <OptionalNumberField
             id="actual-use-minutes"
             label="算法 B：每日廚房使用時間 t"
-            unit="min/day"
+            unit="min/日"
             help={fieldHelp.actualUseMinutes}
             reference={
               <CurrentUseTimeSourceTable
@@ -1026,7 +1034,7 @@ function CurrentFields({
                 values.diningType,
                 values.actualUseMinutes,
               )
-                ? "覆寫值"
+                ? "本案調整值"
                 : "來源表值"
             }
             value={values.actualUseMinutes}
@@ -1054,12 +1062,12 @@ function CurrentUseTimeSourceTable({
   const { usesDinerMethod, usesAreaMethod } =
     getCurrentUseTimeMethods(taskCode);
   return (
-    <LookupReferenceSection title="算法 B 每日使用時間 t 來源表">
+    <LookupReferenceSection title="算法 B 每日廚房使用時間 t 來源表">
       <div className="reference-table-wrap">
         <table className="reference-table lookup-reference-table current-t-table">
           <thead>
             <tr>
-              <th>餐飲類型</th>
+              <th>餐飲種類</th>
               <th>
                 人數法 A-37 t
                 {usesDinerMethod ? (
@@ -1098,7 +1106,7 @@ function CurrentUseTimeSourceTable({
                       usesDinerMethod ? "（本案採用）" : ""
                     }`}
                   >
-                    {currentDinerUseMinutes[value]} min/day
+                    {currentDinerUseMinutes[value]} min/日
                   </td>
                   <td
                     data-label={`面積法 A-34～A-36 t${
@@ -1106,7 +1114,7 @@ function CurrentUseTimeSourceTable({
                     }`}
                   >
                     {currentAreaUseMinutes[value]
-                      ? `${currentAreaUseMinutes[value]} min/day`
+                      ? `${currentAreaUseMinutes[value]} min/日`
                       : "不適用"}
                   </td>
                 </tr>
@@ -1116,7 +1124,8 @@ function CurrentUseTimeSourceTable({
         </table>
       </div>
       <p>
-        系統會依計算任務帶入適用查表值；沒有可共用的來源值時欄位留白，仍可輸入本案實際使用時間。
+        系統會依計算任務帶入適用查表值；沒有可共用的來源值時欄位留白，仍可輸入本案採用的每日廚房使用時間
+        t。
       </p>
     </LookupReferenceSection>
   );
@@ -1143,14 +1152,14 @@ function CurrentUseTimeReference({
             <span>{reference.lines.join("；")}</span>
             <small>
               {getCurrentUseTimeTableDefault(taskCode, diningType)
-                ? "欄位會帶入適用的來源表 t；可直接編輯為本案每日實際使用時間。"
+                ? "欄位會帶入適用的來源表 t；可直接編輯為本案採用的每日廚房使用時間 t。"
                 : taskCode === "T05_DESIGN_TO_DINERS_AND_AREA"
-                  ? "兩張來源表沒有相同的共用 t 值，因此不預填；可輸入本案每日實際使用時間。"
-                  : "目前餐飲類型沒有適用的來源表 t 值；可輸入本案每日實際使用時間。"}
+                  ? "兩張來源表沒有相同的共用 t 值，因此不預填；可輸入本案採用的每日廚房使用時間 t。"
+                  : "目前餐飲種類沒有適用的來源表 t 值；可輸入本案採用的每日廚房使用時間 t。"}
             </small>
           </>
         ) : (
-          <span>先選餐飲類型後，這裡會顯示適用的來源表 t 預設值。</span>
+          <span>先選餐飲種類後，這裡會顯示適用的來源表 t 預設值。</span>
         )}
       </div>
     </InputMatrixDetail>
@@ -1173,12 +1182,12 @@ function getCurrentWaterFactors(
   const reverseTask = taskCode === "T05_DESIGN_TO_DINERS_AND_AREA";
 
   if (areaTask) {
-    return [{ label: "Wm", value: areaFactors?.Wm, unit: "L/(m²·day)" }];
+    return [{ label: "Wm", value: areaFactors?.Wm, unit: "L/(m²·日)" }];
   }
   if (reverseTask) {
     return [
       { label: "Wm′", value: dinerFactors?.WmPrime, unit: "L/人" },
-      { label: "Wm", value: areaFactors?.Wm, unit: "L/(m²·day)" },
+      { label: "Wm", value: areaFactors?.Wm, unit: "L/(m²·日)" },
     ];
   }
   return [{ label: "Wm′", value: dinerFactors?.WmPrime, unit: "L/人" }];
@@ -1206,15 +1215,15 @@ function buildCurrentUseTimeReference(taskCode: string, diningType: string) {
   const lines: string[] = [];
 
   if (usesDinerMethod) {
-    lines.push(`人數法 A-37：t=${currentDinerUseMinutes[diningType]} min/day`);
+    lines.push(`人數法 A-37：t=${currentDinerUseMinutes[diningType]} min/日`);
   }
 
   if (usesAreaMethod) {
     const areaUseMinutes = currentAreaUseMinutes[diningType];
     lines.push(
       areaUseMinutes
-        ? `面積法 A-34～A-36：t=${areaUseMinutes} min/day`
-        : "面積法 A-34～A-36：此餐飲類型無來源表 t 值",
+        ? `面積法 A-34～A-36：t=${areaUseMinutes} min/日`
+        : "面積法 A-34～A-36：此餐飲種類無來源表 t 值",
     );
   }
 
@@ -1271,10 +1280,10 @@ function CurrentUseTimeOverrideEffect({
   );
   return (
     <InputMatrixDetail
-      label="計算採用值"
+      label="本案採用值"
       sourceType={
         isCurrentUseTimeOverride(taskCode, diningType, actualUseMinutes)
-          ? "覆寫值"
+          ? "本案調整值"
           : "來源表值"
       }
     >
@@ -1298,8 +1307,8 @@ function buildCurrentUseTimeOverrideEffect(
   if (!reference) {
     return {
       heading: "尚未判定",
-      lines: ["先選餐飲類型，系統才知道要覆寫哪一個來源表 t。"],
-      note: "這個欄位不會影響臺北市舊法的操作時間 t。",
+      lines: ["先選餐飲種類，系統才知道本案適用的來源表 t。"],
+      note: "這個欄位僅調整算法 B 的每日廚房使用時間 t。",
       tone: "pending",
     };
   }
@@ -1313,22 +1322,24 @@ function buildCurrentUseTimeOverrideEffect(
     const tableDefault = getCurrentUseTimeTableDefault(taskCode, diningType);
     return {
       heading:
-        tableDefault && overrideValue ? "目前採用查表帶入值" : "目前未覆寫",
+        tableDefault && overrideValue
+          ? "目前採用查表帶入值"
+          : "目前採用來源表值",
       lines: [`計算仍使用：${targetText}`],
       note:
         tableDefault && overrideValue
-          ? "欄位目前帶入來源表預設值；可直接編輯，修改後才會覆寫。"
+          ? "欄位目前帶入來源表預設值；修改後僅供本案計算使用。"
           : tableDefault
-            ? "欄位留白時，計算仍使用來源表值；若有本案每日實際使用時間，可在上一列輸入 min/day。"
-            : "目前使用來源表值；若有本案每日實際使用時間，可在上一列輸入 min/day。",
+            ? "欄位留白時，計算仍使用來源表值；若有本案採用的每日廚房使用時間 t，可在上一列輸入 min/日。"
+            : "目前使用來源表值；若有本案採用的每日廚房使用時間 t，可在上一列輸入 min/日。",
       tone: "pending",
     };
   }
 
   return {
-    heading: "將覆寫來源表 t",
-    lines: [`${targetText} → 本案 t=${overrideValue} min/day`],
-    note: "此值會代入現行內政部附錄 5 的流量 Q 公式與設備能力反推。",
+    heading: "本案改用自訂每日廚房使用時間 t",
+    lines: [`${targetText} → 本案 t=${overrideValue} min/日`],
+    note: "此值會代入給排水設計技術規範附錄第 5 點的流量 Q 公式與設備能力反推。",
     tone: "active",
   };
 }
@@ -1370,13 +1381,27 @@ function DualComparisonFields({
   const waterFactors = getCurrentWaterFactors(taskCode, current.diningType);
   const kFactors = reverseTask
     ? [
-        { label: "人數法", value: dinerFactors?.k },
-        { label: "面積法", value: areaFactors?.k },
+        {
+          label: "人數法平均流量係數 k",
+          value: dinerFactors?.k,
+          unit: calculationDisplayUnits.dimensionless,
+        },
+        {
+          label: "面積法平均流量係數 k",
+          value: areaFactors?.k,
+          unit: calculationDisplayUnits.dimensionless,
+        },
       ]
-    : [{ label: "查表 k", value: areaTask ? areaFactors?.k : dinerFactors?.k }];
+    : [
+        {
+          label: "平均流量係數 k",
+          value: areaTask ? areaFactors?.k : dinerFactors?.k,
+          unit: calculationDisplayUnits.dimensionless,
+        },
+      ];
   const factorFallback = diningType
-    ? "此餐飲類型沒有可用的對應來源值"
-    : "請先選擇餐飲類型";
+    ? "此餐飲種類沒有可用的對應來源值"
+    : "請先選擇餐飲種類";
   let currentAreaTotal: Decimal | null = null;
   if (current.diningArea.trim() && current.kitchenArea.trim()) {
     try {
@@ -1399,11 +1424,12 @@ function DualComparisonFields({
     {
       label: "n（餐位利用率）",
       value: diningType ? currentSeatUtilization[diningType] : undefined,
+      unit: calculationDisplayUnits.seatUtilization,
     },
     {
       label: "n₀（補正餐位利用率）",
-      value: reverseTask ? "依候選面積" : currentN0?.value,
-      unit: reverseTask ? "A-36 查表" : undefined,
+      value: reverseTask ? "依候選面積查 A-36 表" : currentN0?.value,
+      unit: calculationDisplayUnits.seatUtilization,
     },
   ];
   const diningAreaSyncNote = diningAreaSyncEnabled
@@ -1494,17 +1520,17 @@ function DualComparisonFields({
                   current={
                     <ComparisonSelectInput
                       id="comparison-current-dining"
-                      label="算法 B 餐飲類型"
+                      label="算法 B 餐飲種類"
                       value={current.diningType}
                       onChange={(value) => setCurrentField("diningType", value)}
                       help={withComparisonNote(
                         fieldHelp.diningType,
-                        "算法 A 使用 A／B／C 安全係數類別；與本欄餐飲型態定義不同，不會互相帶入。",
+                        "算法 A 使用 A／B／C 安全係數類別；與本欄餐飲種類定義不同，不會互相帶入。",
                       )}
                       required
                     >
                       <option value="" disabled>
-                        請選擇餐飲類型
+                        請選擇餐飲種類
                       </option>
                       {diningOptions.map(([value, label]) => (
                         <option value={value} key={value}>
@@ -1521,13 +1547,13 @@ function DualComparisonFields({
                     legacy={
                       <ComparisonNumberInput
                         id="comparison-legacy-people"
-                        label="算法 A 單一餐期用餐人數"
+                        label="算法 A 每餐用餐人數 n"
                         unit="人/餐"
                         value={legacy.people}
                         onChange={(value) => setLegacyField("people", value)}
                         help={replaceComparisonNote(
                           fieldHelp.legacyPeople,
-                          "算法 A 為人/餐的單一餐期人數；算法 B 為人/day 的每日總人數，統計範圍不同，兩欄分開輸入。",
+                          "算法 A 為人/餐的單一餐期人數；算法 B 為人/日 的每日總人數，統計範圍不同，兩欄分開輸入。",
                         )}
                         required
                       />
@@ -1536,12 +1562,12 @@ function DualComparisonFields({
                       <ComparisonNumberInput
                         id="comparison-current-people"
                         label="算法 B 每日用餐人數"
-                        unit="人/day"
+                        unit="人/日"
                         value={current.people}
                         onChange={(value) => setCurrentField("people", value)}
                         help={replaceComparisonNote(
                           fieldHelp.currentPeople,
-                          "算法 B 為人/day 的每日總人數；算法 A 為人/餐的單一餐期人數。勿填同時在店人數，兩欄分開輸入。",
+                          "算法 B 為人/日 的每日總人數；算法 A 為人/餐的單一餐期人數。勿填同時在店人數，兩欄分開輸入。",
                         )}
                         required
                       />
@@ -1598,7 +1624,7 @@ function DualComparisonFields({
                       legacy={
                         <ComparisonNumberInput
                           id="comparison-legacy-volume"
-                          label="算法 A 設備有效容積"
+                          label="算法 A 設備除油室有效容積 V"
                           unit="L"
                           value={legacy.effectiveVolumeL}
                           onChange={(value) =>
@@ -1624,7 +1650,7 @@ function DualComparisonFields({
                       current={
                         <ComparisonNumberInput
                           id="comparison-q-capacity"
-                          label="算法 B Q 設計能力"
+                          label="算法 B 設備流量能力 Q"
                           unit="L/min"
                           value={current.qCapacityLpm}
                           onChange={(value) =>
@@ -1645,7 +1671,7 @@ function DualComparisonFields({
                       current={
                         <ComparisonNumberInput
                           id="comparison-g-capacity"
-                          label="算法 B G 設計能力"
+                          label="算法 B 設備油脂截留量 G"
                           unit="kg"
                           value={current.gCapacityKg}
                           onChange={(value) =>
@@ -1684,7 +1710,7 @@ function DualComparisonFields({
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-q"
-                      label="算法 A 每人每餐用水量 q"
+                      label="算法 A 每人每餐產生污水量 q"
                       unit="L/(人·餐)"
                       value={legacy.qLitersPerPersonMeal}
                       onChange={(value) =>
@@ -1722,7 +1748,7 @@ function DualComparisonFields({
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-hours"
-                      label="算法 A 每餐／連續操作時間 t"
+                      label="算法 A 每餐廚房污水持續流出時間 t"
                       unit="h"
                       value={legacy.operationHours}
                       onChange={(value) =>
@@ -1736,7 +1762,7 @@ function DualComparisonFields({
                     <ComparisonNumberInput
                       id="comparison-actual-use-minutes"
                       label="算法 B 每日廚房使用時間 t"
-                      unit="min/day"
+                      unit="min/日"
                       value={current.actualUseMinutes}
                       onChange={(value) =>
                         setCurrentField("actualUseMinutes", value)
@@ -1759,11 +1785,12 @@ function DualComparisonFields({
                       <div className="comparison-control-stack">
                         <div className="comparison-subfield">
                           <label htmlFor="comparison-legacy-density">
-                            人員密度
+                            人數密度
                           </label>
                           <ComparisonNumberInput
                             id="comparison-legacy-density"
-                            label="算法 A 人員密度"
+                            label="算法 A 人數密度"
+                            showLabel={false}
                             unit="人/m²"
                             value={legacy.dinerDensity}
                             onChange={(value) =>
@@ -1779,11 +1806,12 @@ function DualComparisonFields({
                         </div>
                         <div className="comparison-subfield">
                           <label htmlFor="comparison-legacy-turnover">
-                            翻桌率
+                            回轉率
                           </label>
                           <ComparisonNumberInput
                             id="comparison-legacy-turnover"
-                            label="算法 A 翻桌率"
+                            label="算法 A 回轉率"
+                            showLabel={false}
                             unit="次"
                             value={legacy.turnover}
                             onChange={(value) =>
@@ -1791,7 +1819,7 @@ function DualComparisonFields({
                             }
                             help={withComparisonNote(
                               fieldHelp.legacyTurnover,
-                              "本算法的翻桌率由使用者輸入；算法 B 面積法依其來源表，不會由此欄帶入。",
+                              "本算法的回轉率由使用者輸入；算法 B 面積法依其來源表，不會由此欄帶入。",
                             )}
                             reference={<LegacyWaterReference />}
                             required
@@ -1806,7 +1834,7 @@ function DualComparisonFields({
                         label="算法 B 面積換算參數"
                         help={{
                           description:
-                            "算法 B 面積法使用附錄 5 的 n 與 n₀進行面積補正：n（餐位利用率）依餐飲類型帶入，n₀（補正餐位利用率）依用餐區與廚房總面積 A 查 A-36 表，必要時在相鄰有效節點間內插。因此不另輸入算法 A 的人員密度與翻桌率。",
+                            "算法 B 面積法使用附錄第 5 點 的 n 與 n₀進行面積補正：n（餐位利用率）依餐飲種類帶入，n₀（補正餐位利用率）依廚房及用餐區總面積 A 查 A-36 表，必要時在相鄰有效節點間內插。因此不另輸入算法 A 的人數密度與回轉率。",
                           note: "畫面列出目前帶入的 n、n₀。反推任務尚未得到面積時，n₀會依各候選面積查表。",
                         }}
                       />
@@ -1819,15 +1847,15 @@ function DualComparisonFields({
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-k"
-                      label="算法 A exact k"
-                      unit="ratio"
+                      label="算法 A 安全係數 k"
+                      unit="無單位"
                       value={legacy.safetyFactor}
                       onChange={(value) =>
                         setLegacyField("safetyFactor", value)
                       }
                       help={withComparisonNote(
                         fieldHelp.legacyK,
-                        "算法 A 可編輯 exact k；算法 B 依餐飲類型查表帶入。兩側來源不同，不會互相帶入。",
+                        "算法 A 可編輯選定的安全係數 k；算法 B 依餐飲種類查表帶入。兩側來源不同，不會互相帶入。",
                       )}
                       reference={
                         <LegacySafetyFactorReference
@@ -1841,10 +1869,10 @@ function DualComparisonFields({
                     <ComparisonFactorList
                       factors={kFactors}
                       fallback={factorFallback}
-                      label="算法 B 安全係數 k"
+                      label="算法 B 平均流量係數 k"
                       help={withComparisonNote(
                         fieldHelp.currentSafetyFactors,
-                        "算法 B 依餐飲類型查表帶入；算法 A 可編輯 exact k。兩側來源不同，不會互相帶入。",
+                        "算法 B 依餐飲種類查表帶入；算法 A 可編輯選定的安全係數 k。兩側來源不同，不會互相帶入。",
                       )}
                       reference={
                         <CurrentSafetyFactorReference
@@ -1859,14 +1887,14 @@ function DualComparisonFields({
                   label={comparisonInputTableLabels.greaseCleaningPeriod}
                   legacy={
                     <ComparisonStaticCell>
-                      此算法未使用此週期
+                      此算法未納入週期計算
                     </ComparisonStaticCell>
                   }
                   current={
                     <ComparisonNumberInput
                       id="comparison-grease-days"
-                      label="算法 B 油脂清除週期"
-                      unit="day"
+                      label="算法 B 預定油脂清除週期"
+                      unit="日"
                       min="7"
                       max="14"
                       value={current.greaseCleaningDays}
@@ -1882,14 +1910,14 @@ function DualComparisonFields({
                   label={comparisonInputTableLabels.sedimentCleaningPeriod}
                   legacy={
                     <ComparisonStaticCell>
-                      此算法未使用此週期
+                      此算法未納入週期計算
                     </ComparisonStaticCell>
                   }
                   current={
                     <ComparisonNumberInput
                       id="comparison-sediment-days"
-                      label="算法 B 殘渣清除週期"
-                      unit="day"
+                      label="算法 B 預定沉積殘留物清除週期"
+                      unit="日"
                       min="7"
                       max="30"
                       value={current.sedimentCleaningDays}
@@ -1909,7 +1937,7 @@ function DualComparisonFields({
                   legacy={
                     <ComparisonNumberInput
                       id="comparison-legacy-volume-only"
-                      label="算法 A 設備有效容積"
+                      label="算法 A 設備除油室有效容積 V"
                       unit="L"
                       value={legacy.effectiveVolumeL}
                       onChange={(value) =>
@@ -1946,6 +1974,23 @@ function DualComparisonFields({
               />
             ) : null}
             <ComparisonRow
+              label={comparisonInputTableLabels.dataSource}
+              legacy={
+                <ComparisonStaticCell>
+                  來源類型：{legacy.selectionSourceType || "未填寫"}
+                </ComparisonStaticCell>
+              }
+              current={
+                <ComparisonStaticCell>
+                  來源文件：
+                  {current.selectionSourceType &&
+                  current.selectionSourceType !== "內政部給排水規範（附錄 5）"
+                    ? current.selectionSourceType
+                    : calculationBasisDisplay.CURRENT_QG.documentName}
+                </ComparisonStaticCell>
+              }
+            />
+            <ComparisonRow
               label={comparisonInputTableLabels.selectionBasis}
               legacy={
                 <ComparisonBasisTextarea
@@ -1964,7 +2009,7 @@ function DualComparisonFields({
                   value={current.selectionBasis}
                   onChange={(value) => setCurrentField("selectionBasis", value)}
                   help={fieldHelp.selectionBasis}
-                  placeholder="可補充資料來源、餐飲類型或參數取值依據"
+                  placeholder="可補充資料來源、餐飲種類或參數取值依據"
                 />
               }
             />
@@ -1973,7 +2018,7 @@ function DualComparisonFields({
               legacy={
                 <ComparisonBasisTextarea
                   id="comparison-selection-evidence"
-                  label="文件或紀錄"
+                  label="補充資料（選填）"
                   value={legacy.selectionEvidence}
                   onChange={(value) =>
                     setLegacyField("selectionEvidence", value)
@@ -1985,7 +2030,7 @@ function DualComparisonFields({
               current={
                 <ComparisonBasisTextarea
                   id="comparison-current-selection-evidence"
-                  label="文件或紀錄"
+                  label="補充資料（選填）"
                   value={current.selectionEvidence}
                   onChange={(value) =>
                     setCurrentField("selectionEvidence", value)
@@ -2019,7 +2064,7 @@ function LegacyFields({
       <InputMatrix>
         <NumberField
           id="legacy-volume"
-          label="設備有效容積"
+          label="設備除油室有效容積 V"
           unit="L"
           help={fieldHelp.legacyVolume}
           sourceType="設備資料"
@@ -2043,7 +2088,7 @@ function LegacyFields({
       {!area && !reverse ? (
         <NumberField
           id="legacy-people"
-          label="用餐人數"
+          label="每餐用餐人數 n"
           unit="人/餐"
           help={fieldHelp.legacyPeople}
           sourceType="案件資料"
@@ -2064,7 +2109,7 @@ function LegacyFields({
           />
           <NumberField
             id="legacy-density"
-            label="人員密度"
+            label="人數密度"
             unit="人/m²"
             help={fieldHelp.legacyDensity}
             sourceType="工程選值"
@@ -2075,7 +2120,7 @@ function LegacyFields({
           </NumberField>
           <NumberField
             id="legacy-turnover"
-            label="翻桌率"
+            label="回轉率"
             unit="次"
             help={fieldHelp.legacyTurnover}
             sourceType="工程選值"
@@ -2090,7 +2135,7 @@ function LegacyFields({
         <>
           <NumberField
             id="legacy-volume"
-            label="有效容積"
+            label="設備除油室有效容積 V"
             unit="L"
             help={fieldHelp.legacyVolume}
             sourceType="設備資料"
@@ -2099,7 +2144,7 @@ function LegacyFields({
           />
           <NumberField
             id="legacy-density-rev"
-            label="人員密度"
+            label="人數密度"
             unit="人/m²"
             help={fieldHelp.legacyDensity}
             sourceType="工程選值"
@@ -2110,7 +2155,7 @@ function LegacyFields({
           </NumberField>
           <NumberField
             id="legacy-turnover-rev"
-            label="翻桌率"
+            label="回轉率"
             unit="次"
             help={fieldHelp.legacyTurnover}
             sourceType="工程選值"
@@ -2123,7 +2168,7 @@ function LegacyFields({
       ) : null}
       <NumberField
         id="legacy-q"
-        label="每人每餐用水量 q"
+        label="每人每餐產生污水量 q"
         unit="L/(人·餐)"
         help={fieldHelp.legacyQ}
         sourceType="工程選值"
@@ -2134,7 +2179,7 @@ function LegacyFields({
       </NumberField>
       <NumberField
         id="legacy-hours"
-        label="算法 A：每餐／連續操作時間 t"
+        label="算法 A：每餐廚房污水持續流出時間 t"
         unit="h"
         help={fieldHelp.legacyHours}
         sourceType="案件資料"
@@ -2165,8 +2210,8 @@ function LegacyFields({
       </SelectField>
       <NumberField
         id="legacy-k"
-        label="exact k"
-        unit="ratio"
+        label="安全係數 k"
+        unit="無單位"
         help={fieldHelp.legacyK}
         sourceType="工程選值"
         value={values.safetyFactor}
@@ -2176,7 +2221,7 @@ function LegacyFields({
       </NumberField>
       <SelectField
         id="selection-source-type"
-        label="選值來源類型"
+        label="來源類型"
         help={fieldHelp.selectionSourceType}
         sourceType="工程選值"
         value={values.selectionSourceType}
@@ -2190,7 +2235,7 @@ function LegacyFields({
       </SelectField>
       <TextField
         id="selection-basis"
-        label="取值說明（選填）"
+        label="取值依據（選填）"
         help={fieldHelp.selectionBasis}
         sourceType="工程選值"
         value={values.selectionBasis}
@@ -2198,7 +2243,7 @@ function LegacyFields({
       />
       <TextField
         id="selection-evidence"
-        label="證據備註"
+        label="補充資料（選填）"
         help={fieldHelp.selectionEvidence}
         sourceType="工程選值"
         value={values.selectionEvidence}
@@ -2562,6 +2607,7 @@ function ComparisonDiningAreaRow({
 function ComparisonNumberInput({
   id,
   label,
+  showLabel = true,
   unit,
   value,
   onChange,
@@ -2573,6 +2619,7 @@ function ComparisonNumberInput({
 }: {
   id: string;
   label: string;
+  showLabel?: boolean;
   unit: string;
   value: string;
   onChange: (value: string) => void;
@@ -2584,6 +2631,11 @@ function ComparisonNumberInput({
 }) {
   return (
     <div className="comparison-control">
+      {showLabel ? (
+        <label className="comparison-control-label" htmlFor={id}>
+          {label.replace(/^算法 [AB] /, "")}
+        </label>
+      ) : null}
       <div className="comparison-control-main">
         <InputWithUnit unit={unit}>
           <input
@@ -2628,6 +2680,9 @@ function ComparisonTextInput({
 }) {
   return (
     <div className="comparison-control">
+      <label className="comparison-control-label" htmlFor={id}>
+        {label.replace(/^算法 [AB] /, "")}
+      </label>
       <div className="comparison-control-main">
         <input
           id={id}
@@ -2713,6 +2768,9 @@ function ComparisonSelectInput({
 }) {
   return (
     <div className="comparison-control">
+      <label className="comparison-control-label" htmlFor={id}>
+        {label.replace(/^算法 [AB] /, "")}
+      </label>
       <div className="comparison-control-main">
         <select
           id={id}
@@ -2734,6 +2792,11 @@ function ComparisonSelectInput({
     </div>
   );
 }
+
+const comparisonWaterFactorLabels: Record<string, string> = {
+  "Wm′": "每用餐人使用水量 Wm′",
+  Wm: "每平方公尺每日使用水量 Wm",
+};
 
 function ComparisonFactorList({
   factors,
@@ -2760,7 +2823,9 @@ function ComparisonFactorList({
         ) : (
           available.map((factor) => (
             <div key={factor.label}>
-              <span>{factor.label}</span>
+              <span>
+                {comparisonWaterFactorLabels[factor.label] ?? factor.label}
+              </span>
               <output>{factor.value}</output>
               {factor.unit ? <small>{factor.unit}</small> : null}
             </div>
@@ -2830,8 +2895,8 @@ function LegacyWaterReference() {
             <tr>
               <th>餐廳類別</th>
               <th>q 範圍 L/(人·餐)</th>
-              <th>翻桌率</th>
-              <th>密度 人/m²</th>
+              <th>回轉率</th>
+              <th>人數密度（人/m²）</th>
             </tr>
           </thead>
           <tbody>
@@ -2847,8 +2912,8 @@ function LegacyWaterReference() {
         </table>
       </div>
       <p>
-        q 優先採用實測；無實測時在來源範圍內選 exact
-        value，可於選值理由補充依據。
+        q 優先採用實測；無實測時在來源範圍內選定明確
+        數值，可於取值依據補充理由。
       </p>
     </>
   );
@@ -2883,7 +2948,7 @@ function CurrentWaterReference({
         <table className="reference-table lookup-reference-table">
           <thead>
             <tr>
-              <th scope="col">餐飲類型</th>
+              <th scope="col">餐飲種類</th>
               <th scope="col">
                 人數法 Wm′（L/人）
                 {usesDinerMethod ? (
@@ -2893,7 +2958,7 @@ function CurrentWaterReference({
                 ) : null}
               </th>
               <th scope="col">
-                面積法 Wm（L/(m²·day)）
+                面積法 Wm（L/(m²·日)）
                 {usesAreaMethod ? (
                   <span className="current-table-badge lookup-method-badge">
                     本案採用
@@ -2947,7 +3012,7 @@ function LegacySafetyFactorReference({ safetyClass }: { safetyClass: string }) {
             <tr>
               <th scope="col">安全係數類別</th>
               <th scope="col">餐飲形式／條件</th>
-              <th scope="col">可選 exact k</th>
+              <th scope="col">可選安全係數 k</th>
             </tr>
           </thead>
           <tbody>
@@ -2988,7 +3053,7 @@ function LegacySafetyFactorReference({ safetyClass }: { safetyClass: string }) {
         </table>
       </div>
       <p className="legacy-safety-source">
-        類別會帶入預設 k；exact k 仍可依本案工程條件調整。來源：
+        類別會帶入預設 k；選定的安全係數 k 仍可依本案工程條件調整。來源：
         <a
           href="/rule-sources/SRC-LEGACY-FULL-taipei-grease-interceptor-design.pdf#page=6"
           target="_blank"
@@ -3005,12 +3070,12 @@ function CurrentSafetyFactorReference({ diningType }: { diningType: string }) {
   const selectedDiningType = isDiningType(diningType) ? diningType : null;
 
   return (
-    <LookupReferenceSection title="算法 B 安全係數 k 參考表">
+    <LookupReferenceSection title="算法 B 平均流量係數 k 參考表">
       <div className="reference-table-wrap">
         <table className="reference-table lookup-reference-table">
           <thead>
             <tr>
-              <th scope="col">餐飲類型</th>
+              <th scope="col">餐飲種類</th>
               <th scope="col">人數法 k</th>
               <th scope="col">面積法 k</th>
             </tr>
@@ -3041,7 +3106,7 @@ function CurrentSafetyFactorReference({ diningType }: { diningType: string }) {
           </tbody>
         </table>
       </div>
-      <p>面積法不適用的餐飲類型會標示為「不適用」。</p>
+      <p>面積法不適用的餐飲種類會標示為「不適用」。</p>
     </LookupReferenceSection>
   );
 }

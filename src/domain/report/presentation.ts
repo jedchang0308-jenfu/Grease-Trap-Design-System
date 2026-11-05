@@ -6,13 +6,14 @@ import {
   type CalculationTrack,
 } from "@/domain/rules/source-display";
 import type { SnapshotRun } from "./types";
+import { calculationDisplayUnits } from "@/domain/shared/comparison-input-table";
 
 export type InputRole =
   | "案件資料"
   | "工程選值"
   | "設備資料"
   | "實測資料"
-  | "覆寫值"
+  | "本案調整值"
   | "法規表值"
   | "本案條件"
   | "算法依據參數";
@@ -102,46 +103,54 @@ const diningTypeLabels: Record<string, string> = {
 const currentInputFields: InputFieldDefinition[] = [
   {
     key: "diningType",
-    label: "餐飲類型",
+    label: "餐飲種類",
     unit: "",
     role: "工程選值",
     format: (value) => diningTypeLabels[String(value)] ?? String(value),
-    note: () => "依此套用內政部附錄 5 對應參數表。",
+    note: () => "依此套用給排水設計技術規範附錄第 5 點 對應參數表。",
   },
   { key: "people", label: "每日用餐人數", unit: "人/日", role: "案件資料" },
   { key: "kitchenArea", label: "廚房面積", unit: "m²", role: "案件資料" },
   { key: "diningArea", label: "用餐區面積", unit: "m²", role: "案件資料" },
   {
     key: "qCapacityLpm",
-    label: "設備設計處理水量能力",
+    label: "設備流量能力 Q",
     unit: "L/min",
     role: "設備資料",
+    note: () =>
+      "設備能力值；採 CNS 試驗資料時，依規範附錄第 5 點對照流入水流量 Qw。",
   },
   {
     key: "gCapacityKg",
-    label: "設備油脂容納能力",
+    label: "設備油脂截留量 G",
     unit: "kg",
     role: "設備資料",
+    note: () =>
+      "設備能力值；採 CNS 試驗資料時，依規範附錄第 5 點對照油脂截留量 Gi2。",
   },
   {
     key: "evidenceSource",
-    label: "能力資料來源",
+    label: "能力資料來源／證據",
     unit: "",
     role: "設備資料",
   },
   {
     key: "actualUseMinutes",
-    label: "每日實際使用時間",
+    label: "每日廚房使用時間 t",
     unit: "min/日",
-    role: "覆寫值",
+    role: "本案調整值",
     note: () =>
-      "取代內政部附錄 5 流量 Q 公式中的 t（每日使用時間）；需保留案件依據。",
+      "取代給排水設計技術規範附錄第 5 點 流量 Q 公式中的 t（每日廚房使用時間）；需保留案件依據。",
   },
   {
     key: "selectionSourceType",
-    label: "算法依據來源",
+    label: "來源文件",
     unit: "",
     role: "算法依據參數",
+    format: (value) =>
+      value === "內政部給排水規範（附錄 5）"
+        ? basisForTrack("CURRENT_QG").documentName
+        : String(value),
   },
   {
     key: "selectionBasis",
@@ -157,20 +166,20 @@ const currentInputFields: InputFieldDefinition[] = [
   },
   {
     key: "greaseCleaningDays",
-    label: "油脂清除週期",
+    label: "預定油脂清除週期",
     unit: "日",
     role: "案件資料",
   },
   {
     key: "sedimentCleaningDays",
-    label: "殘渣清除週期",
+    label: "預定沉積殘留物清除週期",
     unit: "日",
     role: "案件資料",
   },
 ];
 
 const legacyInputFields: InputFieldDefinition[] = [
-  { key: "people", label: "單餐期用餐人數", unit: "人/餐", role: "案件資料" },
+  { key: "people", label: "每餐用餐人數", unit: "人/餐", role: "案件資料" },
   { key: "areaM2", label: "用餐營業面積", unit: "m²", role: "案件資料" },
   {
     key: "measuredWastewaterL",
@@ -180,44 +189,44 @@ const legacyInputFields: InputFieldDefinition[] = [
   },
   {
     key: "effectiveVolumeL",
-    label: "設備有效容積",
+    label: "設備除油室有效容積 V",
     unit: "L",
     role: "設備資料",
   },
   {
     key: "evidenceSource",
-    label: "有效容積資料來源",
+    label: "有效容積資料來源／證據",
     unit: "",
     role: "設備資料",
   },
   {
     key: "operationHours",
-    label: "餐期操作時間",
+    label: "每餐廚房污水持續流出時間",
     unit: "h",
     role: "案件資料",
   },
   {
     key: "qLitersPerPersonMeal",
-    label: "每人每餐用水量 q",
+    label: "每人每餐產生污水量 q",
     unit: "L/(人·餐)",
     role: "工程選值",
-    note: () => "來源允許範圍內的 exact value，需可追溯選值理由。",
+    note: () => "依來源允許範圍選定明確數值，可於取值依據補充理由。",
   },
   {
     key: "dinerDensity",
-    label: "人員密度",
+    label: "人數密度",
     unit: "人/m²",
     role: "工程選值",
   },
   {
     key: "turnover",
-    label: "翻桌率",
+    label: "回轉率",
     unit: "次",
     role: "工程選值",
   },
   {
     key: "safetyClass",
-    label: "餐飲安全分類",
+    label: "安全係數類別",
     unit: "",
     role: "工程選值",
     format: (value) => `${String(value)} 類`,
@@ -225,9 +234,9 @@ const legacyInputFields: InputFieldDefinition[] = [
   {
     key: "safetyFactor",
     label: "安全係數 k",
-    unit: "",
+    unit: calculationDisplayUnits.dimensionless,
     role: "工程選值",
-    note: () => "依來源分類允許值選定 exact k。",
+    note: () => "依來源分類允許值選定安全係數 k。",
   },
   {
     key: "aggregation",
@@ -239,7 +248,7 @@ const legacyInputFields: InputFieldDefinition[] = [
   },
   {
     key: "selectionSourceType",
-    label: "選值來源類型",
+    label: "來源類型",
     unit: "",
     role: "工程選值",
   },
@@ -257,7 +266,7 @@ const legacyInputFields: InputFieldDefinition[] = [
   },
   {
     key: "selectionReason",
-    label: "參數選擇理由",
+    label: "取值依據",
     unit: "",
     role: "工程選值",
     show: (input) =>
@@ -316,7 +325,7 @@ function legacyPeriodRows(input: Record<string, unknown>): ReportInputRow[] {
     }
     if (hasDisplayValue(record.qLitersPerPersonMeal)) {
       rows.push({
-        label: `${name}每人用水量`,
+        label: `${name}每人每餐產生污水量`,
         value: String(record.qLitersPerPersonMeal),
         unit: "L/(人·餐)",
         role: "工程選值",
@@ -324,7 +333,7 @@ function legacyPeriodRows(input: Record<string, unknown>): ReportInputRow[] {
     }
     if (hasDisplayValue(record.operationHours)) {
       rows.push({
-        label: `${name}操作時間`,
+        label: `${name}廚房污水持續流出時間`,
         value: String(record.operationHours),
         unit: "h",
         role: "案件資料",
@@ -448,9 +457,9 @@ export function buildInputCompletenessBadges(
 
   if (completedAllRequired) {
     badges.push({
-      label: "標準條件完成",
+      label: "所選算法已完成計算",
       tone: "success",
-      detail: "已完成本模式要求的算法依據。",
+      detail: "已完成所選算法的計算。",
     });
   } else {
     badges.push({
@@ -472,15 +481,15 @@ export function buildInputCompletenessBadges(
   const hasSpecialCondition = completedInputs.some(usesSpecialCondition);
   if (hasSpecialCondition && completedAllRequired) {
     badges[0] = {
-      label: "使用特殊條件完成",
+      label: "已完成計算（含本案調整或實測條件）",
       tone: "warning",
-      detail: "本次包含覆寫、實測、多餐期或其他特殊條件。",
+      detail: "本次包含本案調整值、實測資料或多餐期條件。",
     };
   } else if (hasSpecialCondition) {
     badges.push({
-      label: "使用特殊條件",
+      label: "含本案調整或實測條件",
       tone: "warning",
-      detail: "本次包含覆寫、實測、多餐期或其他特殊條件。",
+      detail: "本次包含本案調整值、實測資料或多餐期條件。",
     });
   }
   if (completedInputs.some(usesEquipmentData)) {
@@ -500,7 +509,7 @@ export function buildInputCompletenessBadges(
     badges.push({
       label: "工程選值已記錄",
       tone: "info",
-      detail: "q、分類或 exact k 已保留選值說明。",
+      detail: "q、分類或選定的安全係數 k 已保留選值說明。",
     });
   }
 
@@ -562,7 +571,7 @@ export function buildOutputRows(
 
   if (hasAdoptedValue(runs, "qLpm") || hasAdoptedValue(runs, "qLph")) {
     rows.push({
-      label: "設計處理水量",
+      label: "計算流量 Q",
       cells: cells(
         valueCell(runs, "CURRENT_QG", "qLpm", "L/min"),
         valueCell(runs, "LEGACY_QV", "qLph", "L/min", (value) =>
@@ -574,7 +583,7 @@ export function buildOutputRows(
 
   if (includesCurrent) {
     rows.push({
-      label: "清除週期油脂量",
+      label: "截留油脂及沉積殘留物量 G",
       cells: cells(
         valueCell(runs, "CURRENT_QG", "gKg", "kg"),
         valueCell(runs, "LEGACY_QV", null, ""),
@@ -583,7 +592,7 @@ export function buildOutputRows(
   }
   if (includesLegacy && !volumeToFlowOnly) {
     rows.push({
-      label: "設備所需有效容積",
+      label: "所需除油室有效容積 V",
       cells: cells(
         valueCell(runs, "CURRENT_QG", null, ""),
         valueCell(runs, "LEGACY_QV", "effectiveVolumeL", "L"),
@@ -592,7 +601,7 @@ export function buildOutputRows(
   }
   if (hasAdoptedValue(runs, "dinersEquivalentMax")) {
     rows.push({
-      label: "可支援的用餐人數",
+      label: "等效用餐人數上限",
       cells: cells(
         valueCell(runs, "CURRENT_QG", "dinersEquivalentMax", "人/日"),
         valueCell(runs, "LEGACY_QV", "dinersEquivalentMax", "人/餐"),
@@ -601,7 +610,7 @@ export function buildOutputRows(
   }
   if (hasAdoptedValue(runs, "areaEquivalentMaxM2")) {
     rows.push({
-      label: "可支援的服務面積",
+      label: "等效服務面積上限",
       cells: cells(
         valueCell(runs, "CURRENT_QG", "areaEquivalentMaxM2", "m²"),
         valueCell(runs, "LEGACY_QV", "areaEquivalentMaxM2", "m²"),
@@ -624,142 +633,227 @@ export function buildDesignResults(
 const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
   "CUR-DIN-Q": [
     { symbol: "N", label: "每日用餐人數", unit: "人/日", role: "本案條件" },
-    { symbol: "Wm'", label: "每人用水量", unit: "L/人", role: "算法依據參數" },
+    {
+      symbol: "Wm'",
+      label: "每用餐人使用水量",
+      unit: "L/人",
+      role: "算法依據參數",
+    },
     {
       symbol: "t",
-      label: "每日使用時間",
+      label: "每日廚房使用時間 t",
       unit: "min/日",
       role: "算法依據參數",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
+    {
+      symbol: "k",
+      label: "平均流量係數 k",
+      unit: calculationDisplayUnits.dimensionless,
+      role: "算法依據參數",
+    },
   ],
   "CUR-DIN-GU": [
     { symbol: "N", label: "每日用餐人數", unit: "人/日", role: "本案條件" },
     {
       symbol: "gu",
-      label: "每人上游油脂量",
+      label: "每用餐人產生油脂量",
       unit: "g/人",
       role: "算法依據參數",
     },
-    { symbol: "iu", label: "油脂清除週期", unit: "日", role: "本案條件" },
+    { symbol: "iu", label: "預定油脂清除週期", unit: "日", role: "本案條件" },
     { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-DIN-GB": [
     { symbol: "N", label: "每日用餐人數", unit: "人/日", role: "本案條件" },
     {
       symbol: "gb",
-      label: "每人下游油脂量",
+      label: "每用餐人產生沉積殘留物量",
       unit: "g/人",
       role: "算法依據參數",
     },
-    { symbol: "ib", label: "殘渣清除週期", unit: "日", role: "本案條件" },
+    {
+      symbol: "ib",
+      label: "預定沉積殘留物清除週期",
+      unit: "日",
+      role: "本案條件",
+    },
     { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-DIN-G": [
-    { symbol: "Gu", label: "上游油脂量", unit: "kg", role: "計算中間值" },
-    { symbol: "Gb", label: "下游油脂量", unit: "kg", role: "計算中間值" },
+    { symbol: "Gu", label: "截留油脂量", unit: "kg", role: "計算中間值" },
+    { symbol: "Gb", label: "沉積殘留物量", unit: "kg", role: "計算中間值" },
   ],
   "CUR-AREA-A": [
     { symbol: "Ak", label: "廚房面積", unit: "m²", role: "本案條件" },
     { symbol: "Ad", label: "用餐區面積", unit: "m²", role: "本案條件" },
   ],
   "CUR-AREA-Q": [
-    { symbol: "A", label: "全面積", unit: "m²", role: "計算中間值" },
+    {
+      symbol: "A",
+      label: "廚房及用餐區總面積 A",
+      unit: "m²",
+      role: "計算中間值",
+    },
     {
       symbol: "Wm",
-      label: "單位面積用水量",
-      unit: "L/(m²·day)",
+      label: "每平方公尺每日使用水量",
+      unit: "L/(m²·日)",
       role: "算法依據參數",
     },
-    { symbol: "n", label: "餐位利用率", unit: "", role: "算法依據參數" },
-    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "算法依據參數" },
+    {
+      symbol: "n",
+      label: "餐位利用率",
+      unit: calculationDisplayUnits.seatUtilization,
+      role: "算法依據參數",
+    },
+    {
+      symbol: "n0",
+      label: "補正餐位利用率",
+      unit: calculationDisplayUnits.seatUtilization,
+      role: "算法依據參數",
+    },
     {
       symbol: "t",
-      label: "每日使用時間",
+      label: "每日廚房使用時間 t",
       unit: "min/日",
       role: "算法依據參數",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
-  ],
-  "CUR-AREA-GU": [
-    { symbol: "A", label: "全面積", unit: "m²", role: "計算中間值" },
     {
-      symbol: "gu",
-      label: "單位面積上游油脂量",
-      unit: "g/(m²·day)",
+      symbol: "k",
+      label: "平均流量係數 k",
+      unit: calculationDisplayUnits.dimensionless,
       role: "算法依據參數",
     },
-    { symbol: "n", label: "餐位利用率", unit: "", role: "算法依據參數" },
-    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "算法依據參數" },
-    { symbol: "iu", label: "油脂清除週期", unit: "日", role: "本案條件" },
+  ],
+  "CUR-AREA-GU": [
+    {
+      symbol: "A",
+      label: "廚房及用餐區總面積 A",
+      unit: "m²",
+      role: "計算中間值",
+    },
+    {
+      symbol: "gu",
+      label: "每平方公尺每日產生油脂量",
+      unit: "g/(m²·日)",
+      role: "算法依據參數",
+    },
+    {
+      symbol: "n",
+      label: "餐位利用率",
+      unit: calculationDisplayUnits.seatUtilization,
+      role: "算法依據參數",
+    },
+    {
+      symbol: "n0",
+      label: "補正餐位利用率",
+      unit: calculationDisplayUnits.seatUtilization,
+      role: "算法依據參數",
+    },
+    { symbol: "iu", label: "預定油脂清除週期", unit: "日", role: "本案條件" },
     { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-AREA-GB": [
-    { symbol: "A", label: "全面積", unit: "m²", role: "計算中間值" },
+    {
+      symbol: "A",
+      label: "廚房及用餐區總面積 A",
+      unit: "m²",
+      role: "計算中間值",
+    },
     {
       symbol: "gb",
-      label: "單位面積下游油脂量",
-      unit: "g/(m²·day)",
+      label: "每平方公尺每日產生沉積殘留物量",
+      unit: "g/(m²·日)",
       role: "算法依據參數",
     },
-    { symbol: "n", label: "餐位利用率", unit: "", role: "算法依據參數" },
-    { symbol: "n0", label: "補正餐位利用率", unit: "", role: "算法依據參數" },
-    { symbol: "ib", label: "殘渣清除週期", unit: "日", role: "本案條件" },
+    {
+      symbol: "n",
+      label: "餐位利用率",
+      unit: calculationDisplayUnits.seatUtilization,
+      role: "算法依據參數",
+    },
+    {
+      symbol: "n0",
+      label: "補正餐位利用率",
+      unit: calculationDisplayUnits.seatUtilization,
+      role: "算法依據參數",
+    },
+    {
+      symbol: "ib",
+      label: "預定沉積殘留物清除週期",
+      unit: "日",
+      role: "本案條件",
+    },
     { symbol: "1000", label: "公克換公斤係數", unit: "", role: "算法依據參數" },
   ],
   "CUR-AREA-G": [
-    { symbol: "Gu", label: "上游油脂量", unit: "kg", role: "計算中間值" },
-    { symbol: "Gb", label: "下游油脂量", unit: "kg", role: "計算中間值" },
+    { symbol: "Gu", label: "截留油脂量", unit: "kg", role: "計算中間值" },
+    { symbol: "Gb", label: "沉積殘留物量", unit: "kg", role: "計算中間值" },
   ],
   "CUR-REV-N-Q": [
     {
       symbol: "Qcapacity",
-      label: "設備設計處理水量能力",
+      label: "設備流量能力 Q",
       unit: "L/min",
       role: "本案條件",
     },
     {
       symbol: "t",
-      label: "每日使用時間",
+      label: "每日廚房使用時間 t",
       unit: "min/日",
       role: "算法依據參數",
     },
-    { symbol: "Wm'", label: "每人用水量", unit: "L/人", role: "算法依據參數" },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
+    {
+      symbol: "Wm'",
+      label: "每用餐人使用水量",
+      unit: "L/人",
+      role: "算法依據參數",
+    },
+    {
+      symbol: "k",
+      label: "平均流量係數 k",
+      unit: calculationDisplayUnits.dimensionless,
+      role: "算法依據參數",
+    },
   ],
   "CUR-REV-N-G": [
     { symbol: "1000", label: "公斤換公克係數", unit: "", role: "算法依據參數" },
     {
       symbol: "Gcapacity",
-      label: "設備油脂容納能力",
+      label: "設備油脂截留量 G",
       unit: "kg",
       role: "本案條件",
     },
     {
       symbol: "gu",
-      label: "每人上游油脂量",
+      label: "每用餐人產生油脂量",
       unit: "g/人",
       role: "算法依據參數",
     },
-    { symbol: "iu", label: "油脂清除週期", unit: "日", role: "本案條件" },
+    { symbol: "iu", label: "預定油脂清除週期", unit: "日", role: "本案條件" },
     {
       symbol: "gb",
-      label: "每人下游油脂量",
+      label: "每用餐人產生沉積殘留物量",
       unit: "g/人",
       role: "算法依據參數",
     },
-    { symbol: "ib", label: "殘渣清除週期", unit: "日", role: "本案條件" },
+    {
+      symbol: "ib",
+      label: "預定沉積殘留物清除週期",
+      unit: "日",
+      role: "本案條件",
+    },
   ],
   "CUR-REV-A": [
     {
       symbol: "Qcapacity",
-      label: "設備設計處理水量能力上限",
+      label: "設備流量能力 Q",
       unit: "L/min",
       role: "本案條件",
     },
     {
       symbol: "Gcapacity",
-      label: "設備油脂容納能力上限",
+      label: "設備油脂截留量 G",
       unit: "kg",
       role: "本案條件",
     },
@@ -767,37 +861,57 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
   "LEG-MEAN-Q": [
     {
       symbol: "baseQ",
-      label: "各餐期基礎水量平均值",
+      label: "各餐期基礎污水流出量平均值",
       unit: "L/h",
       role: "計算中間值",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
+    {
+      symbol: "k",
+      label: "安全係數 k",
+      unit: calculationDisplayUnits.dimensionless,
+      role: "算法依據參數",
+    },
   ],
   "LEG-DIN-Q": [
-    { symbol: "n", label: "單餐期用餐人數", unit: "人/餐", role: "本案條件" },
+    { symbol: "n", label: "每餐用餐人數", unit: "人/餐", role: "本案條件" },
     {
       symbol: "q",
-      label: "每人每餐用水量",
+      label: "每人每餐產生污水量",
       unit: "L/(人·餐)",
       role: "算法依據參數",
     },
-    { symbol: "t", label: "餐期操作時間", unit: "h", role: "本案條件" },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
+    {
+      symbol: "t",
+      label: "每餐廚房污水持續流出時間",
+      unit: "h",
+      role: "本案條件",
+    },
+    {
+      symbol: "k",
+      label: "安全係數 k",
+      unit: calculationDisplayUnits.dimensionless,
+      role: "算法依據參數",
+    },
   ],
   "LEG-MEASURED-Q": [
     { symbol: "Qmeasured", label: "實測排水量", unit: "L", role: "本案條件" },
     { symbol: "t", label: "實測期間", unit: "h", role: "本案條件" },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
+    {
+      symbol: "k",
+      label: "安全係數 k",
+      unit: calculationDisplayUnits.dimensionless,
+      role: "算法依據參數",
+    },
   ],
   "LEG-AREA-N": [
     { symbol: "A", label: "用餐營業面積", unit: "m²", role: "本案條件" },
-    { symbol: "d", label: "人員密度", unit: "人/m²", role: "算法依據參數" },
-    { symbol: "r", label: "翻桌率", unit: "次", role: "算法依據參數" },
+    { symbol: "d", label: "人數密度", unit: "人/m²", role: "算法依據參數" },
+    { symbol: "r", label: "回轉率", unit: "次", role: "算法依據參數" },
   ],
   "LEG-VEFF": [
     {
       symbol: "Qhour",
-      label: "每小時設計處理水量",
+      label: "計算流量 Q（每小時）",
       unit: "L/h",
       role: "計算中間值",
     },
@@ -810,12 +924,17 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
       unit: "1/h",
       role: "算法依據參數",
     },
-    { symbol: "Veff", label: "設備有效容積", unit: "L", role: "本案條件" },
+    {
+      symbol: "Veff",
+      label: "設備除油室有效容積 V",
+      unit: "L",
+      role: "本案條件",
+    },
   ],
   "LEG-VOL-QM": [
     {
       symbol: "Qhour",
-      label: "每小時設計處理水量",
+      label: "計算流量 Q（每小時）",
       unit: "L/h",
       role: "計算中間值",
     },
@@ -828,20 +947,40 @@ const formulaValueDefinitions: Record<string, FormulaValueDefinition[]> = {
   ],
   "LEG-REV-N": [
     { symbol: "6", label: "有效容積換算係數", unit: "", role: "算法依據參數" },
-    { symbol: "Veff", label: "設備有效容積", unit: "L", role: "本案條件" },
-    { symbol: "t", label: "餐期操作時間", unit: "h", role: "本案條件" },
+    {
+      symbol: "Veff",
+      label: "設備除油室有效容積 V",
+      unit: "L",
+      role: "本案條件",
+    },
+    {
+      symbol: "t",
+      label: "每餐廚房污水持續流出時間",
+      unit: "h",
+      role: "本案條件",
+    },
     {
       symbol: "q",
-      label: "每人每餐用水量",
+      label: "每人每餐產生污水量",
       unit: "L/(人·餐)",
       role: "算法依據參數",
     },
-    { symbol: "k", label: "安全係數", unit: "", role: "算法依據參數" },
+    {
+      symbol: "k",
+      label: "安全係數 k",
+      unit: calculationDisplayUnits.dimensionless,
+      role: "算法依據參數",
+    },
   ],
   "LEG-REV-A": [
-    { symbol: "n", label: "可支援用餐人數", unit: "人/餐", role: "計算中間值" },
-    { symbol: "d", label: "人員密度", unit: "人/m²", role: "算法依據參數" },
-    { symbol: "r", label: "翻桌率", unit: "次", role: "算法依據參數" },
+    {
+      symbol: "n",
+      label: "等效用餐人數上限",
+      unit: "人/餐",
+      role: "計算中間值",
+    },
+    { symbol: "d", label: "人數密度", unit: "人/m²", role: "算法依據參數" },
+    { symbol: "r", label: "回轉率", unit: "次", role: "算法依據參數" },
   ],
 };
 
@@ -851,11 +990,16 @@ function definitionsForFormula(formulaCode: string): FormulaValueDefinition[] {
       { symbol: "n", label: "該餐期用餐人數", unit: "人/餐", role: "本案條件" },
       {
         symbol: "q",
-        label: "每人每餐用水量",
+        label: "每人每餐產生污水量",
         unit: "L/(人·餐)",
         role: "算法依據參數",
       },
-      { symbol: "t", label: "餐期操作時間", unit: "h", role: "本案條件" },
+      {
+        symbol: "t",
+        label: "每餐廚房污水持續流出時間",
+        unit: "h",
+        role: "本案條件",
+      },
     ];
   }
   return formulaValueDefinitions[formulaCode] ?? [];

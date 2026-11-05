@@ -12,7 +12,10 @@ import {
   type ReportInputGroup,
   type ReportOutputCell,
 } from "./presentation";
-import { comparisonInputTableLabels } from "@/domain/shared/comparison-input-table";
+import {
+  calculationDisplayUnits,
+  comparisonInputTableLabels,
+} from "@/domain/shared/comparison-input-table";
 import { currentRuleChecksum } from "@/domain/rules/catalog";
 import {
   currentAreaFactors,
@@ -51,26 +54,34 @@ function logoMarkup(className: string): string {
 }
 
 const taskLabels: Record<string, string> = {
-  T01_DINERS_TO_FLOW: "由每日用餐人數換算流量",
-  T02_DINERS_TO_DESIGN: "由每日用餐人數規劃設計需求",
+  T01_DINERS_TO_FLOW: "由用餐人數計算流量",
+  T02_DINERS_TO_DESIGN: "由用餐人數規劃設計需求",
   T03_AREA_TO_FLOW: "由廚房與用餐區面積換算流量",
   T04_AREA_TO_DESIGN: "由廚房與用餐區面積規劃設計需求",
-  T05_DESIGN_TO_DINERS_AND_AREA: "由設備能力反推可支援的人數與面積",
-  T06_EFFECTIVE_VOLUME_TO_FLOW: "由設備有效容積換算設計處理水量",
+  T05_DESIGN_TO_DINERS_AND_AREA: "由設備能力反推等效用餐人數與服務面積上限",
+  T06_EFFECTIVE_VOLUME_TO_FLOW: "依有效容積換算流量（算法 A）",
 };
 
 const primaryOutputLabelsByTask: Record<string, readonly string[]> = {
-  T01_DINERS_TO_FLOW: ["設計處理水量"],
-  T02_DINERS_TO_DESIGN: ["設計處理水量", "清除週期油脂量", "設備所需有效容積"],
-  T03_AREA_TO_FLOW: ["設計處理水量"],
-  T04_AREA_TO_DESIGN: ["設計處理水量", "清除週期油脂量", "設備所需有效容積"],
-  T05_DESIGN_TO_DINERS_AND_AREA: ["可支援的用餐人數", "可支援的服務面積"],
-  T06_EFFECTIVE_VOLUME_TO_FLOW: ["設計處理水量"],
+  T01_DINERS_TO_FLOW: ["計算流量 Q"],
+  T02_DINERS_TO_DESIGN: [
+    "計算流量 Q",
+    "截留油脂及沉積殘留物量 G",
+    "所需除油室有效容積 V",
+  ],
+  T03_AREA_TO_FLOW: ["計算流量 Q"],
+  T04_AREA_TO_DESIGN: [
+    "計算流量 Q",
+    "截留油脂及沉積殘留物量 G",
+    "所需除油室有效容積 V",
+  ],
+  T05_DESIGN_TO_DINERS_AND_AREA: ["等效用餐人數上限", "等效服務面積上限"],
+  T06_EFFECTIVE_VOLUME_TO_FLOW: ["計算流量 Q"],
 };
 
 const referenceOnlyInputLabelsByTask: Record<string, readonly string[]> = {
-  T01_DINERS_TO_FLOW: ["油脂清除週期", "殘渣清除週期"],
-  T03_AREA_TO_FLOW: ["油脂清除週期", "殘渣清除週期"],
+  T01_DINERS_TO_FLOW: ["預定油脂清除週期", "預定沉積殘留物清除週期"],
+  T03_AREA_TO_FLOW: ["預定油脂清除週期", "預定沉積殘留物清除週期"],
 };
 
 const primaryOutcomeFormulaCodesByTask: Record<string, readonly string[]> = {
@@ -204,29 +215,29 @@ function flowComparisonValue(unit: string, value: string): string {
 
 function formulaPurpose(formulaCode: string): string {
   if (formulaCode.startsWith("LEG-PERIOD-"))
-    return "計算各餐期基礎處理水量（每小時）";
+    return "計算各餐期基礎污水流出量（每小時）";
   const labels: Record<string, string> = {
-    "CUR-DIN-Q": "計算設計處理水量（尖峰每分鐘）",
-    "CUR-DIN-GU": "計算上游清除週期油脂量",
-    "CUR-DIN-GB": "計算下游清除週期油脂量",
-    "CUR-DIN-G": "合計清除週期油脂量",
+    "CUR-DIN-Q": "計算流量 Q（每分鐘）",
+    "CUR-DIN-GU": "計算截留油脂量 Gu",
+    "CUR-DIN-GB": "計算沉積殘留物量 Gb",
+    "CUR-DIN-G": "合計截留油脂及沉積殘留物量 G",
     "CUR-AREA-A": "合計廚房與用餐區面積",
-    "CUR-AREA-Q": "計算設計處理水量（尖峰每分鐘）",
-    "CUR-AREA-GU": "計算上游清除週期油脂量",
-    "CUR-AREA-GB": "計算下游清除週期油脂量",
-    "CUR-AREA-G": "合計清除週期油脂量",
-    "CUR-REV-N-Q": "依設計處理水量反推可支援人數",
-    "CUR-REV-N-G": "依油脂容納能力反推可支援人數",
-    "CUR-REV-A": "找出同時符合流量與油脂能力的最大面積",
-    "LEG-MEAN-Q": "計算設計處理水量（各餐期平均、每小時）",
-    "LEG-DIN-Q": "計算設計處理水量（每小時）",
-    "LEG-MEASURED-Q": "依實測排水量計算設計處理水量（每小時）",
-    "LEG-AREA-N": "依面積、人員密度與翻桌率估算人數",
-    "LEG-VEFF": "計算設備所需有效容積",
-    "LEG-REV-N": "依有效容積反推可支援人數",
-    "LEG-REV-A": "依反推人數換算可支援面積",
-    "LEG-VOL-QH": "由有效容積換算每小時處理水量",
-    "LEG-VOL-QM": "換算每分鐘設計處理水量",
+    "CUR-AREA-Q": "計算流量 Q（每分鐘）",
+    "CUR-AREA-GU": "計算截留油脂量 Gu",
+    "CUR-AREA-GB": "計算沉積殘留物量 Gb",
+    "CUR-AREA-G": "合計截留油脂及沉積殘留物量 G",
+    "CUR-REV-N-Q": "依設備流量能力 Q 反推等效用餐人數上限",
+    "CUR-REV-N-G": "依設備油脂截留量反推等效用餐人數上限",
+    "CUR-REV-A": "找出同時符合設備流量與截留能力的最大面積",
+    "LEG-MEAN-Q": "計算流量 Q（各餐期平均、每小時）",
+    "LEG-DIN-Q": "計算流量 Q（每小時）",
+    "LEG-MEASURED-Q": "依實測排水量計算流量 Q（每小時）",
+    "LEG-AREA-N": "依面積、人數密度與回轉率估算人數",
+    "LEG-VEFF": "計算所需除油室有效容積 V",
+    "LEG-REV-N": "依有效容積反推等效用餐人數上限",
+    "LEG-REV-A": "依反推人數換算等效服務面積上限",
+    "LEG-VOL-QH": "依有效容積換算每小時流量 Q",
+    "LEG-VOL-QM": "換算每分鐘流量 Q",
   };
   return labels[formulaCode] ?? "依本算法公式計算";
 }
@@ -256,7 +267,7 @@ function roleBadge(role: string): string {
     role,
   )
     ? "role-case"
-    : ["工程選值", "法規表值", "算法依據參數", "覆寫值"].includes(role)
+    : ["工程選值", "法規表值", "算法依據參數", "本案調整值"].includes(role)
       ? "role-source"
       : "role-derived";
   return `<span class="role-badge ${className}">${escapeHtml(role)}</span>`;
@@ -309,7 +320,13 @@ function reportInputCell(
   );
   return row
     ? {
-        lines: [{ value: row.value, unit: row.unit }],
+        lines: [
+          {
+            label: row.label,
+            value: row.value,
+            unit: row.unit || (row.label === "安全係數 k" ? "無單位" : ""),
+          },
+        ],
         ...(row.sourceNote ? { sourceNote: row.sourceNote } : {}),
       }
     : missingValue;
@@ -324,21 +341,15 @@ function reportStaticCell(
 
 function optionalMetadataCell(
   group: ReportInputGroup | undefined,
-  sourceLabel: string,
   missingBasis: string,
 ): ComparisonInputCell | string {
   if (!group) return "尚未完成";
-  const source = group.rows.find((row) => row.label === sourceLabel)?.value;
   const basis = group.rows.find((row) => row.label === "取值依據")?.value;
-  const legacyReason = group.rows.find(
-    (row) => row.label === "參數選擇理由",
-  )?.value;
   return {
     lines: [
-      ...(source ? [{ label: "資料來源類型", value: source }] : []),
       {
         label: "取值依據",
-        value: basis ?? legacyReason ?? missingBasis,
+        value: basis ?? missingBasis,
       },
     ],
   };
@@ -355,7 +366,15 @@ function formulaInputCell(
     );
     if (value) {
       return {
-        lines: [{ value: value.value, unit: value.unit }],
+        lines: [
+          {
+            label: value.label.endsWith(` ${value.symbol}`)
+              ? value.label
+              : `${value.label} ${value.symbol}`,
+            value: value.value,
+            unit: value.unit || (value.symbol === "k" ? "無單位" : ""),
+          },
+        ],
         ...(step.sourceRef
           ? { sourceNote: `本次計算代入值｜${step.sourceRef}` }
           : {}),
@@ -428,8 +447,8 @@ function comparisonRows(
 
   addGroupValueRow(
     comparisonInputTableLabels.diningCategory,
-    "餐飲安全分類",
-    "餐飲類型",
+    "安全係數類別",
+    "餐飲種類",
     "尚未選擇餐飲分類",
   );
 
@@ -447,28 +466,28 @@ function comparisonRows(
   } else if (reverseTask) {
     addRow(
       comparisonInputTableLabels.effectiveVolume,
-      reportInputCell(algorithmA, "設備有效容積"),
+      reportInputCell(algorithmA, "設備除油室有效容積 V"),
       reportStaticCell(algorithmB, "依 Q 與 G 設計能力反推"),
     );
     addRow(
       comparisonInputTableLabels.designFlowCapacity,
       reportStaticCell(algorithmA, "不以 Q 能力作為反推輸入"),
-      reportInputCell(algorithmB, "設備設計處理水量能力"),
+      reportInputCell(algorithmB, "設備流量能力 Q"),
     );
     addRow(
       comparisonInputTableLabels.greaseCapacity,
       reportStaticCell(algorithmA, "不使用 G 能力輸入"),
-      reportInputCell(algorithmB, "設備油脂容納能力"),
+      reportInputCell(algorithmB, "設備油脂截留量 G"),
     );
     addRow(
       comparisonInputTableLabels.equipmentEvidence,
       reportStaticCell(algorithmA, "依上列設備資料"),
-      reportInputCell(algorithmB, "能力資料來源"),
+      reportInputCell(algorithmB, "能力資料來源／證據"),
     );
   } else {
     addGroupValueRow(
       comparisonInputTableLabels.people,
-      "單餐期用餐人數",
+      "每餐用餐人數",
       "每日用餐人數",
     );
   }
@@ -491,7 +510,7 @@ function comparisonRows(
       algorithmBWaterLines.push({
         label: "Wm",
         value: areaFactors.Wm,
-        unit: "L/(m²·day)",
+        unit: "L/(m²·日)",
       });
   } else if (reverseTask) {
     const dinerNote = addWaterFormula("Wm'", "Wm′");
@@ -506,12 +525,12 @@ function comparisonRows(
       algorithmBWaterLines.push({
         label: "Wm",
         value: areaFactors.Wm,
-        unit: "L/(m²·day)",
+        unit: "L/(m²·日)",
       });
     else if (currentRuleAvailable)
       algorithmBWaterLines.push({
         label: "Wm（面積法）",
-        value: "不適用此餐飲類型",
+        value: "不適用此餐飲種類",
       });
   } else {
     const note = addWaterFormula("Wm'", "Wm′");
@@ -524,11 +543,13 @@ function comparisonRows(
       });
   }
   const currentRuleNote =
-    algorithmB && currentRuleAvailable ? "內政部附錄 5 來源表" : undefined;
+    algorithmB && currentRuleAvailable
+      ? "給排水設計技術規範附錄第 5 點 來源表"
+      : undefined;
   const waterSourceNote = waterSourceNotes[0] ?? currentRuleNote;
   addRow(
     comparisonInputTableLabels.waterParameter,
-    reportInputCell(algorithmA, "每人每餐用水量 q"),
+    reportInputCell(algorithmA, "每人每餐產生污水量 q"),
     !algorithmB
       ? "尚未完成"
       : algorithmBWaterLines.length
@@ -539,14 +560,14 @@ function comparisonRows(
         : "本次快照未收錄參數值",
   );
 
-  const legacyTime = reportInputCell(algorithmA, "餐期操作時間");
+  const legacyTime = reportInputCell(algorithmA, "每餐廚房污水持續流出時間");
   const adoptedLegacyTime =
     legacyTime === "尚未輸入"
       ? (formulaInputCell(runA, "t") ?? "本次快照未收錄時間值")
       : legacyTime;
   const currentTimeInput = reportInputCell(
     algorithmB,
-    "每日實際使用時間",
+    "每日廚房使用時間 t",
     "尚未記錄",
   );
   const currentTime =
@@ -572,13 +593,13 @@ function comparisonRows(
               ...(currentTime && typeof currentTime !== "string"
                 ? currentTime.lines.map((line) => ({
                     ...line,
-                    label: "人數法 t（計算使用）",
+                    label: "人數法每日廚房使用時間 t（計算使用）",
                   }))
                 : []),
               {
-                label: "面積法 t（計算使用）",
+                label: "面積法每日廚房使用時間 t（計算使用）",
                 value: currentReverseAreaTime,
-                unit: "min/day",
+                unit: "min/日",
               },
             ],
             ...(currentReverseTimeSourceNote
@@ -590,10 +611,10 @@ function comparisonRows(
 
   if (areaTask || reverseTask) {
     const legacyDensity = algorithmA?.rows.find(
-      (row) => row.label === "人員密度",
+      (row) => row.label === "人數密度",
     );
     const legacyTurnover = algorithmA?.rows.find(
-      (row) => row.label === "翻桌率",
+      (row) => row.label === "回轉率",
     );
     const legacyAreaParameters: ComparisonInputCell | string = algorithmA
       ? {
@@ -601,7 +622,7 @@ function comparisonRows(
             ...(legacyDensity
               ? [
                   {
-                    label: "人員密度",
+                    label: "人數密度",
                     value: legacyDensity.value,
                     unit: legacyDensity.unit,
                   },
@@ -610,7 +631,7 @@ function comparisonRows(
             ...(legacyTurnover
               ? [
                   {
-                    label: "翻桌率",
+                    label: "回轉率",
                     value: legacyTurnover.value,
                     unit: legacyTurnover.unit,
                   },
@@ -630,19 +651,20 @@ function comparisonRows(
       currentAreaLines.push({
         label: "n（餐位利用率）",
         value: currentSeatUtilization[diningType]!,
+        unit: calculationDisplayUnits.seatUtilization,
       });
     else if (reverseTask && currentRuleAvailable)
       currentAreaLines.push({
         label: "n（餐位利用率）",
-        value: "不適用此餐飲類型",
+        value: "不適用此餐飲種類",
       });
     if (n0Value)
       currentAreaLines.push({ ...n0Value, label: "n₀（補正餐位利用率）" });
     else if (reverseTask)
       currentAreaLines.push({
         label: "n₀（補正餐位利用率）",
-        value: "依候選面積查表",
-        unit: "A-36 查表",
+        value: "依候選面積查 A-36 表",
+        unit: calculationDisplayUnits.seatUtilization,
       });
     const currentAreaSourceNote = reverseTask
       ? currentRuleNote
@@ -673,20 +695,31 @@ function comparisonRows(
     const areaK = areaFactors?.k;
     if (dinerK)
       currentSafetyLines.push({
-        label: "人數法 k",
+        label: "人數法平均流量係數 k",
         value: typeof dinerK === "string" ? dinerK : dinerK.value,
+        unit: "無單位",
       });
-    if (areaK) currentSafetyLines.push({ label: "面積法 k", value: areaK });
+    if (areaK)
+      currentSafetyLines.push({
+        label: "面積法平均流量係數 k",
+        value: areaK,
+        unit: "無單位",
+      });
     else if (currentRuleAvailable)
       currentSafetyLines.push({
-        label: "面積法 k",
-        value: "不適用此餐飲類型",
+        label: "面積法平均流量係數 k",
+        value: "不適用此餐飲種類",
       });
   } else if (currentSafetyFormula?.lines[0]) {
     currentSafetyLines.push(currentSafetyFormula.lines[0]);
   } else {
     const factor = areaTask ? areaFactors?.k : dinerFactors?.k;
-    if (factor) currentSafetyLines.push({ value: factor });
+    if (factor)
+      currentSafetyLines.push({
+        label: "平均流量係數 k",
+        value: factor,
+        unit: "無單位",
+      });
   }
   addRow(
     comparisonInputTableLabels.safetyFactor,
@@ -705,18 +738,27 @@ function comparisonRows(
 
   addRow(
     comparisonInputTableLabels.greaseCleaningPeriod,
-    reportStaticCell(algorithmA, "此算法未使用此週期"),
-    reportInputCell(algorithmB, "油脂清除週期", "本次報告未納入參考條件"),
+    reportStaticCell(algorithmA, "此算法未納入週期計算"),
+    reportInputCell(algorithmB, "預定油脂清除週期", "本次報告未納入參考條件"),
   );
   addRow(
     comparisonInputTableLabels.sedimentCleaningPeriod,
-    reportStaticCell(algorithmA, "此算法未使用此週期"),
-    reportInputCell(algorithmB, "殘渣清除週期", "本次報告未納入參考條件"),
+    reportStaticCell(algorithmA, "此算法未納入週期計算"),
+    reportInputCell(
+      algorithmB,
+      "預定沉積殘留物清除週期",
+      "本次報告未納入參考條件",
+    ),
+  );
+  addRow(
+    comparisonInputTableLabels.dataSource,
+    reportInputCell(algorithmA, "來源類型", "本次快照未收錄資料來源"),
+    reportInputCell(algorithmB, "來源文件", "本次快照未收錄資料來源"),
   );
   addRow(
     comparisonInputTableLabels.selectionBasis,
-    optionalMetadataCell(algorithmA, "選值來源類型", "未填寫（選填）"),
-    optionalMetadataCell(algorithmB, "算法依據來源", "未填寫（選填）"),
+    optionalMetadataCell(algorithmA, "未填寫（選填）"),
+    optionalMetadataCell(algorithmB, "未填寫（選填）"),
   );
   addGroupValueRow(
     comparisonInputTableLabels.supplementaryData,
@@ -727,13 +769,22 @@ function comparisonRows(
   return inputRows;
 }
 
+const comparisonDefinitionLabels: Record<string, string> = {
+  每餐用餐人數: "每餐用餐人數 n",
+  每餐廚房污水持續流出時間: "每餐廚房污水持續流出時間 t",
+  "每日廚房使用時間 t": "每日廚房使用時間 t",
+  "Wm′": "每用餐人使用水量 Wm′",
+  Wm: "每平方公尺每日使用水量 Wm",
+  "Wm（面積法）": "每平方公尺每日使用水量 Wm（面積法）",
+};
+
 function comparisonCellMarkup(cell: ComparisonInputCell | string): string {
   if (typeof cell === "string")
     return `<span class="comparison-report-note">${escapeHtml(cell)}</span>`;
   const linesMarkup = cell.lines
     .map(
       (line) =>
-        `<span class="comparison-report-line">${line.label ? `<span class="comparison-report-label">${escapeHtml(line.label)}</span>` : ""}<strong>${escapeHtml(line.value)}</strong>${line.unit ? ` <span class="unit">${escapeHtml(line.unit)}</span>` : ""}</span>`,
+        `<span class="comparison-report-line">${line.label ? `<span class="comparison-report-label">${escapeHtml(comparisonDefinitionLabels[line.label] ?? line.label)}</span>` : ""}<strong>${escapeHtml(line.value)}</strong>${line.unit ? ` <span class="unit">${escapeHtml(line.unit)}</span>` : ""}</span>`,
     )
     .join("");
   return `${linesMarkup}${cell.sourceNote ? `<span class="comparison-report-source">${escapeHtml(cell.sourceNote)}</span>` : ""}`;
@@ -764,12 +815,23 @@ function inputOverview(
     .join("")}</div>`;
 }
 
-function outputCell(cell: ReportOutputCell): string {
+function outputCell(cell: ReportOutputCell, definition?: string): string {
   if (cell.state === "NOT_COMPLETED")
     return `<span class="cell-state not-completed">未完成</span>`;
   if (cell.state === "NOT_APPLICABLE")
-    return `<span class="cell-state not-applicable">此依據無法計算</span>`;
-  return `<strong class="output-value">${escapeHtml(cell.value)}</strong>${cell.unit ? ` <span class="unit">${escapeHtml(cell.unit)}</span>` : ""}`;
+    return `<span class="cell-state not-applicable">此算法未直接計算</span>`;
+  return `${definition ? `<span class="comparison-report-label">${escapeHtml(definition)}</span>` : ""}<strong class="output-value">${escapeHtml(cell.value)}</strong>${cell.unit ? ` <span class="unit">${escapeHtml(cell.unit)}</span>` : ""}`;
+}
+
+function outputDefinition(label: string, track: string): string {
+  if (label === "計算流量 Q")
+    return track === "LEGACY_QV" ? "計算流量 Q（換算為 L/min）" : "計算流量 Q";
+  if (label === "所需除油室有效容積 V") return "所需除油室有效容積 V";
+  if (label === "等效用餐人數上限")
+    return track === "LEGACY_QV"
+      ? "等效每餐用餐人數上限"
+      : "等效每日用餐人數上限";
+  return label;
 }
 
 function outputOverview(
@@ -799,7 +861,11 @@ function outputOverview(
               cell.state === "VALUE" && primaryOutputLabels.includes(row.label)
                 ? ' class="output-cell-final"'
                 : "";
-            return `<td${emphasisClass}>${outputCell(cell)}</td>`;
+            const definition =
+              snapshot.case.mode === "DUAL_COMPARISON"
+                ? outputDefinition(row.label, track)
+                : undefined;
+            return `<td${emphasisClass}>${outputCell(cell, definition)}</td>`;
           })
           .join("")}</tr>`,
     )
@@ -811,13 +877,13 @@ function formulaValueTable(
   inputGroup: ReportInputGroup | undefined,
 ): string {
   const usesActualMinutes = inputGroup?.rows.some(
-    (row) => row.label === "每日實際使用時間",
+    (row) => row.label === "每日廚房使用時間 t",
   );
   const values = formulaValues(step).map((value) =>
     inputGroup?.track === "CURRENT_QG" &&
     value.symbol === "t" &&
     usesActualMinutes
-      ? { ...value, label: "每日實際使用時間", role: "覆寫值" as const }
+      ? { ...value, label: "每日廚房使用時間 t", role: "本案調整值" as const }
       : value,
   );
   if (!values.length)
@@ -1042,7 +1108,7 @@ h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
 .input-groups > .input-group:only-child { grid-column: 1 / -1; }
 .comparison-table-wrap { width: 100%; max-width: 100%; overflow: hidden; margin: 3mm 0 5mm; border: 1px solid #D9E1E7; border-radius: 1.3mm; background: #fff; }
 .comparison-input-table { width: 100%; table-layout: fixed; border-collapse: collapse; background: #fff; font-size: 8.2pt; }
-.comparison-input-table th, .comparison-input-table td { padding: 1.6mm 2mm; border: 0; border-bottom: 1px solid #D9E1E7; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.comparison-input-table th, .comparison-input-table td { padding: 1.3mm 2mm; border: 0; border-bottom: 1px solid #D9E1E7; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
 .comparison-input-table thead th { color: #435C56; background: #F2F5F5; font-size: 8pt; font-weight: 700; }
 .comparison-input-table thead th:first-child, .comparison-input-table tbody th { width: 24%; }
 .comparison-input-table tbody th { color: #111; background: #FBFCFD; font-weight: 700; }
@@ -1050,7 +1116,7 @@ h1, h2, h3, h4 { break-after: avoid-page; page-break-after: avoid; }
 .comparison-input-table tbody tr:last-child > * { border-bottom: 0; }
 .comparison-report-line { display: block; margin: .3mm 0; }
 .comparison-report-line strong { color: #173B63; font-weight: 700; }
-.comparison-report-label { margin-right: 1.2mm; color: #435C56; font-size: 7.5pt; font-weight: 700; }
+.comparison-report-label { display: block; margin-bottom: .5mm; color: #435C56; font-size: 7.5pt; font-weight: 700; }
 .comparison-report-source { display: block; margin-top: .7mm; color: #555; font-size: 7.3pt; font-weight: 400; }
 .comparison-report-note { color: #555; font-size: 8pt; font-weight: 400; }
 .group-source { margin: 0 0 1mm; color: #555; font-size: 8pt; font-weight: 400; }

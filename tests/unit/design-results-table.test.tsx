@@ -21,9 +21,9 @@ describe("DesignResultsTable", () => {
     );
 
     expect(html).toContain('aria-label="本次設計結果"');
-    expect(html).toContain("設計處理水量");
+    expect(html).toContain("計算流量 Q");
     expect(html).toContain('15</strong><span class="design-result-unit">L/min');
-    expect(html).toContain("此依據無法計算");
+    expect(html).toContain("此算法未直接計算");
     expect(html).not.toContain("900</strong>");
   });
 });

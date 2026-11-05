@@ -25,8 +25,8 @@ const taskLabels: Record<string, string> = {
   T02_DINERS_TO_DESIGN: "人數規劃設計需求",
   T03_AREA_TO_FLOW: "面積換算流量",
   T04_AREA_TO_DESIGN: "面積規劃設計需求",
-  T05_DESIGN_TO_DINERS_AND_AREA: "能力反推人數及面積",
-  T06_EFFECTIVE_VOLUME_TO_FLOW: "有效容積換算設計處理水量",
+  T05_DESIGN_TO_DINERS_AND_AREA: "設備能力反推等效人數及面積上限",
+  T06_EFFECTIVE_VOLUME_TO_FLOW: "依有效容積換算流量（算法 A）",
 };
 
 const modeLabels: Record<string, string> = {
