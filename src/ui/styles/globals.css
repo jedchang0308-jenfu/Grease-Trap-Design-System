@@ -832,7 +832,7 @@ button.button {
   margin-top: 0;
 }
 
-.source-pdf-link {
+.source-document-link {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
@@ -846,7 +846,7 @@ button.button {
   text-decoration: none;
 }
 
-.source-pdf-link:hover {
+.source-document-link:hover {
   border-color: var(--brand);
   color: var(--brand);
   background: var(--brand-soft);

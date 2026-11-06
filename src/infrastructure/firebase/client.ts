@@ -45,10 +45,10 @@ export const firestore = getFirestore(app);
 let emulatorConnected = false;
 if (useEmulators && !emulatorConnected) {
   const authEmulatorPort = Number(
-    import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT ?? 9099,
+    import.meta.env.VITE_FIREBASE_AUTH_EMULATOR_PORT ?? 1061,
   );
   const firestoreEmulatorPort = Number(
-    import.meta.env.VITE_FIREBASE_FIRESTORE_EMULATOR_PORT ?? 8080,
+    import.meta.env.VITE_FIREBASE_FIRESTORE_EMULATOR_PORT ?? 1062,
   );
   connectAuthEmulator(firebaseAuth, `http://127.0.0.1:${authEmulatorPort}`, {
     disableWarnings: true,

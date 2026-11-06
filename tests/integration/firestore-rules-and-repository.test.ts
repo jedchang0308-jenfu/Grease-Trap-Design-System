@@ -17,7 +17,7 @@ import { encodeCase, type CaseRecord } from "@/infrastructure/data/case-store";
 import { FirestoreCaseStore } from "@/infrastructure/data/firestore-case-store";
 
 const projectId = "demo-grease-trap";
-const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT ?? 8080);
+const firestorePort = Number(process.env.FIRESTORE_EMULATOR_PORT ?? 1062);
 
 function record(uid = "anonymous-one"): CaseRecord {
   const now = "2026-07-17T00:00:00.000Z";

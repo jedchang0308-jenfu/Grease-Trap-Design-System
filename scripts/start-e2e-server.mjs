@@ -1,5 +1,5 @@
 import { spawn, spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -34,6 +34,10 @@ const reportPdfOutputDirectory = path.join(
   "grease-trap-e2e-pdfs",
   String(process.pid),
 );
+const runtimeDirectory = mkdtempSync(
+  path.join(tmpdir(), "grease-trap-e2e-emulators-"),
+);
+const runtimeConfigPath = path.join(runtimeDirectory, "firebase.json");
 
 const baseEnv = Object.fromEntries(
   Object.entries(process.env)
@@ -98,6 +102,33 @@ function waitForPort(port, host = "127.0.0.1", timeoutMs = 120_000) {
   });
 }
 
+function getAvailablePort(excludedPorts = new Set()) {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        server.close();
+        reject(new Error("Unable to allocate a local emulator port."));
+        return;
+      }
+      const { port } = address;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+        } else if (excludedPorts.has(port)) {
+          getAvailablePort(excludedPorts).then(resolve, reject);
+        } else {
+          excludedPorts.add(port);
+          resolve(port);
+        }
+      });
+    });
+  });
+}
+
 function stopProcess(child) {
   if (!child?.pid) return;
   if (process.platform === "win32") {
@@ -117,6 +148,7 @@ function shutdown(code = 0) {
   stopProcess(previewProcess);
   stopProcess(emulatorProcess);
   rmSync(reportPdfOutputDirectory, { recursive: true, force: true });
+  rmSync(runtimeDirectory, { recursive: true, force: true });
   setTimeout(() => process.exit(code), 700).unref();
 }
 
@@ -131,11 +163,48 @@ process.on("exit", () => {
 await run(process.execPath, [prepareFonts]);
 await run(process.execPath, [viteCli, "build"]);
 
+const allocatedPorts = new Set();
+const authPort = await getAvailablePort(allocatedPorts);
+const firestorePort = await getAvailablePort(allocatedPorts);
+const firestoreWebsocketPort = await getAvailablePort(allocatedPorts);
+const hubPort = await getAvailablePort(allocatedPorts);
+const loggingPort = await getAvailablePort(allocatedPorts);
+const runtimeConfig = JSON.parse(
+  readFileSync(path.join(projectRoot, "firebase.json"), "utf8"),
+);
+runtimeConfig.firestore.rules = path.resolve(
+  projectRoot,
+  runtimeConfig.firestore.rules,
+);
+runtimeConfig.firestore.indexes = path.resolve(
+  projectRoot,
+  runtimeConfig.firestore.indexes,
+);
+runtimeConfig.emulators.auth = {
+  ...runtimeConfig.emulators.auth,
+  host: "127.0.0.1",
+  port: authPort,
+};
+runtimeConfig.emulators.firestore = {
+  ...runtimeConfig.emulators.firestore,
+  host: "127.0.0.1",
+  port: firestorePort,
+  websocketPort: firestoreWebsocketPort,
+};
+runtimeConfig.emulators.ui = { enabled: false };
+runtimeConfig.emulators.hub = { host: "127.0.0.1", port: hubPort };
+runtimeConfig.emulators.logging = { host: "127.0.0.1", port: loggingPort };
+writeFileSync(runtimeConfigPath, JSON.stringify(runtimeConfig, null, 2));
+env.VITE_FIREBASE_AUTH_EMULATOR_PORT = String(authPort);
+env.VITE_FIREBASE_FIRESTORE_EMULATOR_PORT = String(firestorePort);
+
 emulatorProcess = spawn(
   process.execPath,
   [
     firebaseCli,
     "emulators:start",
+    "--config",
+    runtimeConfigPath,
     "--project",
     "demo-grease-trap",
     "--only",
@@ -150,7 +219,7 @@ emulatorProcess.on("exit", (code) => {
   }
 });
 
-await Promise.all([waitForPort(8080), waitForPort(9099)]);
+await Promise.all([waitForPort(firestorePort), waitForPort(authPort)]);
 
 previewProcess = spawn(
   process.execPath,

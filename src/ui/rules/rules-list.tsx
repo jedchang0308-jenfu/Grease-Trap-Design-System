@@ -10,18 +10,30 @@ interface ReferenceDocument {
   versionLabel: string;
   publicationDate: string;
   source: string;
-  pdfHref: string;
+  documentHref: string;
+  linkLabel?: string;
   systemNote: string;
 }
 
-const issuedReports: ReferenceDocument[] = [
+const additionalReferences: ReferenceDocument[] = [
+  {
+    id: "CNS-14431-Q3001",
+    documentName: "油脂截留器性能試驗法",
+    versionLabel: "CNS 14431（Q3001）",
+    publicationDate: "2000/05/11",
+    source: "經濟部標準檢驗局",
+    documentHref: "https://www.cnsonline.com.tw/",
+    linkLabel: "查詢／購買標準",
+    systemNote:
+      "性能試驗方法；非算法 B 計算規範。全文依 CNS 標準系統授權取得。",
+  },
   {
     id: "RDR-26110201",
     documentName: "油脂截留設施臺灣法規體系與市場實務分析報告",
     versionLabel: "V1",
     publicationDate: "2026/11/02",
     source: "鉦富機械有限公司",
-    pdfHref:
+    documentHref:
       "/rule-sources/RDR-26110201_油脂截留設施-法規體系與市場實務分析報告_V1.pdf",
     systemNote: "內有算法 A 及算法 B 的說明",
   },
@@ -44,11 +56,11 @@ export function RulesList() {
             versionLabel: item.versionLabel,
             publicationDate: item.publicationDate,
             source: basis.fullLabel,
-            pdfHref: basis.pdfHref,
+            documentHref: basis.pdfHref,
             systemNote: basis.systemNote,
           };
         }),
-        ...issuedReports,
+        ...additionalReferences,
       ]);
     } catch (error) {
       setProblem(toProblem(error, "規則版本載入未完成，請重試。"));
@@ -93,15 +105,15 @@ export function RulesList() {
                   <td data-label="發布日期">{item.publicationDate}</td>
                   <td data-label="來源">{item.source}</td>
                   <td data-label="文件">
-                    {item.pdfHref ? (
+                    {item.documentHref ? (
                       <div className="source-document-actions">
                         <a
-                          className="source-pdf-link"
-                          href={item.pdfHref}
+                          className="source-document-link"
+                          href={item.documentHref}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          開啟完整 PDF
+                          {item.linkLabel ?? "開啟完整 PDF"}
                         </a>
                       </div>
                     ) : null}
