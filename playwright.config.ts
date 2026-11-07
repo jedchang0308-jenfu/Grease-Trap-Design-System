@@ -1,8 +1,20 @@
-import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
+import { lstatSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
 
-const playwrightOutputRoot = path.join(tmpdir(), "grease-trap-playwright");
+// Playwright workers reload this config and inherit the parent's run ID.
+const runId = (process.env.GREASE_TRAP_E2E_RUN_ID ??= randomUUID());
+if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(runId)) {
+  throw new Error("Invalid E2E run ID");
+}
+const scratch = path.join(import.meta.dirname, "tmp");
+const playwrightOutputRoot = path.join(scratch, `e2e-report-${runId}`);
+for (const directory of [scratch, playwrightOutputRoot]) {
+  if (lstatSync(directory, { throwIfNoEntry: false })?.isSymbolicLink()) {
+    throw new Error(`E2E report path must not be a link: ${directory}`);
+  }
+}
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -28,12 +40,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  webServer: {
-    command: "npm run dev:e2e",
-    url: "http://127.0.0.1:3210/cases",
-    reuseExistingServer: false,
-    timeout: 180_000,
-  },
+  globalSetup: "./scripts/start-e2e-server.mjs",
   projects: [
     {
       name: "desktop-1440",

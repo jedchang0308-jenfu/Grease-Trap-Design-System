@@ -93,11 +93,15 @@ git diff --check
 
 `test:integration` 驗證 Firestore repository 與 Rules；`test:e2e` 以 Auth／Firestore Emulator 啟動 production static preview，並執行 1440、1024、390 viewport 流程。
 
+E2E 在專案 `tmp/` 為每次執行建立獨立目錄。啟動器在停止該次服務後移除暫存建置、Emulator 設定和測試 PDF。Playwright 的報告及失敗證據留在該次 `tmp/e2e-report-<ID>/`，可開啟其中的 `report/index.html` 查看。
+
 ## Firebase 部署
 
 只能建立本系統專用的新 Firebase project，不得使用既有 PDM 或 ProJED project。
 
 正式環境：[https://jenfu-grease-trap-calculator.web.app](https://jenfu-grease-trap-calculator.web.app)
+
+Firebase CLI 登入過期時，在互動終端執行 `npx firebase-tools login --reauth`，並由帳戶持有人在瀏覽器完成登入。工作紀錄只記登入是否成功，避免把原始登入輸出重導到日誌檔。
 
 本輪設定目標：
 

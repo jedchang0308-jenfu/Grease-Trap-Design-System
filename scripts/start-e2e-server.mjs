@@ -1,14 +1,18 @@
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import net from "node:net";
-import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { setTimeout as delay } from "node:timers/promises";
 
-const projectRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-);
+const projectRoot = realpathSync(path.resolve(import.meta.dirname, ".."));
 const firebaseCli = path.join(
   projectRoot,
   "node_modules",
@@ -29,204 +33,317 @@ const prepareFonts = path.join(
   "scripts",
   "prepare-report-fonts.mjs",
 );
-const reportPdfOutputDirectory = path.join(
-  tmpdir(),
-  "grease-trap-e2e-pdfs",
-  String(process.pid),
-);
-const runtimeDirectory = mkdtempSync(
-  path.join(tmpdir(), "grease-trap-e2e-emulators-"),
-);
-const runtimeConfigPath = path.join(runtimeDirectory, "firebase.json");
+const host = "127.0.0.1";
+const previewPort = 3210;
 
-const baseEnv = Object.fromEntries(
-  Object.entries(process.env)
-    .filter(([key, value]) => !key.startsWith("=") && value != null)
-    .map(([key, value]) => [key, String(value)]),
-);
-
-const env = {
-  ...baseEnv,
-  VITE_FIREBASE_API_KEY: "demo-api-key",
-  VITE_FIREBASE_AUTH_DOMAIN: "demo-grease-trap.firebaseapp.com",
-  VITE_FIREBASE_PROJECT_ID: "demo-grease-trap",
-  VITE_FIREBASE_APP_ID: "demo-app-id",
-  VITE_USE_FIREBASE_EMULATORS: "true",
-  VITE_REPORT_PDF_LOCAL: "true",
-  REPORT_PDF_OUTPUT_DIR: reportPdfOutputDirectory,
-};
-
-let emulatorProcess;
-let previewProcess;
-let shuttingDown = false;
-
-function run(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd: projectRoot,
-      env,
-      stdio: "inherit",
-    });
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(
-          new Error(`${command} ${args.join(" ")} exited with code ${code}`),
-        );
-      }
-    });
-  });
-}
-
-function waitForPort(port, host = "127.0.0.1", timeoutMs = 120_000) {
-  const startedAt = Date.now();
-  return new Promise((resolve, reject) => {
-    const tryConnect = () => {
-      const socket = net.connect({ host, port });
-      socket.once("connect", () => {
-        socket.end();
-        resolve();
-      });
-      socket.once("error", () => {
-        socket.destroy();
-        if (Date.now() - startedAt > timeoutMs) {
-          reject(new Error(`Timed out waiting for ${host}:${port}`));
-          return;
-        }
-        setTimeout(tryConnect, 500);
-      });
-    };
-    tryConnect();
-  });
-}
-
-function getAvailablePort(excludedPorts = new Set()) {
+function listenForPort(port) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
-    server.unref();
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close();
-        reject(new Error("Unable to allocate a local emulator port."));
-        return;
-      }
-      const { port } = address;
-      server.close((error) => {
-        if (error) {
-          reject(error);
-        } else if (excludedPorts.has(port)) {
-          getAvailablePort(excludedPorts).then(resolve, reject);
-        } else {
-          excludedPorts.add(port);
-          resolve(port);
-        }
-      });
+    server.listen(port, host, () => {
+      const actualPort = server.address().port;
+      server.close((error) => (error ? reject(error) : resolve(actualPort)));
     });
+  });
+}
+
+function canConnect(port) {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    socket.setTimeout(1_000);
+    const finish = (connected) => {
+      socket.destroy();
+      resolve(connected);
+    };
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
   });
 }
 
 function stopProcess(child) {
-  if (!child?.pid) return;
-  if (process.platform === "win32") {
-    spawnSync("taskkill.exe", ["/PID", String(child.pid), "/T", "/F"], {
-      stdio: "ignore",
-      windowsHide: true,
-    });
+  if (!child.pid || child.exitCode !== null || child.signalCode !== null)
+    return;
+  if (process.platform !== "win32") {
+    try {
+      process.kill(-child.pid, "SIGKILL");
+    } catch (error) {
+      if (error.code !== "ESRCH") throw error;
+    }
     return;
   }
-  if (child.killed) return;
-  child.kill("SIGINT");
-}
-
-function shutdown(code = 0) {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  stopProcess(previewProcess);
-  stopProcess(emulatorProcess);
-  rmSync(reportPdfOutputDirectory, { recursive: true, force: true });
-  rmSync(runtimeDirectory, { recursive: true, force: true });
-  setTimeout(() => process.exit(code), 700).unref();
-}
-
-process.on("SIGINT", () => shutdown(0));
-process.on("SIGTERM", () => shutdown(0));
-process.on("exit", () => {
-  stopProcess(previewProcess);
-  stopProcess(emulatorProcess);
-  rmSync(reportPdfOutputDirectory, { recursive: true, force: true });
-});
-
-await run(process.execPath, [prepareFonts]);
-await run(process.execPath, [viteCli, "build"]);
-
-const allocatedPorts = new Set();
-const authPort = await getAvailablePort(allocatedPorts);
-const firestorePort = await getAvailablePort(allocatedPorts);
-const firestoreWebsocketPort = await getAvailablePort(allocatedPorts);
-const hubPort = await getAvailablePort(allocatedPorts);
-const loggingPort = await getAvailablePort(allocatedPorts);
-const runtimeConfig = JSON.parse(
-  readFileSync(path.join(projectRoot, "firebase.json"), "utf8"),
-);
-runtimeConfig.firestore.rules = path.resolve(
-  projectRoot,
-  runtimeConfig.firestore.rules,
-);
-runtimeConfig.firestore.indexes = path.resolve(
-  projectRoot,
-  runtimeConfig.firestore.indexes,
-);
-runtimeConfig.emulators.auth = {
-  ...runtimeConfig.emulators.auth,
-  host: "127.0.0.1",
-  port: authPort,
-};
-runtimeConfig.emulators.firestore = {
-  ...runtimeConfig.emulators.firestore,
-  host: "127.0.0.1",
-  port: firestorePort,
-  websocketPort: firestoreWebsocketPort,
-};
-runtimeConfig.emulators.ui = { enabled: false };
-runtimeConfig.emulators.hub = { host: "127.0.0.1", port: hubPort };
-runtimeConfig.emulators.logging = { host: "127.0.0.1", port: loggingPort };
-writeFileSync(runtimeConfigPath, JSON.stringify(runtimeConfig, null, 2));
-env.VITE_FIREBASE_AUTH_EMULATOR_PORT = String(authPort);
-env.VITE_FIREBASE_FIRESTORE_EMULATOR_PORT = String(firestorePort);
-
-emulatorProcess = spawn(
-  process.execPath,
-  [
-    firebaseCli,
-    "emulators:start",
-    "--config",
-    runtimeConfigPath,
-    "--project",
-    "demo-grease-trap",
-    "--only",
-    "auth,firestore",
-  ],
-  { cwd: projectRoot, env, stdio: "inherit" },
-);
-
-emulatorProcess.on("exit", (code) => {
-  if (!shuttingDown) {
-    console.error(`Firebase emulator supervisor exited with code ${code}`);
+  const result = spawnSync(
+    "taskkill.exe",
+    ["/PID", String(child.pid), "/T", "/F"],
+    {
+      stdio: "ignore",
+      timeout: 5_000,
+      windowsHide: true,
+    },
+  );
+  if (result.status !== 0) {
+    try {
+      process.kill(child.pid, 0);
+    } catch (error) {
+      if (error.code === "ESRCH") return;
+    }
+    throw result.error ?? new Error(`Could not stop E2E process ${child.pid}`);
   }
-});
+}
 
-await Promise.all([waitForPort(firestorePort), waitForPort(authPort)]);
+export default async function startE2EServer() {
+  const scratch = path.join(projectRoot, "tmp");
+  mkdirSync(scratch, { recursive: true });
+  if (realpathSync(scratch) !== scratch) {
+    throw new Error(
+      `E2E scratch directory resolves outside its location: ${scratch}`,
+    );
+  }
 
-previewProcess = spawn(
-  process.execPath,
-  [viteCli, "preview", "--host", "127.0.0.1", "--port", "3210", "--strictPort"],
-  { cwd: projectRoot, env, stdio: "inherit" },
-);
+  const runtime = mkdtempSync(path.join(scratch, "e2e-runtime-"));
+  const identity = lstatSync(runtime);
+  const configPath = path.join(runtime, "firebase.json");
+  const outDir = path.join(runtime, "dist");
+  const abort = new AbortController();
+  const { signal } = abort;
+  const children = [];
+  const env = {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([key]) => !key.startsWith("=") && !/^(TEMP|TMP|TMPDIR)$/i.test(key),
+      ),
+    ),
+    // Firebase writes a project-wide hub locator under the OS temp directory.
+    TEMP: runtime,
+    TMP: runtime,
+    TMPDIR: runtime,
+    VITE_FIREBASE_API_KEY: "demo-api-key",
+    VITE_FIREBASE_AUTH_DOMAIN: "demo-grease-trap.firebaseapp.com",
+    VITE_FIREBASE_PROJECT_ID: "demo-grease-trap",
+    VITE_FIREBASE_APP_ID: "demo-app-id",
+    VITE_USE_FIREBASE_EMULATORS: "true",
+    VITE_REPORT_PDF_LOCAL: "true",
+    REPORT_PDF_OUTPUT_DIR: path.join(runtime, "pdf"),
+  };
 
-previewProcess.on("exit", (code) => {
-  if (!shuttingDown) shutdown(code ?? 0);
-});
+  function launch(label, args, cwd = projectRoot) {
+    signal.throwIfAborted();
+    const child = spawn(process.execPath, args, {
+      cwd,
+      env,
+      detached: process.platform !== "win32",
+      stdio: "inherit",
+      windowsHide: true,
+    });
+    const exited = new Promise((resolve) => {
+      child.once("error", (error) => resolve({ error }));
+      child.once("exit", (code, exitSignal) => resolve({ code, exitSignal }));
+    });
+    children.push(child);
+    return { label, exited };
+  }
+
+  function exitError({ label }, { code, exitSignal, error }) {
+    return new Error(
+      `${label} exited (${exitSignal ?? code ?? "spawn error"})`,
+      { cause: error },
+    );
+  }
+
+  async function run(label, args) {
+    const process = launch(label, args);
+    const outcome = await process.exited;
+    signal.throwIfAborted();
+    if (outcome.code !== 0) throw exitError(process, outcome);
+  }
+
+  async function waitUntil(description, probe, services) {
+    const polling = new AbortController();
+    const waitSignal = AbortSignal.any([
+      signal,
+      polling.signal,
+      AbortSignal.timeout(120_000),
+    ]);
+    try {
+      await Promise.race([
+        (async () => {
+          while (!waitSignal.aborted && !(await probe())) {
+            await delay(250, undefined, { signal: waitSignal });
+          }
+          waitSignal.throwIfAborted();
+        })(),
+        ...services.map(async (service) => {
+          throw exitError(service, await service.exited);
+        }),
+      ]);
+    } catch (error) {
+      throw new Error(`${description} did not become ready`, { cause: error });
+    } finally {
+      polling.abort();
+    }
+  }
+
+  function close() {
+    if (signal.aborted) return;
+    abort.abort();
+    process.off("exit", closeOnExit);
+    process.off("SIGINT", onInterrupt);
+    process.off("SIGTERM", onTerminate);
+    const failures = [];
+    for (const child of children.toReversed()) {
+      try {
+        stopProcess(child);
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (failures.length) {
+      throw new AggregateError(failures, `E2E runtime retained at ${runtime}`);
+    }
+    const current = lstatSync(runtime, { throwIfNoEntry: false });
+    if (!current) return;
+    if (
+      realpathSync(runtime) !== runtime ||
+      current.dev !== identity.dev ||
+      current.ino !== identity.ino
+    ) {
+      throw new Error(
+        `E2E runtime changed identity and was retained at ${runtime}`,
+      );
+    }
+    rmSync(runtime, { recursive: true, maxRetries: 5, retryDelay: 100 });
+  }
+
+  function closeOnExit() {
+    try {
+      close();
+    } catch (error) {
+      console.error(error);
+      process.exitCode ||= 1;
+    }
+  }
+
+  function interrupt(code) {
+    if (import.meta.main) process.exitCode = code;
+    closeOnExit();
+  }
+  const onInterrupt = () => interrupt(130);
+  const onTerminate = () => interrupt(143);
+  process.once("exit", closeOnExit);
+  process.once("SIGINT", onInterrupt);
+  process.once("SIGTERM", onTerminate);
+
+  try {
+    await listenForPort(previewPort);
+    const allocatedPorts = new Set([previewPort]);
+    while (allocatedPorts.size < 6) {
+      signal.throwIfAborted();
+      allocatedPorts.add(await listenForPort(0));
+    }
+    const [, authPort, firestorePort, websocketPort, hubPort, loggingPort] =
+      allocatedPorts;
+    env.VITE_FIREBASE_AUTH_EMULATOR_PORT = String(authPort);
+    env.VITE_FIREBASE_FIRESTORE_EMULATOR_PORT = String(firestorePort);
+    const config = JSON.parse(
+      readFileSync(path.join(projectRoot, "firebase.json"), "utf8"),
+    );
+    config.firestore.rules = path.resolve(projectRoot, config.firestore.rules);
+    config.firestore.indexes = path.resolve(
+      projectRoot,
+      config.firestore.indexes,
+    );
+    config.emulators = {
+      ...config.emulators,
+      auth: { host, port: authPort },
+      firestore: { host, port: firestorePort, websocketPort },
+      ui: { enabled: false },
+      hub: { host, port: hubPort },
+      logging: { host, port: loggingPort },
+    };
+    writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+    await run("Report font preparation", [prepareFonts]);
+    await run("Vite test build", [viteCli, "build", "--outDir", outDir]);
+    const emulator = launch(
+      "Firebase emulators",
+      [
+        firebaseCli,
+        "emulators:start",
+        "--config",
+        configPath,
+        "--project",
+        "demo-grease-trap",
+        "--only",
+        "auth,firestore",
+      ],
+      runtime,
+    );
+    await waitUntil(
+      "Firebase emulators",
+      async () => {
+        const ports = await Promise.all([
+          canConnect(authPort),
+          canConnect(firestorePort),
+        ]);
+        return ports.every(Boolean);
+      },
+      [emulator],
+    );
+
+    const preview = launch("Vite preview", [
+      viteCli,
+      "preview",
+      "--host",
+      host,
+      "--port",
+      String(previewPort),
+      "--strictPort",
+      "--outDir",
+      outDir,
+    ]);
+    await waitUntil(
+      "Vite preview",
+      async () => {
+        try {
+          const response = await fetch(`http://${host}:${previewPort}/cases`, {
+            signal: AbortSignal.timeout(1_000),
+          });
+          await response.body?.cancel();
+          return response.ok;
+        } catch {
+          return false;
+        }
+      },
+      [emulator, preview],
+    );
+
+    if (import.meta.main) {
+      const serviceExit = await Promise.race(
+        [emulator, preview].map(async (service) => ({
+          service,
+          outcome: await service.exited,
+        })),
+      );
+      if (!signal.aborted)
+        throw exitError(serviceExit.service, serviceExit.outcome);
+      close();
+    } else {
+      // Playwright owns test cancellation and invokes the returned teardown.
+      process.off("SIGINT", onInterrupt);
+    }
+    return close;
+  } catch (error) {
+    if (import.meta.main && signal.aborted) return close;
+    try {
+      close();
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [error, cleanupError],
+        "E2E startup and cleanup failed",
+      );
+    }
+    throw error;
+  }
+}
+
+if (import.meta.main) await startE2EServer();
